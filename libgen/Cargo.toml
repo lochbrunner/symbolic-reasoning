@@ -1,0 +1,7 @@
+[package]
+name = "libgen"
+version = "0.1.0"
+authors = ["Matthias Lochbrunner <matthias_lochbrunner@web.de>"]
+edition = "2018"
+
+[dependencies]
