@@ -27,3 +27,11 @@ r*(s+t)
 Rule
 
 F(a,b) -> G(a)
+
+## Minimal examples with Derivations
+
+### Polynomial
+
+```math
+D(x^n, x) => n*x^(n-1)
+```

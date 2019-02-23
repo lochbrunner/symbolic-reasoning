@@ -1,0 +1,22 @@
+use super::parsers;
+use super::symbol;
+
+use std::fmt;
+
+#[derive(Debug, PartialEq)]
+pub struct Rule {
+    pub condition: symbol::Symbol,
+    pub conclusion: symbol::Symbol,
+}
+
+impl Rule {
+    pub fn new(code: &str) -> Rule {
+        parsers::parse_rule(code).unwrap().1
+    }
+}
+
+impl fmt::Display for Rule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} => {}", self.condition, self.conclusion)
+    }
+}
