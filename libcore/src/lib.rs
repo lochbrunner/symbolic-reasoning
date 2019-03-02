@@ -20,9 +20,12 @@
 
 #[macro_use]
 extern crate nom;
+extern crate maplit;
 
+pub mod fit;
 mod parsers;
 pub mod rule;
 pub mod symbol;
+pub use fit::*;
 pub use rule::*;
 pub use symbol::*;

@@ -11,12 +11,13 @@ named!(
 );
 
 named!(
-    operator<&str,symbol::Operator>,
+    pub parse_operator<&str,symbol::Operator>,
     do_parse!(
         ident: string
             >> childs: array
             >> (symbol::Operator {
                 ident: String::from(ident),
+                depth: symbol::Operator::calc_depth(&childs),
                 childs
             })
     )
@@ -34,7 +35,7 @@ named!(
 named!(
     pub parse_symbol<&str,symbol::Symbol>,
     ws!(alt!(
-      operator => {|o| symbol::Symbol::Operator(o)} |
+      parse_operator => {|o| symbol::Symbol::Operator(o)} |
       string =>   {|s| symbol::Symbol::Variable(symbol::Variable{ident: String::from(s)}) }
     ))
 );
@@ -60,6 +61,7 @@ mod tests {
             symbol::Symbol::new("A(a,b,c)\0"),
             symbol::Symbol::Operator(symbol::Operator {
                 ident: String::from("A"),
+                depth: 2,
                 childs: vec![
                     symbol::Symbol::Variable(symbol::Variable {
                         ident: String::from("a")
@@ -73,18 +75,29 @@ mod tests {
                 ]
             })
         );
-
-        assert_eq!(2 + 2, 4);
     }
 
     #[test]
     fn operator_e2e() {
         let op = symbol::Symbol::new("A(a,b,c)\0");
         assert_eq!(op.to_string(), "A(a,b,c)");
+        match op {
+            symbol::Symbol::Operator(o) => assert_eq!(o.depth, 2),
+            _ => assert!(!false, "Symbol must be an operator here"),
+        }
     }
 
     #[test]
-    fn operator_singe_e2e() {
+    fn operator_depth() {
+        let op = symbol::Symbol::new("A(B(c),b,c)\0");
+        match op {
+            symbol::Symbol::Operator(o) => assert_eq!(o.depth, 3),
+            _ => assert!(!false, "Symbol must be an operator here"),
+        }
+    }
+
+    #[test]
+    fn operator_single_e2e() {
         let op = symbol::Symbol::new("A(a)\0");
         assert_eq!(op.to_string(), "A(a)");
     }
