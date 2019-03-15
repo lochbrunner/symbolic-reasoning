@@ -1,50 +1,291 @@
 use super::symbol::*;
+// use std::fmt;
+// use std::hash::Hash;
+
+macro_rules! map(
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+     };
+);
 
 use maplit::*;
 use std::collections::HashMap;
 
+pub fn format_map(fit: &FitMap) -> String {
+    // Needed because of bug:
+    // note: type must be known at this point
+    let strings: Vec<String> = fit
+        .variable
+        .iter()
+        .map(|(source, target)| format!("{} => {}", source, target))
+        .collect();
+
+    strings.join("\n")
+}
+
 /// Use this struct later
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FitMap<'a> {
     // TODO: Needs to be public?
+    /// outer is key
     pub variable: HashMap<&'a Symbol, &'a Symbol>,
     // location: &'a Symbol,
 }
+/// Example i fits in O(o) with o => i
+fn fit_op_var_impl<'a>(
+    _outer: &'a Symbol,
+    _inner: &'a Symbol,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    // For no ignore folks would be needed
+    maps.iter().map(|_| Err("")).collect()
+}
 
-fn fit_operator_flat<'a>(outer: &'a Operator, inner: &'a Operator) -> Vec<FitMap<'a>> {
-    let mut mapping = HashMap::new();
+// How to indicate no fit? => Empty vector
+fn fit_sym_op_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Operator,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    // TODO: Return iter later
+    match outer {
+        Symbol::Variable(_) => maps.iter().map(|_| Err("")).collect(),
+        Symbol::Operator(outer_op) => fit_op_op_impl(outer_op, inner, maps),
+    }
+}
+
+fn fit_sym_var_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    match outer {
+        Symbol::Variable(_) => fit_var_var_impl(outer, inner, maps),
+        Symbol::Operator(_) => fit_op_var_impl(outer, inner, maps),
+    }
+}
+
+fn fit_sym_sym_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    match inner {
+        Symbol::Operator(inner) => fit_sym_op_impl(outer, inner, maps),
+        Symbol::Variable(_) => fit_sym_var_impl(outer, inner, maps),
+    }
+    // vec![]
+}
+
+fn fit_var_var_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    // println!("outer var: {} inner var: {}", outer, inner);
+    maps.iter()
+        .map(|map| {
+            // Contradiction to previous?
+            // let outer_symbol = &{Symbol::Variable(*outer.clone())};
+            if map.variable.contains_key(outer) {
+                Ok(FitMap {
+                    variable: map! {outer => inner},
+                })
+            } else {
+                Ok(FitMap {
+                    variable: map! {outer => inner},
+                })
+            }
+            // Ok(FitMap {
+            //     variable: HashMap::new(),
+            // })
+        })
+        .collect()
+
+    // if (outer == inner) {
+    //     maps.iter().map(|| Ok({ FitMap }))
+    // }
+    // vec![]
+}
+
+fn fit_operator<'a>(outer: &'a Operator, inner: &'a Operator) -> Vec<FitMap<'a>> {
+    // let mut mapping = HashMap::new();
+    let map = vec![FitMap {
+        variable: HashMap::new(),
+    }];
+
+    // Not very performant
+    let mut result = Vec::new();
+    for scenario in fit_op_op_impl(outer, inner, &map).iter() {
+        match scenario {
+            Ok(scenario) => result.push(scenario.clone()),
+            _ => {}
+        }
+    }
+
+    result
+}
+
+// fn merge_hashmaps<K: Hash + Eq + Clone, V: Clone>(
+//     target: &mut HashMap<K, V>,
+//     extension: &HashMap<K, V>,
+// ) {
+//     target.extend(extension.into_iter().map(|(k, v)| (k.clone(), v.clone())));
+// }
+
+fn add_extension<'a>(
+    target: &mut Vec<Result<FitMap<'a>, &'static str>>,
+    source: Vec<Result<FitMap<'a>, &'static str>>,
+) -> () {
+    for i in 0..target.len() {
+        let target_scenario = target.iter_mut().nth(i).unwrap();
+        let source_scenario = &source[i];
+
+        if let Ok(target_scenario) = target_scenario {
+            if let Ok(source_scenario) = source_scenario {
+                target_scenario
+                    .variable
+                    .extend(source_scenario.variable.iter());
+            } else {
+                target[i] = Err("");
+            }
+        }
+    }
+}
+
+/// The usage of this function is not the most preferment approach
+fn merge_mappings<'a>(
+    prev: &Vec<FitMap<'a>>,
+    extension: &Vec<Result<FitMap<'a>, &'static str>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    assert_eq!(
+        prev.len(),
+        extension.len(),
+        "Scenario vectors should have same length"
+    );
+
+    let mut merged = Vec::new();
+
+    for scenario in 0..extension.len() {
+        let extension_scenario = &extension[scenario];
+        let prev_scenario = &prev[scenario];
+        match extension_scenario {
+            Ok(extension_scenario) => {
+                let mut target_scenario = FitMap {
+                    variable: HashMap::new(),
+                };
+                for (key, value) in extension_scenario.variable.iter() {
+                    target_scenario.variable.insert(*key, *value);
+                    println!("Adding from extension: {} => {}", key, value);
+                }
+                for (key, value) in prev_scenario.variable.iter() {
+                    target_scenario.variable.insert(*key, *value);
+                    println!("Adding from prev: {} => {}", key, value);
+                }
+                merged.push(Ok(target_scenario));
+            }
+            _ => merged.push(Err("Extension got had an error")),
+        }
+    }
+    merged
+}
+
+/// Does not folk yet
+/// When folking give the child only the relevant branches
+fn fit_op_op_impl<'a>(
+    outer: &'a Operator,
+    inner: &'a Operator,
+    maps: &Vec<FitMap<'a>>,
+) -> Vec<Result<FitMap<'a>, &'static str>> {
+    // let mut mapping = HashMap::new();
     // Check root
     if outer.ident != inner.ident {
         // Outer must be larger
         // if outer.depth > inner.depth {
         // Try fit the childs of the outer
-        // Maybe not the fastest implementation?
-        outer
-            .childs
-            .iter()
-            .fold(Vec::<FitMap<'a>>::new(), |mut acc, child| {
-                acc.extend(child.fit_with_op(&inner));
-                acc
-            })
+        for child in outer.childs.iter() {
+            // TODO: Folk here?
+            // let mut folk = maps.clone();
+            for branch in fit_sym_op_impl(child, inner, maps).iter() {
+                match branch {
+                    Ok(_b) => (),
+                    Err(_) => (),
+                }
+            }
+        }
+        vec![]
     } else if outer.childs.len() != inner.childs.len() {
         // Wrong number of childs
         // Is it expected that this could happen?
+        //maps.clear(); Return array with Err of same length than map
         vec![]
     } else {
+        // Operator matches
         // Check for variable repetition
-        for i in 0..outer.childs.len() {
-            // Check for injective
-            if mapping.contains_key(&outer.childs[i]) {
-                // Do we still have this mapping?
-                if mapping.get(&outer.childs[i]).unwrap() == &&inner.childs[i] {
-                    continue;
-                }
-                return vec![];
-            }
-            // Check for surjective
-            mapping.insert(&outer.childs[i], &inner.childs[i]);
+        let mut extension: Vec<Result<FitMap, &str>> = maps
+            .iter()
+            .map(|_| {
+                Ok(FitMap {
+                    variable: HashMap::new(),
+                })
+            })
+            .collect();
+
+        'childs: for i in 0..outer.childs.len() {
+            println!("Childs: {} -> {}", outer.childs[i], inner.childs[i]);
+            // TODO: do not override prev extension
+            let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], maps);
+            // extension.append(add);
+            add_extension(&mut extension, add);
+            // match &outer.childs[i] {
+            // Symbol::Operator(oo) => {
+            //     // Check inner operator
+            //     print!("Outer: {} inner: {}\n", outer.childs[i], inner.childs[i]);
+            //     if outer.childs[i] == inner.childs[i] {
+            //         if let Symbol::Operator(io) = &inner.childs[i] {
+            //             fit_operator_impl(oo, io, maps)
+            //         } else {
+            //             break 'childs;
+            //         }
+            //     } else {
+            //         break 'childs;
+            //     }
+            // }
+            // Symbol::Variable(_) => {
+            //     // Check for injective
+            //     for scenario in extension.iter_mut() {
+            //         match scenario {
+            //             Ok(scenario) => {
+            //                 if scenario.variable.contains_key(&outer.childs[i]) {
+            //                     // Do we still have this mapping?
+            //                     if maps[0].variable.get(&outer.childs[i]).unwrap()
+            //                         == &&inner.childs[i]
+            //                     {
+            //                         // continue;
+            //                         continue 'childs;
+            //                     } else {
+            //                         break 'childs;
+            //                     }
+            //                 }
+            //                 // Check for surjective
+            //                 scenario.variable.insert(&outer.childs[i], &inner.childs[i]);
+            //             }
+            //             _ => (),
+            //         }
+            //     }
+            //     continue 'childs;
+            // }
+            // };
         }
-        vec![FitMap { variable: mapping }]
+        merge_mappings(&maps, &extension)
+        // vec![]
+        // vec![FitMap { variable: mapping }]
     }
 }
 
@@ -61,7 +302,7 @@ impl Symbol {
             },
             Symbol::Operator(inner) => match other {
                 Symbol::Variable(_) => vec![],
-                Symbol::Operator(other) => fit_operator_flat(&inner, &other),
+                Symbol::Operator(other) => fit_operator(&inner, &other),
             },
         }
     }
@@ -69,7 +310,7 @@ impl Symbol {
     pub fn fit_with_op<'a>(&'a self, other: &'a Operator) -> Vec<FitMap<'a>> {
         match self {
             Symbol::Variable(_) => vec![],
-            Symbol::Operator(o) => fit_operator_flat(&o, &other),
+            Symbol::Operator(o) => fit_operator(&o, &other),
         }
     }
 }
@@ -137,17 +378,23 @@ mod tests {
         let inner = Operator::parse("A(b)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
+        let FitMap { variable } = mapping;
 
-        assert_eq!(mapping.variable[&outer.childs[0]], &inner.childs[0]);
-        assert_eq!(mapping.variable.len(), 1);
+        assert_eq!(variable.len(), 1, "Expected one mapping");
 
-        assert_eq!(format!("{}", mapping.variable.keys().nth(0).unwrap()), "a");
         assert_eq!(
-            format!("{}", mapping.variable.values().nth(0).unwrap()),
-            "b"
+            format!("{}", variable.keys().nth(0).unwrap()),
+            "a",
+            "wrong key"
         );
+        assert_eq!(
+            format!("{}", variable.values().nth(0).unwrap()),
+            "b",
+            "wrong value"
+        );
+        assert_eq!(variable[&outer.childs[0]], &inner.childs[0]);
     }
 
     #[test]
@@ -156,7 +403,7 @@ mod tests {
         let inner = Operator::parse("A(c,d)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
 
         assert_eq!(mapping.variable.len(), 2);
@@ -170,7 +417,7 @@ mod tests {
         let inner = Operator::parse("B(b)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
 
         assert_eq!(mapping.variable.len(), 1);
@@ -189,7 +436,7 @@ mod tests {
         // Expect a -> C(b)
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
         assert_eq!(mapping.variable.len(), 1);
         let expected_key = Symbol::new("a\0");
@@ -204,22 +451,23 @@ mod tests {
     }
 
     #[test]
-    fn complex_inner() {
+    fn complex_inner_simple() {
         let outer = Operator::parse("A(B(a), b)\0");
         let inner = Operator::parse("A(B(c), d)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
-        assert_eq!(mapping.variable.len(), 2);
+        println!("mapping: {}", format_map(mapping));
+        assert_eq!(mapping.variable.len(), 2, "Expected 2 mappings");
 
-        let expected_key = Symbol::new("B(a)\0");
+        let expected_key = Symbol::new("a\0");
         assert!(
             mapping.variable.contains_key(&expected_key),
             "Expect mapping contains variable a"
         );
         let actual_value = mapping.variable.get(&expected_key).unwrap();
-        assert_eq!(format!("{}", actual_value), "B(c)");
+        assert_eq!(format!("{}", actual_value), "c");
 
         let expected_key = Symbol::new("b\0");
         assert!(
@@ -236,11 +484,11 @@ mod tests {
         let inner = Operator::parse("A(B(b), c)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
         println!("{:?}", mapping);
 
-        assert!(fit_operator_flat(&outer, &inner).is_empty());
+        assert!(fit_operator(&outer, &inner).is_empty());
     }
 
     #[test]
@@ -249,7 +497,7 @@ mod tests {
         let inner = Operator::parse("A(c,c)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
 
         assert_eq!(mapping.variable.len(), 2);
@@ -263,7 +511,7 @@ mod tests {
         let inner = Operator::parse("A(b,b)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit_operator_flat(&outer, &inner);
+        let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
 
         assert_eq!(mapping.variable.len(), 1);
@@ -276,10 +524,7 @@ mod tests {
         let outer = Operator::parse("A(a,a)\0");
         let inner = Operator::parse("A(c,d)\0");
 
-        assert!(
-            fit_operator_flat(&outer, &inner).is_empty(),
-            "Not injective"
-        );
+        assert!(fit_operator(&outer, &inner).is_empty(), "Not injective");
     }
 
     #[test]
@@ -287,7 +532,7 @@ mod tests {
         let outer = Operator::parse("A(a)\0");
         let inner = Operator::parse("A(b,c)\0");
 
-        assert!(fit_operator_flat(&outer, &inner).is_empty());
+        assert!(fit_operator(&outer, &inner).is_empty());
     }
 
     #[test]
@@ -295,7 +540,7 @@ mod tests {
         let outer = Operator::parse("A(a)\0");
         let inner = Operator::parse("B(C(b))\0");
 
-        assert!(fit_operator_flat(&outer, &inner).is_empty());
+        assert!(fit_operator(&outer, &inner).is_empty());
     }
 
     #[test]
