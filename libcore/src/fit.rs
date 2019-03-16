@@ -92,7 +92,6 @@ fn fit_var_var_impl<'a>(
     maps.iter()
         .map(|map| {
             // Contradiction to previous?
-            // let outer_symbol = &{Symbol::Variable(*outer.clone())};
             if map.variable.contains_key(outer) {
                 Ok(FitMap {
                     variable: map! {outer => inner},
@@ -102,16 +101,8 @@ fn fit_var_var_impl<'a>(
                     variable: map! {outer => inner},
                 })
             }
-            // Ok(FitMap {
-            //     variable: HashMap::new(),
-            // })
         })
         .collect()
-
-    // if (outer == inner) {
-    //     maps.iter().map(|| Ok({ FitMap }))
-    // }
-    // vec![]
 }
 
 fn fit_operator<'a>(outer: &'a Operator, inner: &'a Operator) -> Vec<FitMap<'a>> {
@@ -143,12 +134,27 @@ fn add_extension<'a>(
     target: &mut Vec<Result<FitMap<'a>, &'static str>>,
     source: Vec<Result<FitMap<'a>, &'static str>>,
 ) -> () {
-    for i in 0..target.len() {
+    'scenario: for i in 0..target.len() {
         let target_scenario = target.iter_mut().nth(i).unwrap();
         let source_scenario = &source[i];
 
         if let Ok(target_scenario) = target_scenario {
             if let Ok(source_scenario) = source_scenario {
+                // Contradiction with previous?
+                'conflicts: for (key, new_value) in source_scenario.variable.iter() {
+                    match target_scenario.variable.get(key) {
+                        None => continue 'conflicts,
+                        Some(old_value) => {
+                            if new_value != old_value {
+                                // println!("Contradiction: new: {} old: {}", new_value, old_value);
+                                target[i] = Err("Contradicting mapping found");
+                                continue 'scenario;
+                            }
+                        }
+                    }
+                    // if let target_scenario.variable.contains_key(key)
+                }
+                // target_scenario.variable.contains_key()
                 target_scenario
                     .variable
                     .extend(source_scenario.variable.iter());
@@ -209,6 +215,7 @@ fn fit_op_op_impl<'a>(
         // Outer must be larger
         // if outer.depth > inner.depth {
         // Try fit the childs of the outer
+        // let mut fittings: Vec<Result<FitMap<'a>, &'static str>> = Vec::new();
         for child in outer.childs.iter() {
             // TODO: Folk here?
             // let mut folk = maps.clone();
@@ -223,7 +230,6 @@ fn fit_op_op_impl<'a>(
     } else if outer.childs.len() != inner.childs.len() {
         // Wrong number of childs
         // Is it expected that this could happen?
-        //maps.clear(); Return array with Err of same length than map
         vec![]
     } else {
         // Operator matches
@@ -238,7 +244,7 @@ fn fit_op_op_impl<'a>(
             .collect();
 
         'childs: for i in 0..outer.childs.len() {
-            println!("Childs: {} -> {}", outer.childs[i], inner.childs[i]);
+            // println!("Childs: {} -> {}", outer.childs[i], inner.childs[i]);
             // TODO: do not override prev extension
             let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], maps);
             // extension.append(add);
@@ -420,6 +426,7 @@ mod tests {
         let all_mappings = fit_operator(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
 
+        // Expect a => b
         assert_eq!(mapping.variable.len(), 1);
         if let Symbol::Operator(ref op) = outer.childs[0] {
             assert_eq!(mapping.variable[&op.childs[0]], &inner.childs[0]);
@@ -482,11 +489,6 @@ mod tests {
     fn complex_inner_differ_variables() {
         let outer = Operator::parse("A(B(a), a)\0");
         let inner = Operator::parse("A(B(b), c)\0");
-
-        // Necessary to keep the vector in scope
-        let all_mappings = fit_operator(&outer, &inner);
-        let mapping = all_mappings.iter().nth(0).unwrap();
-        println!("{:?}", mapping);
 
         assert!(fit_operator(&outer, &inner).is_empty());
     }
