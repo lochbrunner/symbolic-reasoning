@@ -67,7 +67,7 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn new(s: &str) -> Symbol {
+    pub fn parse(s: &str) -> Symbol {
         parsers::parse_symbol(s).unwrap().1
     }
 }

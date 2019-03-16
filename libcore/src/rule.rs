@@ -10,7 +10,7 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new(code: &str) -> Rule {
+    pub fn parse(code: &str) -> Rule {
         parsers::parse_rule(code).unwrap().1
     }
 }

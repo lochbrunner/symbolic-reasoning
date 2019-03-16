@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn parse_symbol() {
         assert_eq!(
-            symbol::Symbol::new("A(a,b,c)\0"),
+            symbol::Symbol::parse("A(a,b,c)\0"),
             symbol::Symbol::Operator(symbol::Operator {
                 ident: String::from("A"),
                 depth: 2,
@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn operator_e2e() {
-        let op = symbol::Symbol::new("A(a,b,c)\0");
+        let op = symbol::Symbol::parse("A(a,b,c)\0");
         assert_eq!(op.to_string(), "A(a,b,c)");
         match op {
             symbol::Symbol::Operator(o) => assert_eq!(o.depth, 2),
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn operator_depth() {
-        let op = symbol::Symbol::new("A(B(c),b,c)\0");
+        let op = symbol::Symbol::parse("A(B(c),b,c)\0");
         match op {
             symbol::Symbol::Operator(o) => assert_eq!(o.depth, 3),
             _ => assert!(!false, "Symbol must be an operator here"),
@@ -98,25 +98,25 @@ mod tests {
 
     #[test]
     fn operator_single_e2e() {
-        let op = symbol::Symbol::new("A(a)\0");
+        let op = symbol::Symbol::parse("A(a)\0");
         assert_eq!(op.to_string(), "A(a)");
     }
 
     #[test]
     fn operator_nested_e2e() {
-        let op = symbol::Symbol::new("A(B(e),b,c)\0");
+        let op = symbol::Symbol::parse("A(B(e),b,c)\0");
         assert_eq!(op.to_string(), "A(B(e),b,c)");
     }
 
     #[test]
     fn rule_e2e_variable() {
-        let rule = rule::Rule::new("a  => a\0");
+        let rule = rule::Rule::parse("a  => a\0");
         assert_eq!(rule.to_string(), "a => a")
     }
 
     #[test]
     fn rule_e2e_operator() {
-        let rule = rule::Rule::new("A(a,b)  => B(c,d)\0");
+        let rule = rule::Rule::parse("A(a,b)  => B(c,d)\0");
         assert_eq!(rule.to_string(), "A(a,b) => B(c,d)")
     }
 }
