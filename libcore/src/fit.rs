@@ -1,19 +1,4 @@
 use super::symbol::*;
-// use std::fmt;
-// use std::hash::Hash;
-
-macro_rules! map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
-
 use maplit::*;
 use std::collections::HashMap;
 
@@ -29,11 +14,19 @@ pub fn format_map(fit: &FitMap) -> String {
     strings.join("\n")
 }
 
+fn get_op<'a>(sym: &'a Symbol) -> &'a Operator {
+    if let Symbol::Operator(sym) = sym {
+        sym
+    } else {
+        panic!("Symbol must be an operator!")
+    }
+}
+
 /// Use this struct later
 #[derive(Debug, Clone)]
 pub struct FitMap<'a> {
     // TODO: Needs to be public?
-    /// outer is key
+    /// outer is key, inner is value
     pub variable: HashMap<&'a Symbol, &'a Symbol>,
     // location: &'a Symbol,
 }
@@ -44,17 +37,6 @@ fn fit_op_var_impl<'a>(
     _map: &FitMap<'a>,
 ) -> Vec<FitMap<'a>> {
     // For no ignore folks would be needed
-    // maps.iter().map(|_| Err("")).collect()
-    vec![]
-}
-
-fn fit_var_op_impl<'a>(
-    _outer: &'a Symbol,
-    _inner: &'a Symbol,
-    _map: &FitMap<'a>,
-) -> Vec<FitMap<'a>> {
-    // For no ignore folks would be needed
-    // maps.iter().map(|_| Err("")).collect()
     vec![]
 }
 
@@ -62,46 +44,45 @@ fn fit_var_op_impl<'a>(
 fn fit_sym_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, maps: &FitMap<'a>) -> Vec<FitMap<'a>> {
     // TODO: Return iter later
     match outer {
-        Symbol::Variable(_) => fit_var_op_impl(outer, inner, maps),
+        Symbol::Variable(_) => fit_var_sym_impl(outer, inner, maps),
         Symbol::Operator(_) => fit_op_op_impl(outer, inner, maps),
     }
 }
 
-fn fit_sym_var_impl<'a>(
-    outer: &'a Symbol,
-    inner: &'a Symbol,
-    maps: &FitMap<'a>,
-) -> Vec<FitMap<'a>> {
+fn fit_sym_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
     match outer {
-        Symbol::Variable(_) => fit_var_var_impl(outer, inner, maps),
-        Symbol::Operator(_) => fit_op_var_impl(outer, inner, maps),
+        Symbol::Operator(_) => fit_op_sym_impl(outer, inner, map),
+        Symbol::Variable(_) => fit_var_sym_impl(outer, inner, map),
     }
 }
 
-fn fit_sym_sym_impl<'a>(
-    outer: &'a Symbol,
-    inner: &'a Symbol,
-    maps: &FitMap<'a>,
-) -> Vec<FitMap<'a>> {
+fn fit_op_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
     match inner {
-        Symbol::Operator(_) => fit_sym_op_impl(outer, inner, maps),
-        Symbol::Variable(_) => fit_sym_var_impl(outer, inner, maps),
+        Symbol::Operator(_) => fit_op_op_impl(outer, inner, map),
+        Symbol::Variable(_) => fit_op_var_impl(outer, inner, map),
     }
-    // vec![]
 }
 
-fn fit_var_var_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
+fn fit_var_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
     let mapping = if map.variable.contains_key(outer) {
         FitMap {
-            variable: map! {outer => inner},
+            variable: hashmap! {outer => inner},
         }
     } else {
         FitMap {
-            variable: map! {outer => inner},
+            variable: hashmap! {outer => inner},
         }
     };
     vec![mapping]
 }
+
+// fn fit_var_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
+//     // For no ignore folks would be needed
+//     // maps.iter().map(|_| Err("")).collect()
+//     let outer = get_var(outer);
+//     let inner = get_op(inner);
+//     vec![]
+// }
 
 pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
     let map = FitMap {
@@ -183,17 +164,10 @@ fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &Vec<FitMap<'a>>) -> Vec<Fit
 /// When folking give the child only the relevant branches
 fn fit_op_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
     // Check root
-    let outer_op = if let Symbol::Operator(outer) = outer {
-        outer
-    } else {
-        panic!("")
-    };
-    let inner_op = if let Symbol::Operator(inner) = inner {
-        inner
-    } else {
-        panic!("")
-    };
-    if outer_op.ident != outer_op.ident {
+    let outer_op = get_op(outer);
+    let inner_op = get_op(inner);
+
+    if outer_op.ident != inner_op.ident {
         // Outer must be larger (For now)
         // if outer.depth > inner.depth {
         // Try fit the childs of the outer
@@ -268,7 +242,8 @@ mod tests {
             childs: Vec::new(),
         });
 
-        assert!(fit(&a, &b).is_empty(), "variable on operator");
+        let vof = fit(&a, &b);
+        assert_eq!(vof.len(), 1, "variable on operator");
 
         let a = Symbol::Operator(Operator {
             ident: String::from("a"),
@@ -360,8 +335,11 @@ mod tests {
         // Expect a -> C(b)
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit(&outer_sym, &inner_sym);
-        let mapping = all_mappings.iter().nth(0).unwrap();
+        let scenarios = fit(&outer_sym, &inner_sym);
+        assert_eq!(scenarios.len(), 1, "Expected one scenario");
+
+        let mapping = scenarios.iter().nth(0).unwrap();
+        println!("mapping: {}", format_map(mapping));
         assert_eq!(mapping.variable.len(), 1);
         let expected_key = Symbol::parse("a\0");
         assert!(
@@ -475,7 +453,21 @@ mod tests {
         let outer = Symbol::parse("A(a)\0");
         let inner = Symbol::parse("B(C(b))\0");
 
-        assert!(fit(&outer, &inner).is_empty());
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 1);
+        let mapping = scenarios.iter().nth(0).unwrap();
+        let FitMap { variable } = mapping;
+        assert_eq!(variable.len(), 1);;
+
+        assert!(
+            variable.contains_key(&Symbol::parse("a\0")),
+            "Expect mapping contains variable a"
+        );
+
+        assert_eq!(
+            variable.get(&Symbol::parse("a\0")).unwrap(),
+            &&Symbol::parse("B(C(b))\0")
+        );
     }
 
     #[test]
