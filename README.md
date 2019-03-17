@@ -35,3 +35,13 @@ F(a,b) -> G(a)
 ```math
 D(x^n, x) => n*x^(n-1)
 ```
+
+## Roadmap
+
+* Fitting :soon:
+* Parsing of binary operators :x:
+* Randomly generating of calculations :x:
+* Adapter to TensorFlow :x:
+* Modeling and Training :x:
+* Using inferencing for solving manual and generated calculations :x:
+* Latex loading/dumping :x:

@@ -2,25 +2,12 @@ use super::rule;
 use super::symbol;
 
 named!(
-    array<&str,Vec<symbol::Symbol>>,
+    list<&str,Vec<symbol::Symbol>>,
     ws!(delimited!(
         char!('('),
-        separated_list!(char!(','), parse_symbol),
+        separated_list!(char!(','), parse_symbol_new),
         char!(')')
     ))
-);
-
-named!(
-    pub parse_operator<&str,symbol::Operator>,
-    do_parse!(
-        ident: string
-            >> childs: array
-            >> (symbol::Operator {
-                ident: String::from(ident),
-                depth: symbol::Operator::calc_depth(&childs),
-                childs
-            })
-    )
 );
 
 fn is_alphabetic_c(chr: char) -> bool {
@@ -33,24 +20,48 @@ named!(
 );
 
 named!(
-    pub parse_symbol<&str,symbol::Symbol>,
+    parse_symbol_new<&str,symbol::Symbol>,
     ws!(alt!(
-      parse_operator => {|o| symbol::Symbol::Operator(o)} |
-      string =>   {|s| symbol::Symbol::Variable(symbol::Variable{ident: String::from(s)}) }
+      parse_symbol_with_childs => {|o| o} |
+      string =>   {|s| symbol::Symbol::new_variable(s)}
     ))
+);
+
+
+
+named!(
+    parse_symbol_with_childs<&str,symbol::Symbol>,
+        do_parse!(
+            ident: string
+                >> childs: list
+                >> (symbol::Symbol {
+                    ident: String::from(ident),
+                    depth: symbol::Symbol::calc_depth(&childs),
+                    childs,
+                    fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+                    //fixed: true
+                })
+        )  
 );
 
 named!(
     pub parse_rule<&str, rule::Rule>,
     ws!(
         do_parse!(
-            condition: parse_symbol >>
+            condition: parse_symbol_new >>
             tag!("=>") >>
-            conclusion: parse_symbol >>
+            conclusion: parse_symbol_new >>
             (rule::Rule{condition, conclusion})
         )
     )
 );
+
+impl symbol::Symbol {
+    pub fn parse(s: &str) -> symbol::Symbol {
+        let p = parse_symbol_new(s);
+        p.unwrap().1
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -59,21 +70,16 @@ mod tests {
     fn parse_symbol() {
         assert_eq!(
             symbol::Symbol::parse("A(a,b,c)\0"),
-            symbol::Symbol::Operator(symbol::Operator {
+            symbol::Symbol {
                 ident: String::from("A"),
                 depth: 2,
+                fixed: true,
                 childs: vec![
-                    symbol::Symbol::Variable(symbol::Variable {
-                        ident: String::from("a")
-                    }),
-                    symbol::Symbol::Variable(symbol::Variable {
-                        ident: String::from("b")
-                    }),
-                    symbol::Symbol::Variable(symbol::Variable {
-                        ident: String::from("c")
-                    })
+                    symbol::Symbol::new_variable("a"),
+                    symbol::Symbol::new_variable("b"),
+                    symbol::Symbol::new_variable("c"),
                 ]
-            })
+            }
         );
     }
 
@@ -81,19 +87,12 @@ mod tests {
     fn operator_e2e() {
         let op = symbol::Symbol::parse("A(a,b,c)\0");
         assert_eq!(op.to_string(), "A(a,b,c)");
-        match op {
-            symbol::Symbol::Operator(o) => assert_eq!(o.depth, 2),
-            _ => assert!(!false, "Symbol must be an operator here"),
-        }
     }
 
     #[test]
     fn operator_depth() {
         let op = symbol::Symbol::parse("A(B(c),b,c)\0");
-        match op {
-            symbol::Symbol::Operator(o) => assert_eq!(o.depth, 3),
-            _ => assert!(!false, "Symbol must be an operator here"),
-        }
+        assert_eq!(op.depth, 3);
     }
 
     #[test]
