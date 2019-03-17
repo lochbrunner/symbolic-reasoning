@@ -123,7 +123,6 @@ fn fit_op_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) ->
         fittings
     } else if outer.childs.len() != inner.childs.len() {
         // Wrong number of childs
-        // Is it expected that this could happen?
         vec![]
     } else {
         // Operator matches
@@ -417,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn folk() {
+    fn folk_simple() {
         let outer = Symbol::parse("A(a, b)\0");
         let inner = Symbol::parse("c\0");
 
@@ -439,5 +438,60 @@ mod tests {
         assert_eq!(scenario_bc.variable.len(), 1);
         assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario_bc), "b => c");
+    }
+
+    #[test]
+    fn folk_inner_fixed() {
+        let outer = Symbol::parse("A(a, b)\0");
+        let inner = Symbol::parse("C\0");
+
+        // Expect two scenarios (not order sensitive)
+        // 1. a => C
+        // 2. b => C
+
+        let scenarios = fit(&outer, &inner);
+        println!("Scenarios:\n{}", format_scenarios(&scenarios));
+
+        assert_eq!(scenarios.len(), 2);
+
+        let scenario_ac = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario_ac.variable.len(), 1);
+        assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
+        assert_eq!(format_scenario(scenario_ac), "a => C");
+
+        let scenario_bc = scenarios.iter().nth(1).unwrap();
+        assert_eq!(scenario_bc.variable.len(), 1);
+        assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
+        assert_eq!(format_scenario(scenario_bc), "b => C");
+    }
+
+    #[test]
+    fn folk_zero() {
+        let outer = Symbol::parse("A(B, C)\0");
+        let inner = Symbol::parse("c\0");
+
+        let scenarios = fit(&outer, &inner);
+        // println!("Scenarios:\n{}", format_scenarios(&scenarios));
+        assert!(scenarios.is_empty());
+    }
+
+    #[test]
+    fn folk_some_inner_fixed() {
+        let outer = Symbol::parse("A(B, c)\0");
+        let inner = Symbol::parse("d\0");
+
+        // Expect two scenarios (not order sensitive)
+        // 1. a => C
+        // 2. b => C
+
+        let scenarios = fit(&outer, &inner);
+        println!("Scenarios:\n{}", format_scenarios(&scenarios));
+
+        assert_eq!(scenarios.len(), 1);
+
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario.variable.len(), 1);
+        assert_eq!(scenario.variable[&outer.childs[1]], &inner);
+        assert_eq!(format_scenario(scenario), "c => d");
     }
 }

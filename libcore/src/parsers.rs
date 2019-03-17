@@ -84,14 +84,29 @@ mod tests {
     }
 
     #[test]
+    fn fixed_variable() {
+        let v = symbol::Symbol::parse("A\0");
+        assert!(v.fixed);
+    }
+
+    #[test]
+    fn non_fixed_variable() {
+        let v = symbol::Symbol::parse("a\0");
+        assert!(!v.fixed);
+    }
+
+    #[test]
     fn operator_e2e() {
         let op = symbol::Symbol::parse("A(a,b,c)\0");
         assert_eq!(op.to_string(), "A(a,b,c)");
+        assert!(op.fixed);
+        assert_eq!(op.depth, 2);
     }
 
     #[test]
     fn operator_depth() {
         let op = symbol::Symbol::parse("A(B(c),b,c)\0");
+        assert!(op.fixed);
         assert_eq!(op.depth, 3);
     }
 

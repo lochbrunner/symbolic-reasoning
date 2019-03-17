@@ -67,6 +67,14 @@ mod tests {
     fn variable_fmt() {
         let v = Symbol::new_variable("a");
         assert_eq!(format!("{}", v), "a");
+        assert!(!v.fixed);
+    }
+
+    #[test]
+    fn variable_fixd_fmt() {
+        let v = Symbol::new_variable("A");
+        assert_eq!(format!("{}", v), "A");
+        assert!(v.fixed);
     }
 
     #[test]
@@ -75,5 +83,6 @@ mod tests {
         let b = Symbol::new_variable("b");
         let o = Symbol::new_operator("f", vec![a, b]);
         assert_eq!(format!("{}", o), "f(a,b)");
+        assert!(!o.fixed);
     }
 }

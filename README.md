@@ -38,8 +38,8 @@ D(x^n, x) => n*x^(n-1)
 
 ## Roadmap
 
-* Fitting :soon:
-* Parsing of binary operators :x:
+* Fitting :heavy_check_mark:
+* Parsing of binary operators :soon:
 * Randomly generating of calculations :x:
 * Adapter to TensorFlow :x:
 * Modeling and Training :x:
