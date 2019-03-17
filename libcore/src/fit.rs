@@ -11,15 +11,6 @@ pub struct FitMap<'a> {
     /// Where the inner root is located in the outer
     pub location: &'a Symbol,
 }
-/// Example i fits in O(o) with o => i
-fn fit_op_var_impl<'a>(
-    _outer: &'a Symbol,
-    _inner: &'a Symbol,
-    _map: &FitMap<'a>,
-) -> Vec<FitMap<'a>> {
-    // For no ignore folks would be needed
-    vec![]
-}
 
 // How to indicate no fit? => Empty vector
 fn fit_sym_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, maps: &FitMap<'a>) -> Vec<FitMap<'a>> {
@@ -32,15 +23,8 @@ fn fit_sym_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, maps: &FitMap<'a>) 
 
 fn fit_sym_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
     match outer.fixed {
-        true => fit_op_sym_impl(outer, inner, map),
-        false => fit_var_sym_impl(outer, inner, map),
-    }
-}
-
-fn fit_op_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
-    match inner.fixed {
         true => fit_op_op_impl(outer, inner, map),
-        false => fit_op_var_impl(outer, inner, map),
+        false => fit_var_sym_impl(outer, inner, map),
     }
 }
 
@@ -226,8 +210,8 @@ mod tests {
         };
 
         let b = Symbol::new_variable("a");
-
-        assert!(fit(&a, &b).is_empty(), "operator on variable");
+        let ovf = fit(&a, &b);
+        assert_eq!(ovf.len(), 1, "operator on variable");
     }
 
     #[test]
@@ -437,11 +421,23 @@ mod tests {
         let outer = Symbol::parse("A(a, b)\0");
         let inner = Symbol::parse("c\0");
 
-        // Expect two scenarios
+        // Expect two scenarios (not order sensitive)
         // 1. a => c
         // 2. b => c
 
         let scenarios = fit(&outer, &inner);
         println!("Scenarios:\n{}", format_scenarios(&scenarios));
+
+        assert_eq!(scenarios.len(), 2);
+
+        let scenario_ac = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario_ac.variable.len(), 1);
+        assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
+        assert_eq!(format_scenario(scenario_ac), "a => c");
+
+        let scenario_bc = scenarios.iter().nth(1).unwrap();
+        assert_eq!(scenario_bc.variable.len(), 1);
+        assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
+        assert_eq!(format_scenario(scenario_bc), "b => c");
     }
 }

@@ -2,7 +2,7 @@
 
 ## Simple Example
 
-> Note: Variables of rules are written in upper case. Concrete variables in lower case. 
+> Note: Variables of rules are written in upper case. Concrete variables in lower case.
 
 Rule
 
