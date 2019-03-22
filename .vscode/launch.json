@@ -5,10 +5,11 @@
     "version": "0.2.0",
     "configurations": [{
         "name": "Tests",
-        "type": "cppdbg",
+        "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/target/debug/deps/core-363581c314a2f62d",
-        "args": ["--test", "variable_maps_to_operator", "--nocapture"],
+        "args": ["--test", "fit::tests::flat_operators", "--nocapture"],
+        "sourceLanguages": ["rust"],
         "stopAtEntry": false,
         "cwd": "${workspaceFolder}",
         "environment": [],

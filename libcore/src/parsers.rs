@@ -16,7 +16,7 @@ fn is_alphabetic_c(chr: char) -> bool {
 
 named!(
     string<&str, &str>,
-        escaped!(take_while1!(is_alphabetic_c), '\\', one_of!("\"n\\"))
+    escaped!(take_while1!(is_alphabetic_c), '\\', one_of!("\"n\\"))
 );
 
 named!(
@@ -31,17 +31,17 @@ named!(
 
 named!(
     parse_symbol_with_childs<&str,symbol::Symbol>,
-        do_parse!(
-            ident: string
-                >> childs: list
-                >> (symbol::Symbol {
-                    ident: String::from(ident),
-                    depth: symbol::Symbol::calc_depth(&childs),
-                    childs,
-                    fixed: ident.chars().nth(0).unwrap().is_uppercase(),
-                    //fixed: true
-                })
-        )  
+    do_parse!(
+        ident: string
+            >> childs: list
+            >> (symbol::Symbol {
+                ident: String::from(ident),
+                depth: symbol::Symbol::calc_depth(&childs),
+                childs,
+                fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+                //fixed: true
+            })
+    )  
 );
 
 named!(

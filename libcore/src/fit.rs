@@ -13,7 +13,11 @@ pub struct FitMap<'a> {
 }
 
 // How to indicate no fit? => Empty vector
-fn fit_sym_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, maps: &FitMap<'a>) -> Vec<FitMap<'a>> {
+fn fit_sym_op_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    maps: &Option<FitMap<'a>>,
+) -> Vec<FitMap<'a>> {
     // TODO: Return iter later
     match outer.fixed {
         false => fit_var_sym_impl(outer, inner, maps),
@@ -21,33 +25,54 @@ fn fit_sym_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, maps: &FitMap<'a>) 
     }
 }
 
-fn fit_sym_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
+fn fit_sym_sym_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    map: &Option<FitMap<'a>>,
+) -> Vec<FitMap<'a>> {
     match outer.fixed {
         true => fit_op_op_impl(outer, inner, map),
         false => fit_var_sym_impl(outer, inner, map),
     }
 }
 
-fn fit_var_sym_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
-    let mapping = if map.variable.contains_key(outer) {
-        FitMap {
-            variable: hashmap! {outer => inner},
-            location: outer, // TODO: Bad hack
+fn fit_var_sym_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    map: &Option<FitMap<'a>>,
+) -> Vec<FitMap<'a>> {
+    // Do we still have a scenario?
+    let mapping = match map {
+        Some(prev_map) => {
+            if prev_map.variable.contains_key(outer) {
+                println!("Map already contains {}", outer);
+                FitMap {
+                    variable: hashmap! {outer => inner},
+                    location: outer, // TODO: Bad hack
+                }
+            } else {
+                FitMap {
+                    variable: hashmap! {outer => inner},
+                    location: outer, // TODO: Bad hack
+                }
+            }
         }
-    } else {
-        FitMap {
-            variable: hashmap! {outer => inner},
-            location: outer, // TODO: Bad hack
+        None => {
+            FitMap {
+                variable: hashmap! {outer => inner},
+                location: outer, // TODO: Bad hack
+            }
         }
     };
     vec![mapping]
 }
 
 pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
-    let map = FitMap {
-        variable: HashMap::new(),
-        location: outer, // TODO: Bad hack
-    };
+    // let map = Some(FitMap {
+    //     variable: HashMap::new(),
+    //     location: outer, // TODO: Bad hack
+    // });
+    let map = Option::<FitMap>::None;
 
     fit_sym_sym_impl(outer, inner, &map)
 }
@@ -108,7 +133,11 @@ fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &Vec<FitMap<'a>>) -> Vec<Fit
 
 /// Does not folk yet
 /// When folking give the child only the relevant branches
-fn fit_op_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) -> Vec<FitMap<'a>> {
+fn fit_op_op_impl<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    map: &Option<FitMap<'a>>,
+) -> Vec<FitMap<'a>> {
     // Check root
     if outer.ident != inner.ident {
         // Outer must be larger (For now)
@@ -116,15 +145,28 @@ fn fit_op_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) ->
         // Try fit the childs of the outer
         let mut fittings: Vec<FitMap<'a>> = Vec::new();
         for child in outer.childs.iter() {
-            // TODO: Folk here?
+            // let folk = FitMap {};
             let branches = fit_sym_op_impl(child, inner, map);
-            fittings.extend(merge_mappings(map, &branches));
+            // fittings.extend(merge_mappings(map, &branches));
+            // Folk here
+            fittings.extend(branches);
+            //
         }
         fittings
     } else if outer.childs.len() != inner.childs.len() {
         // Wrong number of childs
         vec![]
     } else {
+        // TODO: Dont allocate memory for hypothetical used variable
+        let new_scenario = Some(FitMap {
+            variable: HashMap::new(),
+            location: outer,
+        });
+        let scenario = match map {
+            Some(_) => map,
+            None => &new_scenario,
+        };
+
         // Operator matches
         // Check for variable repetition
         let mut extension: Vec<FitMap> = vec![FitMap {
@@ -133,12 +175,13 @@ fn fit_op_op_impl<'a>(outer: &'a Symbol, inner: &'a Symbol, map: &FitMap<'a>) ->
         }];
 
         'childs: for i in 0..outer.childs.len() {
-            // TODO: What when they folk?
-            // Ignore folks for now
-            let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], map);
+            let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], &scenario);
             add_extension(&mut extension, add);
         }
-        merge_mappings(&map, &extension)
+        match scenario {
+            Some(scenario) => merge_mappings(scenario, &extension),
+            _ => vec![],
+        }
     }
 }
 
@@ -221,10 +264,11 @@ mod tests {
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
-        let FitMap { variable, .. } = mapping;
+        let FitMap { variable, location } = mapping;
 
         assert_eq!(variable.len(), 1, "Expected one mapping");
 
+        assert_eq!(location, &&outer);
         assert_eq!(
             format!("{}", variable.keys().nth(0).unwrap()),
             "a",
@@ -243,13 +287,14 @@ mod tests {
         let inner = Symbol::parse("A(c,d)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit(&outer, &inner);
-        let mapping = all_mappings.iter().nth(0).unwrap();
+        let scenarios = fit(&outer, &inner);
+        let scenario = scenarios.iter().nth(0).unwrap();
 
-        assert_eq!(mapping.variable.len(), 2);
+        assert_eq!(scenario.variable.len(), 2);
 
-        assert_eq!(mapping.variable[&outer.childs[0]], &inner.childs[0]);
-        assert_eq!(mapping.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
+        assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
     #[test]
@@ -261,6 +306,7 @@ mod tests {
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario.location, &outer.childs[0]);
 
         // Expect a => b
         assert_eq!(scenario.variable.len(), 1);
@@ -268,6 +314,7 @@ mod tests {
             scenario.variable[&outer.childs[0].childs[0]],
             &inner.childs[0]
         );
+        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
     }
 
     #[test]
@@ -281,17 +328,19 @@ mod tests {
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1, "Expected one scenario");
 
-        let mapping = scenarios.iter().nth(0).unwrap();
-        assert_eq!(mapping.variable.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario.variable.len(), 1);
         let expected_key = Symbol::parse("a\0");
         assert!(
-            mapping.variable.contains_key(&expected_key),
+            scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable a"
         );
         let expected_value = Symbol::parse("C(b)\0");
-        let actual_value = mapping.variable.get(&expected_key).unwrap();
+        let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(actual_value, &&expected_value, "Expect value to be C(b)");
         assert_eq!(format!("{}", actual_value), "C(b)");
+
+        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
     }
 
     #[test]
@@ -301,24 +350,25 @@ mod tests {
 
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
-        let mapping = all_mappings.iter().nth(0).unwrap();
-        assert_eq!(mapping.variable.len(), 2, "Expected 2 mappings");
+        let scenario = all_mappings.iter().nth(0).unwrap();
+        assert_eq!(scenario.variable.len(), 2, "Expected 2 mappings");
 
         let expected_key = Symbol::parse("a\0");
         assert!(
-            mapping.variable.contains_key(&expected_key),
+            scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable a"
         );
-        let actual_value = mapping.variable.get(&expected_key).unwrap();
+        let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(format!("{}", actual_value), "c");
 
         let expected_key = Symbol::parse("b\0");
         assert!(
-            mapping.variable.contains_key(&expected_key),
+            scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable b"
         );
-        let actual_value = mapping.variable.get(&expected_key).unwrap();
+        let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(format!("{}", actual_value), "d");
+        assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
     #[test]
@@ -338,12 +388,13 @@ mod tests {
         let inner = Symbol::parse("A(c,c)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit(&outer, &inner);
-        let mapping = all_mappings.iter().nth(0).unwrap();
+        let scenarios = fit(&outer, &inner);
+        let scenario = scenarios.iter().nth(0).unwrap();
 
-        assert_eq!(mapping.variable.len(), 2);
-        assert_eq!(mapping.variable[&outer.childs[0]], &inner.childs[0]);
-        assert_eq!(mapping.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.variable.len(), 2);
+        assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
+        assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
     #[test]
@@ -352,13 +403,14 @@ mod tests {
         let inner = Symbol::parse("A(b,b)\0");
 
         // Necessary to keep the vector in scope
-        let all_mappings = fit(&outer, &inner);
-        let mapping = all_mappings.iter().nth(0).unwrap();
+        let scenarios = fit(&outer, &inner);
+        let scenario = scenarios.iter().nth(0).unwrap();
 
-        assert_eq!(mapping.variable.len(), 1);
+        assert_eq!(scenario.variable.len(), 1);
 
-        assert_eq!(mapping.variable[&outer.childs[0]], &inner.childs[0]);
-        assert_eq!(mapping.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
+        assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
     #[test]
@@ -383,9 +435,10 @@ mod tests {
         let inner = Symbol::parse("B(C(b))\0");
 
         let scenarios = fit(&outer, &inner);
+        // Expect a => "B(C(b))
         assert_eq!(scenarios.len(), 1);
-        let mapping = scenarios.iter().nth(0).unwrap();
-        let FitMap { variable, .. } = mapping;
+        let scenario = scenarios.iter().nth(0).unwrap();
+        let FitMap { variable, .. } = scenario;
         assert_eq!(variable.len(), 1);;
 
         assert!(
@@ -397,6 +450,7 @@ mod tests {
             variable.get(&Symbol::parse("a\0")).unwrap(),
             &&Symbol::parse("B(C(b))\0")
         );
+        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
     }
 
     #[test]
@@ -404,7 +458,15 @@ mod tests {
         let outer = Symbol::parse("A(a)\0");
         let inner = Symbol::parse("A(b)\0");
 
-        assert_eq!(fit(&outer, &inner).len(), 1);
+        println!("{:?}", outer);
+
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 1, "Expected one scenario");
+
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario.variable.len(), 1, "Expected one variable mapping");
+        assert_eq!(format_scenario(scenario), "a => b");
+        assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
     #[test]
@@ -433,11 +495,13 @@ mod tests {
         assert_eq!(scenario_ac.variable.len(), 1);
         assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
         assert_eq!(format_scenario(scenario_ac), "a => c");
+        assert_eq!(scenario_ac.location, &outer.childs[0], "Wrong location");
 
         let scenario_bc = scenarios.iter().nth(1).unwrap();
         assert_eq!(scenario_bc.variable.len(), 1);
         assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario_bc), "b => c");
+        assert_eq!(scenario_bc.location, &outer.childs[1], "Wrong location");
     }
 
     #[test]
@@ -458,11 +522,13 @@ mod tests {
         assert_eq!(scenario_ac.variable.len(), 1);
         assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
         assert_eq!(format_scenario(scenario_ac), "a => C");
+        assert_eq!(scenario_ac.location, &outer.childs[0], "Wrong location");
 
         let scenario_bc = scenarios.iter().nth(1).unwrap();
         assert_eq!(scenario_bc.variable.len(), 1);
         assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario_bc), "b => C");
+        assert_eq!(scenario_bc.location, &outer.childs[1], "Wrong location");
     }
 
     #[test]
@@ -493,5 +559,42 @@ mod tests {
         assert_eq!(scenario.variable.len(), 1);
         assert_eq!(scenario.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario), "c => d");
+        assert_eq!(scenario.location, &outer.childs[1], "Wrong location");
+    }
+
+    #[test]
+    fn no_variable_simple() {
+        let outer = Symbol::parse("A\0");
+        let inner = Symbol::parse("A\0");
+
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert!(scenario.variable.is_empty());
+        assert_eq!(scenario.location, &outer, "Wrong location");
+    }
+
+    #[test]
+    fn no_variable_flat() {
+        let outer = Symbol::parse("F(A,B,C)\0");
+        let inner = Symbol::parse("F(A,B,C)\0");
+
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert!(scenario.variable.is_empty());
+        assert_eq!(scenario.location, &outer, "Wrong location");
+    }
+
+    #[test]
+    fn no_variable_deep() {
+        let outer = Symbol::parse("D(F(A,B,C))\0");
+        let inner = Symbol::parse("F(A,B,C)\0");
+
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert!(scenario.variable.is_empty());
+        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
     }
 }
