@@ -28,11 +28,29 @@ impl Symbol {
         }
     }
 
+    pub fn new_variable_by_string(ident: String) -> Symbol {
+        Symbol {
+            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            ident: ident,
+            depth: 1,
+            childs: Vec::new(),
+        }
+    }
+
     pub fn new_operator(ident: &str, childs: Vec<Symbol>) -> Symbol {
         Symbol {
             ident: String::from(ident),
             depth: Symbol::calc_depth(&childs),
             fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            childs,
+        }
+    }
+
+    pub fn new_operator_by_string(ident: String, childs: Vec<Symbol>) -> Symbol {
+        Symbol {
+            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            ident,
+            depth: Symbol::calc_depth(&childs),
             childs,
         }
     }

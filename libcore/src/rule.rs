@@ -1,4 +1,4 @@
-use super::parsers;
+use super::parsers_dep::parse_rule;
 use super::symbol;
 
 use std::fmt;
@@ -11,7 +11,7 @@ pub struct Rule {
 
 impl Rule {
     pub fn parse(code: &str) -> Rule {
-        parsers::parse_rule(code).unwrap().1
+        parse_rule(code).unwrap().1
     }
 }
 

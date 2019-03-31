@@ -23,7 +23,8 @@ extern crate nom;
 extern crate maplit;
 
 pub mod fit;
-mod parsers;
+mod parser;
+mod parsers_dep;
 pub mod rule;
 pub mod symbol;
 pub use fit::*;

@@ -1,5 +1,14 @@
 use super::rule;
 use super::symbol;
+// use nom::types::CompleteStr;
+// use nom::{multispace};
+
+// named!(parens< &str, symbol::Symbol >, delimited!(
+//     delimited!(opt!(multispace), tag!("("), opt!(multispace)),
+//     map!(map!(parse_symbol_new, Box::new), Expr::Paren),
+//     delimited!(opt!(multispace), tag!(")"), opt!(multispace))
+//   )
+// );
 
 named!(
     list<&str,Vec<symbol::Symbol>>,
@@ -62,6 +71,21 @@ impl symbol::Symbol {
         p.unwrap().1
     }
 }
+
+// named!(parens< CompleteStr, Expr >, delimited!(
+//     delimited!(opt!(multispace), tag!("("), opt!(multispace)),
+//     map!(map!(expr, Box::new), Expr::Paren),
+//     delimited!(opt!(multispace), tag!(")"), opt!(multispace))
+//   )
+// );
+
+// #[cfg(test)]
+// mod tmp_test {
+//     use crate::*;
+
+//     #[test]
+//     fn ()
+// }
 
 #[cfg(test)]
 mod tests {
