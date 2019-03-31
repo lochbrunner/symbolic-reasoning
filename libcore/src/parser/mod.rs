@@ -1,6 +1,5 @@
 use crate::parser::token::*;
 use crate::symbol::Symbol;
-use nom::*;
 use std::str::FromStr;
 
 mod lexer;
@@ -17,93 +16,21 @@ pub enum Precedence {
     PSum,
     PProduct,
     PHighest,
-    // PIndex,
 }
-
-type Tokens = Vec<Token>;
 
 fn classify(token: &Token) -> (Option<Operation>, Option<String>) {
     match token {
-        Token::Minus => (
-            Some(Operation::create_op("-", token.clone(), Precedence::PSum)),
-            None,
-        ),
-        Token::Plus => (
-            Some(Operation::create_op("+", token.clone(), Precedence::PSum)),
-            None,
-        ),
-        Token::Multiply => (
-            Some(Operation::create_op(
-                "*",
-                token.clone(),
-                Precedence::PProduct,
-            )),
-            None,
-        ),
-        Token::Divide => (
-            Some(Operation::create_op(
-                "/",
-                token.clone(),
-                Precedence::PProduct,
-            )),
-            None,
-        ),
-        Token::Equal => (
-            Some(Operation::create_op(
-                "==",
-                token.clone(),
-                Precedence::PEquals,
-            )),
-            None,
-        ),
-        Token::NotEqual => (
-            Some(Operation::create_op(
-                "!=",
-                token.clone(),
-                Precedence::PEquals,
-            )),
-            None,
-        ),
-        Token::GreaterThan => (
-            Some(Operation::create_op(
-                ">",
-                token.clone(),
-                Precedence::PLessGreater,
-            )),
-            None,
-        ),
-        Token::LessThan => (
-            Some(Operation::create_op(
-                "<",
-                token.clone(),
-                Precedence::PLessGreater,
-            )),
-            None,
-        ),
-        Token::GreaterThanEqual => (
-            Some(Operation::create_op(
-                ">=",
-                token.clone(),
-                Precedence::PLessGreater,
-            )),
-            None,
-        ),
-        Token::LessThanEqual => (
-            Some(Operation::create_op(
-                "<=",
-                token.clone(),
-                Precedence::PLessGreater,
-            )),
-            None,
-        ),
-        Token::ParenL => (
-            Some(Operation::create_op(
-                "(",
-                token.clone(),
-                Precedence::POpening,
-            )),
-            None,
-        ),
+        Token::Minus => create_some_op("-", token, Precedence::PSum),
+        Token::Plus => create_some_op("+", token, Precedence::PSum),
+        Token::Multiply => create_some_op("*", token, Precedence::PProduct),
+        Token::Divide => create_some_op("/", token, Precedence::PProduct),
+        Token::Equal => create_some_op("==", token, Precedence::PEquals),
+        Token::NotEqual => create_some_op("!=", token, Precedence::PEquals),
+        Token::GreaterThan => create_some_op(">", token, Precedence::PLessGreater),
+        Token::LessThan => create_some_op("<", token, Precedence::PLessGreater),
+        Token::GreaterThanEqual => create_some_op(">=", token, Precedence::PLessGreater),
+        Token::LessThanEqual => create_some_op("<=", token, Precedence::PLessGreater),
+        Token::ParenL => create_some_op("(", token, Precedence::POpening),
         Token::ParenR => (
             Some(Operation {
                 ident: String::from(")"),
@@ -114,14 +41,7 @@ fn classify(token: &Token) -> (Option<Operation>, Option<String>) {
             }),
             None,
         ),
-        Token::Comma => (
-            Some(Operation::create_op(
-                ",",
-                token.clone(),
-                Precedence::PLowest,
-            )),
-            None,
-        ),
+        Token::Comma => create_some_op(",", token, Precedence::PLowest),
         Token::Ident(ident) => (None, Some(ident.clone())),
         Token::EOF => (None, None),
         _ => panic!("No arm implemented for token {:?} !", token),
@@ -137,16 +57,21 @@ struct Operation {
     ident: String,
 }
 
-impl Operation {
-    pub fn create_op(ident: &str, token: Token, precedence: Precedence) -> Operation {
-        Operation {
+fn create_some_op(
+    ident: &str,
+    token: &Token,
+    precedence: Precedence,
+) -> (Option<Operation>, Option<String>) {
+    (
+        Some(Operation {
             precedence,
             ident: String::from_str(ident).unwrap(),
             separator: None,
             closer: None,
-            token,
-        }
-    }
+            token: token.clone(),
+        }),
+        None,
+    )
 }
 
 #[derive(Debug)]
@@ -161,25 +86,6 @@ fn pop_as_symbol(sym_stack: &mut Vec<IdentOrSymbol>) -> Symbol {
         IdentOrSymbol::Symbol(symbol) => symbol,
     };
 }
-
-// fn print_op_stack(op_stack: &Vec<Operation>) {
-//     print!("operations: ");
-//     for op in op_stack.iter() {
-//         print!("{} ", op.ident);
-//     }
-//     print!("\n");
-// }
-
-// fn print_sym_stack(stack: &Vec<IdentOrSymbol>) {
-//     print!("symbols: ");
-//     for item in stack.iter() {
-//         match item {
-//             IdentOrSymbol::Ident(ident) => print!("\"{}\" ", ident),
-//             IdentOrSymbol::Symbol(symbol) => print!("{} ", symbol),
-//         };
-//     }
-//     print!("\n");
-// }
 
 fn astify(op_stack: &mut Vec<Operation>, sym_stack: &mut Vec<IdentOrSymbol>) {
     while !op_stack.is_empty() && op_stack.last().unwrap().token != Token::ParenL {
@@ -221,21 +127,23 @@ fn astify(op_stack: &mut Vec<Operation>, sym_stack: &mut Vec<IdentOrSymbol>) {
                     }
                 }
                 // Function or standard brackets ?
-                let ident = if op_stack.len() < sym_stack.len() {
-                    match sym_stack.pop().expect("Getting symbol stack") {
+                if op_stack.len() < sym_stack.len() {
+                    let ident = match sym_stack.pop().expect("Getting symbol stack") {
                         IdentOrSymbol::Ident(ident) => ident,
                         IdentOrSymbol::Symbol(symbol) => {
                             panic!("Not expected symbol {:?} to be ident!", symbol)
                         }
-                    }
+                    };
+                    childs.reverse();
+                    sym_stack.push(IdentOrSymbol::Symbol(Symbol::new_operator_by_string(
+                        ident, childs,
+                    )));
+                } else if childs.len() == 1 {
+                    sym_stack.push(IdentOrSymbol::Symbol(childs.pop().unwrap()));
                 } else {
-                    String::from("identity")
-                };
+                    panic!("Missing operator");
+                }
 
-                childs.reverse();
-                sym_stack.push(IdentOrSymbol::Symbol(Symbol::new_operator_by_string(
-                    ident, childs,
-                )));
                 return;
             }
             _ => panic!("Not implemented yet"),
@@ -243,7 +151,7 @@ fn astify(op_stack: &mut Vec<Operation>, sym_stack: &mut Vec<IdentOrSymbol>) {
     }
 }
 
-pub fn parse(tokens: &Tokens) -> Symbol {
+pub fn parse(tokens: &Vec<Token>) -> Symbol {
     let mut op_stack: Vec<Operation> = Vec::new();
     let mut sym_stack: Vec<IdentOrSymbol> = Vec::new();
     for token in tokens.iter() {
@@ -276,8 +184,27 @@ pub fn parse(tokens: &Tokens) -> Symbol {
         }
     }
 
-    Symbol::new_variable("Hi")
+    Symbol::new_variable("")
 }
+
+// fn print_op_stack(op_stack: &Vec<Operation>) {
+//     print!("operations: ");
+//     for op in op_stack.iter() {
+//         print!("{} ", op.ident);
+//     }
+//     print!("\n");
+// }
+
+// fn print_sym_stack(stack: &Vec<IdentOrSymbol>) {
+//     print!("symbols: ");
+//     for item in stack.iter() {
+//         match item {
+//             IdentOrSymbol::Ident(ident) => print!("\"{}\" ", ident),
+//             IdentOrSymbol::Symbol(symbol) => print!("{} ", symbol),
+//         };
+//     }
+//     print!("\n");
+// }
 
 #[cfg(test)]
 mod specs {
@@ -439,6 +366,54 @@ mod specs {
                     Symbol::new_variable("d")
                 ]
             )
+        );
+    }
+
+    #[test]
+    fn operators_with_parens_front() {
+        let tokens = vec![
+            Token::ParenL,
+            Token::Ident(String::from("a")),
+            Token::Plus,
+            Token::Ident(String::from("b")),
+            Token::ParenR,
+            Token::Multiply,
+            Token::Ident(String::from("c")),
+            Token::EOF,
+        ];
+        let actual = parse(&tokens);
+        let expected = Symbol::new_operator(
+            "*",
+            vec![
+                Symbol::new_operator(
+                    "+",
+                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
+                ),
+                Symbol::new_variable("c"),
+            ],
+        );
+        assert_eq!(actual.to_string(), expected.to_string());
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn infix_operator_and_function() {
+        let tokens = vec![
+            Token::Ident(String::from("a")),
+            Token::Plus,
+            Token::Ident(String::from("f")),
+            Token::ParenL,
+            Token::Ident(String::from("b")),
+            Token::ParenR,
+            Token::EOF,
+        ];
+        let actual = parse(&tokens);
+        let expected = Symbol::new_operator(
+            "+",
+            vec![
+                Symbol::new_variable("a"),
+                Symbol::new_operator("f", vec![Symbol::new_variable("b")]),
+            ],
         );
     }
 }
