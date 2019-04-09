@@ -28,7 +28,7 @@ impl Symbol {
         }
     }
 
-    pub fn new_variable_by_string(ident: String) -> Symbol {
+    pub fn new_variable_from_string(ident: String) -> Symbol {
         Symbol {
             fixed: ident.chars().nth(0).unwrap().is_uppercase(),
             ident: ident,
@@ -46,7 +46,7 @@ impl Symbol {
         }
     }
 
-    pub fn new_operator_by_string(ident: String, childs: Vec<Symbol>) -> Symbol {
+    pub fn new_operator_from_string(ident: String, childs: Vec<Symbol>) -> Symbol {
         Symbol {
             fixed: ident.chars().nth(0).unwrap().is_uppercase(),
             ident,

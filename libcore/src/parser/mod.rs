@@ -32,8 +32,6 @@ enum ParansDirection {
 #[derive(Debug, PartialEq)]
 enum ParansType {
     Round,
-    // Curly,
-    // Square,
 }
 #[derive(Debug, PartialEq)]
 struct Parans {
@@ -49,7 +47,6 @@ enum Classification {
     Parans(Parans),
     Separator,
     Ident(String),
-    // Literal(f64),
     EOF,
 }
 
@@ -164,14 +161,6 @@ impl<'a> Iterator for Classifier<'a> {
                         create_infix(token_info.1, token_info.2)
                     } else if token_info.0 & token_type::POSTFIX != 0 {
                         create_postfix(token_info.1, token_info.2)
-                    } else if token_info.0 & token_type::IDENT != 0 {
-                        self.expect_operator = false;
-                        self.next = if let None = self.next {
-                            Some(token)
-                        } else {
-                            None
-                        };
-                        create_infix("*", Precedence::PProduct)
                     } else if token_info.0 & token_type::EOF != 0 {
                         Some(Ok(Classification::EOF))
                     } else if token_info.0 & token_type::CLOSING_PARENS != 0 {
@@ -182,13 +171,9 @@ impl<'a> Iterator for Classifier<'a> {
                     } else if token_info.0 & token_type::SEPARATOR != 0 {
                         self.expect_operator = false;
                         Some(Ok(Classification::Separator))
-                    } else if token_info.0 & token_type::OPENING_PARENS != 0 {
+                    } else if token_info.0 & (token_type::IDENT | token_type::OPENING_PARENS) != 0 {
                         self.expect_operator = false;
-                        self.next = if let None = self.next {
-                            Some(token)
-                        } else {
-                            None
-                        };
+                        self.next = Some(token);
                         create_infix("*", Precedence::PProduct)
                     } else {
                         Some(Err(format!("Expected operator, found {:?}", token)))
@@ -197,24 +182,18 @@ impl<'a> Iterator for Classifier<'a> {
                     if token_info.0 & token_type::IDENT != 0 {
                         // Is this a function?
                         let ident = token_info.3.expect("Ident in tuple").clone();
-                        self.next = None;
                         match self.functions.get_key_value(&ident) {
                             None => {
                                 self.expect_operator = true;
                                 Some(Ok(Classification::Ident(ident)))
                             }
-                            // Treat functions as prefix operator
-                            Some((key, _)) => {
-                                self.expect_operator = false;
-                                create_function(&key[..], Precedence::PCall)
-                            }
+                            Some((key, _)) => create_function(&key[..], Precedence::PCall),
                         }
                     } else if token_info.0 & token_type::PREFIX != 0 {
                         create_prefix(token_info.1, token_info.2)
                     } else if token_info.0 & token_type::EOF != 0 {
                         Some(Ok(Classification::EOF))
                     } else if token_info.0 & token_type::OPENING_PARENS != 0 {
-                        self.expect_operator = false;
                         Some(Ok(Classification::Parans(Parans {
                             direction: ParansDirection::Opening,
                             r#type: ParansType::Round,
@@ -259,7 +238,7 @@ enum IdentOrSymbol {
 
 fn pop_as_symbol(sym_stack: &mut Vec<IdentOrSymbol>) -> Symbol {
     match sym_stack.pop().expect("Getting symbol") {
-        IdentOrSymbol::Ident(ident) => Symbol::new_variable_by_string(ident),
+        IdentOrSymbol::Ident(ident) => Symbol::new_variable_from_string(ident),
         IdentOrSymbol::Symbol(symbol) => symbol,
     }
 }
@@ -270,33 +249,24 @@ struct ParseStack {
 }
 
 fn astify(stack: &mut ParseStack, till: Precedence) {
-    // No infix?
-    if stack.infix.is_empty() {
-        let symbol = pop_as_symbol(&mut stack.symbol);
-        stack.symbol.push(IdentOrSymbol::Symbol(symbol));
-        return;
-    }
-    'infix: while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
+    while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
         match stack.infix.pop().unwrap() {
             Operation { ident, r#type, .. } => {
-                // Only binary operators
                 let childs = match r#type {
                     OperationType::Infix => {
                         let b = pop_as_symbol(&mut stack.symbol);
                         let a = pop_as_symbol(&mut stack.symbol);
-                        vec![a, b]
+                        vec![a, b] // Order has to be reverted
                     }
                     OperationType::Prefix => vec![pop_as_symbol(&mut stack.symbol)],
                     _ => panic!("Invalid argument count {:?}", r#type),
                 };
                 stack
                     .symbol
-                    .push(IdentOrSymbol::Symbol(Symbol::new_operator_by_string(
+                    .push(IdentOrSymbol::Symbol(Symbol::new_operator_from_string(
                         ident, childs,
                     )));
             }
-
-            _ => panic!("Not implemented yet"),
         }
     }
 }
@@ -316,7 +286,7 @@ fn process_call(stack: &mut ParseStack) {
         && stack.infix.last().expect("Some infix").r#type == OperationType::Function
     {
         let func = stack.infix.pop().expect("Some infix");
-        let symbol = Symbol::new_operator_by_string(func.ident, childs);
+        let symbol = Symbol::new_operator_from_string(func.ident, childs);
         stack.symbol.push(IdentOrSymbol::Symbol(symbol));
     } else {
         assert_eq!(
@@ -332,25 +302,8 @@ fn process_call(stack: &mut ParseStack) {
 
 fn apply_postfix(stack: &mut ParseStack, ident: String) {
     let childs = vec![pop_as_symbol(&mut stack.symbol)];
-    let symbol = Symbol::new_operator_by_string(ident, childs);
+    let symbol = Symbol::new_operator_from_string(ident, childs);
     stack.symbol.push(IdentOrSymbol::Symbol(symbol));
-}
-
-fn print_stack(stack: &ParseStack) {
-    println!("-----------");
-    println!("Symbols:");
-    for sym in stack.symbol.iter() {
-        match sym {
-            IdentOrSymbol::Ident(ident) => println!("Ident: {}", ident),
-            IdentOrSymbol::Symbol(symbol) => println!("Symbol: {}", symbol),
-            _ => println!("Unknown symbol {:?} found!", sym),
-        }
-    }
-
-    println!("Operators:");
-    for op in stack.infix.iter() {
-        println!("operation: {} {:?}", op.ident, op.precedence);
-    }
 }
 
 pub fn parse(functions: &HashMap<String, ()>, tokens: &Vec<Token>) -> Symbol {
@@ -388,14 +341,12 @@ pub fn parse(functions: &HashMap<String, ()>, tokens: &Vec<Token>) -> Symbol {
                     }),
                 },
                 Classification::Separator => {
-                    astify(&mut stack, Precedence::POpening);
                     stack.infix.push(Operation {
                         precedence: Precedence::PSeperator,
                         ident: String::from(","),
                         r#type: OperationType::Dummy,
                     });
                 }
-                _ => panic!("Arm {:?} is not implemented yet", token),
             },
             Err(err) => panic!(err),
         };
@@ -411,6 +362,7 @@ pub fn parse(functions: &HashMap<String, ()>, tokens: &Vec<Token>) -> Symbol {
 mod specs {
     use super::*;
     use maplit::*;
+    use test::Bencher;
 
     fn create_function(ident: &str) -> Classification {
         Classification::Prefix(Operation {
@@ -625,8 +577,8 @@ mod specs {
         );
     }
 
-    #[test]
-    fn function_nested_with_inner_operator() {
+    #[bench]
+    fn function_nested_with_inner_operator(b: &mut Bencher) {
         // f(g(a) + h(b))
         let functions = hashmap! {
             String::from("f")=> (),
@@ -663,6 +615,10 @@ mod specs {
                 )]
             )
         );
+
+        b.iter(|| {
+            parse(&functions, &tokens);
+        })
     }
 
     #[test]
@@ -939,8 +895,8 @@ mod specs {
         assert_eq!(actual, expected);
     }
 
-    #[test]
-    fn implicit_bin_operator_parans() {
+    #[bench]
+    fn implicit_bin_operator_parans(b: &mut Bencher) {
         // ab -> (a+b)(c+d)*e(f+g)
         let functions = HashMap::new();
         let tokens = vec![
@@ -994,10 +950,14 @@ mod specs {
             ],
         );
         assert_eq!(actual, expected);
+
+        b.iter(|| {
+            parse(&functions, &tokens);
+        })
     }
 
-    #[test]
-    fn function_complex_inner() {
+    #[bench]
+    fn function_complex_inner(b: &mut Bencher) {
         // f((a+b)*c+d*(e+h))
         let functions = hashmap! {
             String::from("f")=> ()
@@ -1056,6 +1016,10 @@ mod specs {
         );
 
         assert_eq!(actual, expected);
+
+        b.iter(|| {
+            parse(&functions, &tokens);
+        })
     }
 
     #[test]
@@ -1138,8 +1102,8 @@ mod specs {
         assert_eq!(actual, expected);
     }
 
-    #[test]
-    fn postfix_operator_complex() {
+    #[bench]
+    fn postfix_operator_complex(b: &mut Bencher) {
         // a+b!*c+(e*d)!
         let tokens = vec![
             Token::Ident(String::from("a")),
@@ -1188,10 +1152,13 @@ mod specs {
         );
 
         assert_eq!(actual, expected);
+        b.iter(|| {
+            parse(&functions, &tokens);
+        })
     }
 
-    #[test]
-    fn precedence_pyramid() {
+    #[bench]
+    fn precedence_pyramid(b: &mut Bencher) {
         // a*b^c+d^e*f
         let tokens = vec![
             Token::Ident(String::from("a")),
@@ -1238,5 +1205,9 @@ mod specs {
         );
 
         assert_eq!(actual, expected);
+
+        b.iter(|| {
+            parse(&functions, &tokens);
+        })
     }
 }
