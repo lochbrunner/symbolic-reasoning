@@ -4,21 +4,30 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [{
-        "name": "Tests",
-        "type": "lldb",
-        "request": "launch",
-        "program": "${workspaceFolder}/target/debug/deps/core-363581c314a2f62d",
-        "args": ["--test", "fit::tests::flat_operators", "--nocapture"],
-        "sourceLanguages": ["rust"],
-        "stopAtEntry": false,
-        "cwd": "${workspaceFolder}",
-        "environment": [],
-        "externalConsole": false,
-        "MIMode": "gdb",
-        "setupCommands": [{
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-        }]
-    }]
+            "name": "Tests LLDB",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/core-363581c314a2f62d",
+            "args": ["--test", "precedence_pyramid", "--nocapture"],
+            "sourceLanguages": ["rust"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Tests GDB",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/core-363581c314a2f62d",
+            "args": ["--test", "parser::specs::bin_operator_simple", "--nocapture"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [{
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            }]
+        }
+    ]
 }

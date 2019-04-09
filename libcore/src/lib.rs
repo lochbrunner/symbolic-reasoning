@@ -18,13 +18,17 @@
 //! r*(s+t)
 //! ```
 
+#![feature(map_get_key_value)]
+#![feature(test)]
+
 #[macro_use]
 extern crate nom;
 extern crate maplit;
+extern crate test;
 
 pub mod fit;
-mod parser;
-mod parsers_dep;
+pub mod parser;
+pub mod parsers_dep;
 pub mod rule;
 pub mod symbol;
 pub use fit::*;

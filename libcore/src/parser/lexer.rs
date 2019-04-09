@@ -1,7 +1,6 @@
 use nom::types::*;
 use nom::*;
 use std::str;
-use std::str::FromStr;
 use std::str::Utf8Error;
 
 // pub mod token;
