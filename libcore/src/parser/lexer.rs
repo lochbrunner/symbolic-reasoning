@@ -39,16 +39,16 @@ named!(lex_illegal<CompleteByteSlice, Token>,
 
 // Reserved or ident
 fn parse_ident(c: CompleteStr, rest: Option<CompleteStr>) -> Token {
-  let mut string = c.0.to_owned();
-  string.push_str(rest.unwrap_or(CompleteStr("")).0);
-  // match string.as_ref {
-  //     _ => Token::Ident(string),
-  // }
-  Token::Ident(string)
+    let mut string = c.0.to_owned();
+    string.push_str(rest.unwrap_or(CompleteStr("")).0);
+    // match string.as_ref {
+    //     _ => Token::Ident(string),
+    // }
+    Token::Ident(string)
 }
 
 fn complete_byte_slice_str_from_utf8(c: CompleteByteSlice) -> Result<CompleteStr, Utf8Error> {
-  str::from_utf8(c.0).map(|s| CompleteStr(s))
+    str::from_utf8(c.0).map(|s| CompleteStr(s))
 }
 
 named!(take_1_char<CompleteByteSlice, CompleteByteSlice>,
@@ -92,35 +92,35 @@ named!(lex_token<CompleteByteSlice, Token>, alt_complete!(
 named!(lex_tokens_mac<CompleteByteSlice, Vec<Token>>, ws!(many0!(lex_token)));
 
 pub fn lex_tokens(bytes: &[u8]) -> IResult<CompleteByteSlice, Vec<Token>> {
-  lex_tokens_mac(CompleteByteSlice(bytes))
-    .map(|(slice, result)| (slice, [&result[..], &vec![Token::EOF][..]].concat()))
+    lex_tokens_mac(CompleteByteSlice(bytes))
+        .map(|(slice, result)| (slice, [&result[..], &vec![Token::EOF][..]].concat()))
 }
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+    use super::*;
 
-  #[test]
-  fn ident_mixed() {
-    let input = " abc de,a,bc,, (a,b)".as_bytes();
-    let (_, actual) = lex_tokens(input).unwrap();
-    let expected = vec![
-      Token::Ident("abc".to_owned()),
-      Token::Ident("de".to_owned()),
-      Token::Comma,
-      Token::Ident("a".to_owned()),
-      Token::Comma,
-      Token::Ident("bc".to_owned()),
-      Token::Comma,
-      Token::Comma,
-      Token::ParenL,
-      Token::Ident("a".to_owned()),
-      Token::Comma,
-      Token::Ident("b".to_owned()),
-      Token::ParenR,
-      Token::EOF,
-    ];
+    #[test]
+    fn ident_mixed() {
+        let input = " abc de,a,bc,, (a,b)".as_bytes();
+        let (_, actual) = lex_tokens(input).unwrap();
+        let expected = vec![
+            Token::Ident("abc".to_owned()),
+            Token::Ident("de".to_owned()),
+            Token::Comma,
+            Token::Ident("a".to_owned()),
+            Token::Comma,
+            Token::Ident("bc".to_owned()),
+            Token::Comma,
+            Token::Comma,
+            Token::ParenL,
+            Token::Ident("a".to_owned()),
+            Token::Comma,
+            Token::Ident("b".to_owned()),
+            Token::ParenR,
+            Token::EOF,
+        ];
 
-    assert_eq!(actual, expected);
-  }
+        assert_eq!(actual, expected);
+    }
 }
