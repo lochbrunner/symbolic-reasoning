@@ -44,6 +44,7 @@ enum Classification {
     Parans(Parans),
     Separator,
     Ident(String),
+    Literal(i64),
     EOF,
 }
 
@@ -84,32 +85,34 @@ mod token_type {
     pub const INFIX: u32 = 1 << 1;
     pub const POSTFIX: u32 = 1 << 2;
     pub const IDENT: u32 = 1 << 3;
-    pub const CLOSING_PARENS: u32 = 1 << 4;
-    pub const OPENING_PARENS: u32 = 1 << 5;
-    pub const SEPARATOR: u32 = 1 << 6;
-    pub const EOF: u32 = 1 << 7;
+    pub const LITERAL: u32 = 1 << 4;
+    pub const CLOSING_PARENS: u32 = 1 << 5;
+    pub const OPENING_PARENS: u32 = 1 << 6;
+    pub const SEPARATOR: u32 = 1 << 7;
+    pub const EOF: u32 = 1 << 8;
 }
 
-fn token_info(token: &Token) -> (u32, &'static str, Precedence, Option<&String>) {
+fn token_info(token: &Token) -> (u32, &'static str, Precedence, Option<&String>, Option<&i64>) {
     use token_type::*;
     match token {
-        Token::Ident(ident) => (IDENT, "", Precedence::PLowest, Some(ident)),
-        Token::Plus => (INFIX | PREFIX, "+", Precedence::PSum, None),
-        Token::Minus => (INFIX | PREFIX, "-", Precedence::PSum, None),
-        Token::Multiply => (INFIX, "*", Precedence::PProduct, None),
-        Token::Divide => (INFIX, "/", Precedence::PProduct, None),
-        Token::Power => (INFIX, "^", Precedence::PPower, None),
-        Token::Equal => (INFIX, "==", Precedence::PEquals, None),
-        Token::NotEqual => (INFIX, "!=", Precedence::PEquals, None),
-        Token::GreaterThan => (INFIX, ">", Precedence::PLessGreater, None),
-        Token::LessThan => (INFIX, "<", Precedence::PLessGreater, None),
-        Token::GreaterThanEqual => (INFIX, ">=", Precedence::PLessGreater, None),
-        Token::LessThanEqual => (INFIX, "<=", Precedence::PLessGreater, None),
-        Token::ParenL => (OPENING_PARENS, "(", Precedence::POpening, None),
-        Token::ParenR => (CLOSING_PARENS, ")", Precedence::POpening, None),
-        Token::Comma => (SEPARATOR, ",", Precedence::PLowest, None),
-        Token::Faculty => (POSTFIX, "!", Precedence::PFaculty, None),
-        Token::EOF => (EOF, "", Precedence::PLowest, None),
+        Token::Number(value) => (LITERAL, "", Precedence::PLowest, None, Some(value)),
+        Token::Ident(ident) => (IDENT, "", Precedence::PLowest, Some(ident), None),
+        Token::Plus => (INFIX | PREFIX, "+", Precedence::PSum, None, None),
+        Token::Minus => (INFIX | PREFIX, "-", Precedence::PSum, None, None),
+        Token::Multiply => (INFIX, "*", Precedence::PProduct, None, None),
+        Token::Divide => (INFIX, "/", Precedence::PProduct, None, None),
+        Token::Power => (INFIX, "^", Precedence::PPower, None, None),
+        Token::Equal => (INFIX, "==", Precedence::PEquals, None, None),
+        Token::NotEqual => (INFIX, "!=", Precedence::PEquals, None, None),
+        Token::GreaterThan => (INFIX, ">", Precedence::PLessGreater, None, None),
+        Token::LessThan => (INFIX, "<", Precedence::PLessGreater, None, None),
+        Token::GreaterThanEqual => (INFIX, ">=", Precedence::PLessGreater, None, None),
+        Token::LessThanEqual => (INFIX, "<=", Precedence::PLessGreater, None, None),
+        Token::ParenL => (OPENING_PARENS, "(", Precedence::POpening, None, None),
+        Token::ParenR => (CLOSING_PARENS, ")", Precedence::POpening, None, None),
+        Token::Comma => (SEPARATOR, ",", Precedence::PLowest, None, None),
+        Token::Faculty => (POSTFIX, "!", Precedence::PFaculty, None, None),
+        Token::EOF => (EOF, "", Precedence::PLowest, None, None),
     }
 }
 
@@ -184,6 +187,10 @@ impl<'a> Iterator for Classifier<'a> {
                             self.expect_operator = true;
                             Some(Ok(Classification::Ident(ident)))
                         }
+                    } else if token_info.0 & token_type::LITERAL != 0 {
+                        self.expect_operator = true;
+                        let value = token_info.4.expect("Value in tuple").clone();
+                        Some(Ok(Classification::Literal(value)))
                     } else if token_info.0 & token_type::PREFIX != 0 {
                         create_prefix(token_info.1, token_info.2)
                     } else if token_info.0 & token_type::EOF != 0 {
@@ -261,6 +268,7 @@ fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) {
                     fixed: context.is_fixed(&ident),
                     ident,
                     childs,
+                    value: None,
                 }));
             }
         }
@@ -287,6 +295,7 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
             depth: Symbol::calc_depth(&childs),
             ident: func.ident,
             childs,
+            value: None,
         }));
     } else {
         assert_eq!(
@@ -307,6 +316,7 @@ fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
         depth: Symbol::calc_depth(&childs),
         ident,
         childs,
+        value: None,
     }));
 }
 
@@ -334,6 +344,9 @@ pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
                     apply_postfix(context, &mut stack, operation.ident)
                 }
                 Classification::Ident(ident) => stack.symbol.push(IdentOrSymbol::Ident(ident)),
+                Classification::Literal(value) => stack
+                    .symbol
+                    .push(IdentOrSymbol::Symbol(Symbol::new_number(value))),
                 Classification::EOF => break,
                 Classification::Parans(parans) => match parans.direction {
                     ParansDirection::Closing => {
@@ -1217,5 +1230,32 @@ mod specs {
         b.iter(|| {
             parse(&context, &tokens);
         })
+    }
+
+    #[test]
+    fn numbers() {
+        // 1+2*3
+        let tokens = vec![
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(2),
+            Token::Multiply,
+            Token::Number(3),
+            Token::EOF,
+        ];
+
+        let context = create_context(vec![]);
+
+        let actual = parse(&context, &tokens);
+
+        let expected = Symbol::new_operator(
+            "+",
+            vec![
+                Symbol::new_number(1),
+                Symbol::new_operator("*", vec![Symbol::new_number(2), Symbol::new_number(3)]),
+            ],
+        );
+
+        assert_eq!(actual, expected);
     }
 }

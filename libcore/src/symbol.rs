@@ -15,15 +15,27 @@ pub struct Symbol {
     /// Later on it will depend on the context if function is fixed or not.
     /// For instance "G" could stand for another variable, but not the constant of gravitation.
     pub fixed: bool,
+
+    pub value: Option<i64>,
 }
 
 impl Symbol {
+    pub fn new_number(value: i64) -> Symbol {
+        Symbol {
+            ident: value.to_string(),
+            depth: 1,
+            fixed: true,
+            childs: Vec::new(),
+            value: Some(value),
+        }
+    }
     pub fn new_variable(ident: &str) -> Symbol {
         Symbol {
             ident: String::from(ident),
             depth: 1,
             fixed: ident.chars().nth(0).unwrap().is_uppercase(),
             childs: Vec::new(),
+            value: None,
         }
     }
 
@@ -33,6 +45,7 @@ impl Symbol {
             ident: ident,
             depth: 1,
             childs: Vec::new(),
+            value: None,
         }
     }
 
@@ -42,6 +55,7 @@ impl Symbol {
             depth: Symbol::calc_depth(&childs),
             fixed: ident.chars().nth(0).unwrap().is_uppercase(),
             childs,
+            value: None,
         }
     }
 
@@ -51,6 +65,7 @@ impl Symbol {
             ident,
             depth: Symbol::calc_depth(&childs),
             childs,
+            value: None,
         }
     }
 

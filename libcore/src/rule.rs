@@ -18,6 +18,14 @@ impl Rule {
             condition: Symbol::parse(context, parts.pop().expect("Condition")),
         }
     }
+
+    pub fn parse_from_string(context: &Context, code: &String) -> Rule {
+        let mut parts = code.split("=>").collect::<Vec<&str>>();
+        Rule {
+            conclusion: Symbol::parse(context, parts.pop().expect("Conclusion")),
+            condition: Symbol::parse(context, parts.pop().expect("Condition")),
+        }
+    }
 }
 
 impl fmt::Display for Rule {

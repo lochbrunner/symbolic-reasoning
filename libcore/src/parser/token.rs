@@ -3,7 +3,7 @@ pub enum Token {
     EOF,
     //
     Ident(String),
-    // Number(f64),
+    Number(i64),
     // operators
     Plus,
     Minus,

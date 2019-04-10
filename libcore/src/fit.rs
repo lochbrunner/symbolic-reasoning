@@ -241,6 +241,7 @@ mod specs {
             fixed: true,
             depth: 1,
             childs: Vec::new(),
+            value: None,
         };
 
         let b = Symbol {
@@ -248,6 +249,7 @@ mod specs {
             fixed: true,
             depth: 1,
             childs: Vec::new(),
+            value: None,
         };
         let oof = fit(&a, &b);
         assert_eq!(oof.len(), 1, "operator on operator");
@@ -259,6 +261,7 @@ mod specs {
             fixed: true,
             depth: 1,
             childs: Vec::new(),
+            value: None,
         };
 
         let vof = fit(&a, &b);
@@ -269,6 +272,7 @@ mod specs {
             fixed: true,
             depth: 1,
             childs: Vec::new(),
+            value: None,
         };
 
         let b = Symbol::new_variable("a");

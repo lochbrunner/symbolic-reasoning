@@ -1,6 +1,7 @@
 use nom::types::*;
 use nom::*;
 use std::str;
+use std::str::FromStr;
 use std::str::Utf8Error;
 
 // pub mod token;
@@ -69,6 +70,20 @@ named!(lex_operator<CompleteByteSlice, Token>, alt!(
     greater_operator |
     lesser_operator
 ));
+
+// Literals
+
+fn complete_str_from_str<F: FromStr>(c: CompleteStr) -> Result<F, F::Err> {
+  FromStr::from_str(c.0)
+}
+
+// Integers parsing
+named!(lex_integer<CompleteByteSlice, Token>,
+    do_parse!(
+        i: map_res!(map_res!(digit, complete_byte_slice_str_from_utf8), complete_str_from_str) >>
+        (Token::Number(i))
+    )
+);
 
 // Macros
 macro_rules! check(
@@ -144,8 +159,8 @@ named!(lex_punctuations<CompleteByteSlice, Token>, alt!(
 named!(lex_token<CompleteByteSlice, Token>, alt_complete!(
     lex_operator |
     lex_punctuations |
+    lex_integer |
     lex_ident
-    // lex_integer |
     // lex_illegal
 ));
 
@@ -200,6 +215,24 @@ mod specs {
       Token::Ident("e".to_owned()),
       Token::Divide,
       Token::Ident("f".to_owned()),
+      Token::EOF,
+    ];
+
+    assert_eq!(actual, expected);
+  }
+
+  #[test]
+  fn numbers() {
+    let input = "12a+43^5!".as_bytes();
+    let (_, actual) = lex_tokens(input).unwrap();
+    let expected = vec![
+      Token::Number(12),
+      Token::Ident("a".to_owned()),
+      Token::Plus,
+      Token::Number(43),
+      Token::Power,
+      Token::Number(5),
+      Token::Faculty,
       Token::EOF,
     ];
 
