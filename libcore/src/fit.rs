@@ -45,7 +45,7 @@ fn fit_var_sym_impl<'a>(
     let mapping = match map {
         Some(prev_map) => {
             if prev_map.variable.contains_key(outer) {
-                println!("Map already contains {}", outer);
+                // println!("Map already contains {}", outer);
                 FitMap {
                     variable: hashmap! {outer => inner},
                     location: outer, // TODO: Bad hack
@@ -68,12 +68,7 @@ fn fit_var_sym_impl<'a>(
 }
 
 pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
-    // let map = Some(FitMap {
-    //     variable: HashMap::new(),
-    //     location: outer, // TODO: Bad hack
-    // });
     let map = Option::<FitMap>::None;
-
     fit_sym_sym_impl(outer, inner, &map)
 }
 
@@ -186,8 +181,33 @@ fn fit_op_op_impl<'a>(
 }
 
 #[cfg(test)]
-mod tests {
+mod specs {
     use super::*;
+    use crate::context::*;
+    use test::Bencher;
+
+    fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) -> Context {
+        let mut functions: HashMap<String, Declaration> = HashMap::new();
+        for function_name in function_names.iter() {
+            functions.insert(
+                String::from(*function_name),
+                Declaration {
+                    is_fixed: true,
+                    is_function: true,
+                },
+            );
+        }
+        for fixed_variable_name in fixed_variable_names.iter() {
+            functions.insert(
+                String::from(*fixed_variable_name),
+                Declaration {
+                    is_fixed: true,
+                    is_function: false,
+                },
+            );
+        }
+        Context { functions }
+    }
 
     fn format_scenario(fit: &FitMap) -> String {
         fit.variable
@@ -197,14 +217,14 @@ mod tests {
             .join("\n")
     }
 
-    fn format_scenarios(scenarios: &Vec<FitMap>) -> String {
-        scenarios
-            .iter()
-            .map(format_scenario)
-            .map(|sc| format!("Scenario:\n {}", sc))
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
+    // fn format_scenarios(scenarios: &Vec<FitMap>) -> String {
+    //     scenarios
+    //         .iter()
+    //         .map(format_scenario)
+    //         .map(|sc| format!("Scenario:\n {}", sc))
+    //         .collect::<Vec<String>>()
+    //         .join("\n")
+    // }
 
     #[test]
     fn symbol_fit_root_type() {
@@ -258,8 +278,9 @@ mod tests {
 
     #[test]
     fn operator_flat_single_variable() {
-        let outer = Symbol::parse("A(a)\0");
-        let inner = Symbol::parse("A(b)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a)");
+        let inner = Symbol::parse(&context, "A(b)");
 
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
@@ -283,8 +304,9 @@ mod tests {
 
     #[test]
     fn operator_flat_multiple_variables() {
-        let outer = Symbol::parse("A(a,b)\0");
-        let inner = Symbol::parse("A(c,d)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a,b)");
+        let inner = Symbol::parse(&context, "A(c,d)");
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
@@ -297,10 +319,11 @@ mod tests {
         assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
-    #[test]
-    fn inner_hierarchically_variable() {
-        let outer = Symbol::parse("A(B(a))\0");
-        let inner = Symbol::parse("B(b)\0");
+    #[bench]
+    fn inner_hierarchically_variable(b: &mut Bencher) {
+        let context = create_context(vec!["A", "B"], vec![]);
+        let outer = Symbol::parse(&context, "A(B(a))");
+        let inner = Symbol::parse(&context, "B(b)");
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
@@ -315,12 +338,17 @@ mod tests {
             &inner.childs[0]
         );
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 
-    #[test]
-    fn variable_maps_to_operator() {
-        let outer = Symbol::parse("A(B(a))\0");
-        let inner = Symbol::parse("B(C(b))\0");
+    #[bench]
+    fn variable_maps_to_operator(b: &mut Bencher) {
+        let context = create_context(vec!["A", "B", "C"], vec![]);
+        let outer = Symbol::parse(&context, "A(B(a))");
+        let inner = Symbol::parse(&context, "B(C(b))");
 
         // Expect a -> C(b)
 
@@ -330,30 +358,35 @@ mod tests {
 
         let scenario = scenarios.iter().nth(0).unwrap();
         assert_eq!(scenario.variable.len(), 1);
-        let expected_key = Symbol::parse("a\0");
+        let expected_key = Symbol::parse(&context, "a");
         assert!(
             scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable a"
         );
-        let expected_value = Symbol::parse("C(b)\0");
+        let expected_value = Symbol::parse(&context, "C(b)");
         let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(actual_value, &&expected_value, "Expect value to be C(b)");
         assert_eq!(format!("{}", actual_value), "C(b)");
 
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 
-    #[test]
-    fn complex_inner_simple() {
-        let outer = Symbol::parse("A(B(a), b)\0");
-        let inner = Symbol::parse("A(B(c), d)\0");
+    #[bench]
+    fn complex_inner_simple(b: &mut Bencher) {
+        let context = create_context(vec!["A", "B"], vec![]);
+        let outer = Symbol::parse(&context, "A(B(a), b)");
+        let inner = Symbol::parse(&context, "A(B(c), d)");
 
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
         let scenario = all_mappings.iter().nth(0).unwrap();
         assert_eq!(scenario.variable.len(), 2, "Expected 2 mappings");
 
-        let expected_key = Symbol::parse("a\0");
+        let expected_key = Symbol::parse(&context, "a");
         assert!(
             scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable a"
@@ -361,7 +394,7 @@ mod tests {
         let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(format!("{}", actual_value), "c");
 
-        let expected_key = Symbol::parse("b\0");
+        let expected_key = Symbol::parse(&context, "b");
         assert!(
             scenario.variable.contains_key(&expected_key),
             "Expect mapping contains variable b"
@@ -369,12 +402,17 @@ mod tests {
         let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(format!("{}", actual_value), "d");
         assert_eq!(scenario.location, &outer, "Wrong location");
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 
     #[test]
     fn complex_inner_differ_variables() {
-        let outer = Symbol::parse("A(B(a), a)\0");
-        let inner = Symbol::parse("A(B(b), c)\0");
+        let context = create_context(vec!["A", "B"], vec![]);
+        let outer = Symbol::parse(&context, "A(B(a), a)");
+        let inner = Symbol::parse(&context, "A(B(b), c)");
 
         assert!(
             fit(&outer, &inner).is_empty(),
@@ -384,8 +422,9 @@ mod tests {
 
     #[test]
     fn operator_flat_multiple_variables_same_target() {
-        let outer = Symbol::parse("A(a,b)\0");
-        let inner = Symbol::parse("A(c,c)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a,b)");
+        let inner = Symbol::parse(&context, "A(c,c)");
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
@@ -397,10 +436,11 @@ mod tests {
         assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
-    #[test]
-    fn operator_flat_multiple_variables_same() {
-        let outer = Symbol::parse("A(a,a)\0");
-        let inner = Symbol::parse("A(b,b)\0");
+    #[bench]
+    fn operator_flat_multiple_variables_same(b: &mut Bencher) {
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a,a)");
+        let inner = Symbol::parse(&context, "A(b,b)");
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
@@ -411,28 +451,35 @@ mod tests {
         assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
         assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
         assert_eq!(scenario.location, &outer, "Wrong location");
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 
     #[test]
     fn operator_flat_multiple_variables_contradicting() {
-        let outer = Symbol::parse("A(a,a)\0");
-        let inner = Symbol::parse("A(c,d)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a,a)");
+        let inner = Symbol::parse(&context, "A(c,d)");
 
         assert!(fit(&outer, &inner).is_empty(), "Not injective");
     }
 
     #[test]
     fn operator_flat_wrong_childs() {
-        let outer = Symbol::parse("A(a)\0");
-        let inner = Symbol::parse("A(b,c)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a)");
+        let inner = Symbol::parse(&context, "A(b,c)");
 
         assert!(fit(&outer, &inner).is_empty());
     }
 
     #[test]
     fn operator_flat_inner_too_large() {
-        let outer = Symbol::parse("A(a)\0");
-        let inner = Symbol::parse("B(C(b))\0");
+        let context = create_context(vec!["A", "B", "C"], vec![]);
+        let outer = Symbol::parse(&context, "A(a)");
+        let inner = Symbol::parse(&context, "B(C(b))");
 
         let scenarios = fit(&outer, &inner);
         // Expect a => "B(C(b))
@@ -442,23 +489,22 @@ mod tests {
         assert_eq!(variable.len(), 1);;
 
         assert!(
-            variable.contains_key(&Symbol::parse("a\0")),
+            variable.contains_key(&Symbol::parse(&context, "a")),
             "Expect mapping contains variable a"
         );
 
         assert_eq!(
-            variable.get(&Symbol::parse("a\0")).unwrap(),
-            &&Symbol::parse("B(C(b))\0")
+            variable.get(&Symbol::parse(&context, "a")).unwrap(),
+            &&Symbol::parse(&context, "B(C(b))")
         );
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
     }
 
     #[test]
     fn flat_operators() {
-        let outer = Symbol::parse("A(a)\0");
-        let inner = Symbol::parse("A(b)\0");
-
-        println!("{:?}", outer);
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a)");
+        let inner = Symbol::parse(&context, "A(b)");
 
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1, "Expected one scenario");
@@ -471,24 +517,24 @@ mod tests {
 
     #[test]
     fn flat_operators_different_arg_count() {
-        let outer = Symbol::parse("A(a, b)\0");
-        let inner = Symbol::parse("A(b)\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a, b)");
+        let inner = Symbol::parse(&context, "A(b)");
 
         assert!(fit(&outer, &inner).is_empty());
     }
 
     #[test]
     fn folk_simple() {
-        let outer = Symbol::parse("A(a, b)\0");
-        let inner = Symbol::parse("c\0");
+        let context = create_context(vec!["A"], vec![]);
+        let outer = Symbol::parse(&context, "A(a, b)");
+        let inner = Symbol::parse(&context, "c");
 
         // Expect two scenarios (not order sensitive)
         // 1. a => c
         // 2. b => c
 
         let scenarios = fit(&outer, &inner);
-        println!("Scenarios:\n{}", format_scenarios(&scenarios));
-
         assert_eq!(scenarios.len(), 2);
 
         let scenario_ac = scenarios.iter().nth(0).unwrap();
@@ -506,15 +552,15 @@ mod tests {
 
     #[test]
     fn folk_inner_fixed() {
-        let outer = Symbol::parse("A(a, b)\0");
-        let inner = Symbol::parse("C\0");
+        let context = create_context(vec!["A"], vec!["C"]);
+        let outer = Symbol::parse(&context, "A(a, b)");
+        let inner = Symbol::parse(&context, "C");
 
         // Expect two scenarios (not order sensitive)
         // 1. a => C
         // 2. b => C
 
         let scenarios = fit(&outer, &inner);
-        println!("Scenarios:\n{}", format_scenarios(&scenarios));
 
         assert_eq!(scenarios.len(), 2);
 
@@ -533,8 +579,9 @@ mod tests {
 
     #[test]
     fn folk_zero() {
-        let outer = Symbol::parse("A(B, C)\0");
-        let inner = Symbol::parse("c\0");
+        let context = create_context(vec!["A"], vec!["B", "C"]);
+        let outer = Symbol::parse(&context, "A(B, C)");
+        let inner = Symbol::parse(&context, "c");
 
         let scenarios = fit(&outer, &inner);
         // println!("Scenarios:\n{}", format_scenarios(&scenarios));
@@ -543,15 +590,15 @@ mod tests {
 
     #[test]
     fn folk_some_inner_fixed() {
-        let outer = Symbol::parse("A(B, c)\0");
-        let inner = Symbol::parse("d\0");
+        let context = create_context(vec!["A"], vec!["B"]);
+        let outer = Symbol::parse(&context, "A(B, c)");
+        let inner = Symbol::parse(&context, "d");
 
         // Expect two scenarios (not order sensitive)
         // 1. a => C
         // 2. b => C
 
         let scenarios = fit(&outer, &inner);
-        println!("Scenarios:\n{}", format_scenarios(&scenarios));
 
         assert_eq!(scenarios.len(), 1);
 
@@ -564,8 +611,9 @@ mod tests {
 
     #[test]
     fn no_variable_simple() {
-        let outer = Symbol::parse("A\0");
-        let inner = Symbol::parse("A\0");
+        let context = create_context(vec![], vec!["A"]);
+        let outer = Symbol::parse(&context, "A");
+        let inner = Symbol::parse(&context, "A");
 
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1);
@@ -576,8 +624,9 @@ mod tests {
 
     #[test]
     fn no_variable_flat() {
-        let outer = Symbol::parse("F(A,B,C)\0");
-        let inner = Symbol::parse("F(A,B,C)\0");
+        let context = create_context(vec!["F"], vec!["A", "B", "C"]);
+        let outer = Symbol::parse(&context, "F(A,B,C)");
+        let inner = Symbol::parse(&context, "F(A,B,C)");
 
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1);
@@ -586,15 +635,20 @@ mod tests {
         assert_eq!(scenario.location, &outer, "Wrong location");
     }
 
-    #[test]
-    fn no_variable_deep() {
-        let outer = Symbol::parse("D(F(A,B,C))\0");
-        let inner = Symbol::parse("F(A,B,C)\0");
+    #[bench]
+    fn no_variable_deep(b: &mut Bencher) {
+        let context = create_context(vec!["D", "F"], vec!["A", "B", "C"]);
+        let outer = Symbol::parse(&context, "D(F(A,B,C))");
+        let inner = Symbol::parse(&context, "F(A,B,C)");
 
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 }

@@ -1,17 +1,22 @@
-use super::parsers_dep::parse_rule;
-use super::symbol;
+// use super::parsers_dep::parse_rule;
+use super::symbol::Symbol;
+use crate::context::Context;
 
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Rule {
-    pub condition: symbol::Symbol,
-    pub conclusion: symbol::Symbol,
+    pub condition: Symbol,
+    pub conclusion: Symbol,
 }
 
 impl Rule {
-    pub fn parse(code: &str) -> Rule {
-        parse_rule(code).unwrap().1
+    pub fn parse(context: &Context, code: &str) -> Rule {
+        let mut parts = code.split("=>").collect::<Vec<&str>>();
+        Rule {
+            conclusion: Symbol::parse(context, parts.pop().expect("Conclusion")),
+            condition: Symbol::parse(context, parts.pop().expect("Condition")),
+        }
     }
 }
 

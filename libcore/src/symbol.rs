@@ -78,7 +78,7 @@ impl fmt::Display for Symbol {
 }
 
 #[cfg(test)]
-mod tests {
+mod specs {
     use crate::*;
 
     #[test]
