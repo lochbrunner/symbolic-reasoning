@@ -1,4 +1,3 @@
-use std::fmt;
 use std::str;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -62,45 +61,5 @@ impl Symbol {
             Some(c) => c + 1,
             None => 1,
         }
-    }
-}
-
-impl fmt::Display for Symbol {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.childs.len() {
-            0 => write!(f, "{}", self.ident),
-            _ => {
-                let body: Vec<String> = self.childs.iter().map(|c| c.to_string()).collect();
-                write!(f, "{}({})", self.ident, body.join(","))
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod specs {
-    use crate::*;
-
-    #[test]
-    fn variable_fmt() {
-        let v = Symbol::new_variable("a");
-        assert_eq!(format!("{}", v), "a");
-        assert!(!v.fixed);
-    }
-
-    #[test]
-    fn variable_fixd_fmt() {
-        let v = Symbol::new_variable("A");
-        assert_eq!(format!("{}", v), "A");
-        assert!(v.fixed);
-    }
-
-    #[test]
-    fn operator_fmt() {
-        let a = Symbol::new_variable("a");
-        let b = Symbol::new_variable("b");
-        let o = Symbol::new_operator("f", vec![a, b]);
-        assert_eq!(format!("{}", o), "f(a,b)");
-        assert!(!o.fixed);
     }
 }

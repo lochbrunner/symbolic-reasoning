@@ -5,6 +5,8 @@ mod token;
 use super::symbol::Symbol;
 use crate::context::Context;
 
+pub use parser::Precedence;
+
 impl Symbol {
     pub fn parse_from_str(context: &Context, code: String) -> Symbol {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
