@@ -7,6 +7,7 @@ use std::fmt;
 struct SpecialSymbols<'a> {
     pub infix: HashMap<&'a str, Precedence>,
     pub postfix: HashSet<&'a str>,
+    pub prefix: HashSet<&'a str>,
 }
 
 const P_HIGHEST: Precedence = Precedence::PFaculty;
@@ -20,44 +21,47 @@ fn get_precedence_or_default<'a>(
     }
 }
 
-fn dump_impl(special_symbols: &SpecialSymbols, symbol: &Symbol, string: &mut String) {
-    if !symbol.childs.is_empty() {
-        if special_symbols.infix.contains_key(&symbol.ident[..]) {
-            let pre_root = get_precedence_or_default(special_symbols, &symbol.ident);
+fn dump_atomic(
+    special_symbols: &SpecialSymbols,
+    symbol: &Symbol,
+    bracket: bool,
+    string: &mut String,
+) {
+    if bracket {
+        string.push_str("(");
+        dump_impl(special_symbols, symbol, string);
+        string.push_str(")");
+    } else {
+        dump_impl(special_symbols, symbol, string);
+    }
+}
 
-            assert_eq!(symbol.childs.len(), 2);
+fn dump_impl(special_symbols: &SpecialSymbols, symbol: &Symbol, string: &mut String) {
+    match symbol.childs.len() {
+        0 => string.push_str(&symbol.ident),
+        1 if special_symbols.postfix.contains(&symbol.ident[..]) => {
+            let child = &symbol.childs[0];
+            let pre_child = get_precedence_or_default(special_symbols, &child.ident);
+            dump_atomic(special_symbols, child, pre_child < &P_HIGHEST, string);
+            string.push_str(&symbol.ident);
+        }
+        1 if special_symbols.prefix.contains(&symbol.ident[..]) => {
+            string.push_str(&symbol.ident);
+            let child = &symbol.childs[0];
+            let pre_child = get_precedence_or_default(special_symbols, &child.ident);
+            dump_atomic(special_symbols, child, pre_child < &P_HIGHEST, string);
+        }
+        2 if special_symbols.infix.contains_key(&symbol.ident[..]) => {
+            let pre_root = get_precedence_or_default(special_symbols, &symbol.ident);
             let left = &symbol.childs[0];
             let right = &symbol.childs[1];
             let pre_left = get_precedence_or_default(special_symbols, &left.ident);
             let pre_right = get_precedence_or_default(special_symbols, &right.ident);
-            if pre_left < pre_root {
-                string.push_str("(");
-                dump_impl(special_symbols, left, string);
-                string.push_str(")");
-            } else {
-                dump_impl(special_symbols, left, string);
-            }
+            dump_atomic(special_symbols, left, pre_left < pre_root, string);
             string.push_str(&symbol.ident);
-            if pre_right < pre_root {
-                string.push_str("(");
-                dump_impl(special_symbols, right, string);
-                string.push_str(")");
-            } else {
-                dump_impl(special_symbols, right, string);
-            }
-        } else if special_symbols.postfix.contains(&symbol.ident[..]) {
-            assert_eq!(symbol.childs.len(), 1);
-            let child = &symbol.childs[0];
-            let pre_child = get_precedence_or_default(special_symbols, &child.ident);
-            if pre_child < &P_HIGHEST {
-                string.push_str("(");
-                dump_impl(special_symbols, child, string);
-                string.push_str(")");
-            } else {
-                dump_impl(special_symbols, child, string);
-            }
-            string.push_str(&symbol.ident);
-        } else {
+            dump_atomic(special_symbols, right, pre_right < pre_root, string);
+        }
+        _ => {
             string.push_str(&symbol.ident);
             let mut first = true;
             string.push_str("(");
@@ -70,9 +74,7 @@ fn dump_impl(special_symbols: &SpecialSymbols, symbol: &Symbol, string: &mut Str
             }
             string.push_str(")");
         }
-    } else {
-        string.push_str(&symbol.ident);
-    }
+    };
 }
 
 pub fn dump(symbol: &Symbol) -> String {
@@ -83,8 +85,12 @@ pub fn dump(symbol: &Symbol) -> String {
             "*" => Precedence::PProduct,
             "/" => Precedence::PProduct,
             "^" => Precedence::PPower,
+            "=" => Precedence::PEquals,
+            "==" => Precedence::PEquals,
+            "!=" => Precedence::PEquals,
         },
         postfix: vec!["!"].into_iter().collect(),
+        prefix: vec!["-"].into_iter().collect(),
     };
     let mut string = String::new();
     dump_impl(&special_symbols, symbol, &mut string);
@@ -104,9 +110,9 @@ mod e2e {
     use std::collections::HashMap;
 
     fn create_context(function_names: Vec<&str>) -> Context {
-        let mut functions: HashMap<String, Declaration> = HashMap::new();
+        let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
-            functions.insert(
+            declarations.insert(
                 String::from(*function_name),
                 Declaration {
                     is_fixed: false,
@@ -114,7 +120,7 @@ mod e2e {
                 },
             );
         }
-        Context { functions }
+        Context { declarations }
     }
 
     #[test]

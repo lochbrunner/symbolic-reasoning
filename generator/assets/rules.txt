@@ -1,0 +1,6 @@
+a-a <=> 0
+a+a <=> 2*a
+a <=> a+0
+// equations
+a = b <=> a - b = 0
+x + a = 0 <=> x = -a

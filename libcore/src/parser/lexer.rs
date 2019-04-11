@@ -9,7 +9,7 @@ use super::token::Token;
 
 // operators
 named!(equal_operator<CompleteByteSlice, Token>,
-  do_parse!(tag!("==") >> (Token::Equal))
+  do_parse!(tag!("=") >> (Token::Equal))
 );
 
 named!(not_equal_operator<CompleteByteSlice, Token>,
@@ -138,27 +138,27 @@ named!(lex_ident<CompleteByteSlice, Token>,
     )
 );
 
-// punctuations
+// punctuation
 named!(comma<CompleteByteSlice, Token>,
   do_parse!(tag!(",") >> (Token::Comma))
 );
-named!(lparen<CompleteByteSlice, Token>,
-  do_parse!(tag!("(") >> (Token::ParenL))
+named!(lbracket<CompleteByteSlice, Token>,
+  do_parse!(tag!("(") >> (Token::BracketL))
 );
 
-named!(rparen<CompleteByteSlice, Token>,
-  do_parse!(tag!(")") >> (Token::ParenR))
+named!(rbracket<CompleteByteSlice, Token>,
+  do_parse!(tag!(")") >> (Token::BracketR))
 );
 
-named!(lex_punctuations<CompleteByteSlice, Token>, alt!(
+named!(lex_punctuation<CompleteByteSlice, Token>, alt!(
     comma |
-    lparen |
-    rparen
+    lbracket |
+    rbracket
 ));
 
 named!(lex_token<CompleteByteSlice, Token>, alt_complete!(
     lex_operator |
-    lex_punctuations |
+    lex_punctuation |
     lex_integer |
     lex_ident
     // lex_illegal
@@ -188,11 +188,11 @@ mod specs {
       Token::Ident("bc".to_owned()),
       Token::Comma,
       Token::Comma,
-      Token::ParenL,
+      Token::BracketL,
       Token::Ident("a".to_owned()),
       Token::Comma,
       Token::Ident("b".to_owned()),
-      Token::ParenR,
+      Token::BracketR,
       Token::EOF,
     ];
 

@@ -26,9 +26,9 @@ mod e2e {
     use std::collections::HashMap;
 
     fn create_context(function_names: Vec<&str>) -> Context {
-        let mut functions: HashMap<String, Declaration> = HashMap::new();
+        let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
-            functions.insert(
+            declarations.insert(
                 String::from(*function_name),
                 Declaration {
                     is_fixed: false,
@@ -36,7 +36,7 @@ mod e2e {
                 },
             );
         }
-        Context { functions }
+        Context { declarations }
     }
 
     #[test]
@@ -57,5 +57,55 @@ mod e2e {
                 ]
             )
         );
+    }
+
+    #[test]
+    fn equation_1() {
+        // a - b == 0
+        let context = create_context(vec![]);
+        let actual = Symbol::parse(&context, "a - b = 0");
+
+        let expected = Symbol::new_operator(
+            "=",
+            vec![
+                Symbol::new_operator(
+                    "-",
+                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
+                ),
+                Symbol::new_number(0),
+            ],
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn equation_2() {
+        // a - b == 0
+        let context = create_context(vec![]);
+        let actual = Symbol::parse(&context, "a = b");
+
+        let expected = Symbol::new_operator(
+            "=",
+            vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
+        );
+
+        assert_eq!(actual, expected);
+    }
+    #[test]
+    fn equation_3() {
+        // x == -a
+        let context = create_context(vec![]);
+        let actual = Symbol::parse(&context, "x = -a");
+
+        let expected = Symbol::new_operator(
+            "=",
+            vec![
+                Symbol::new_variable("x"),
+                Symbol::new_operator("-", vec![Symbol::new_variable("a")]),
+            ],
+        );
+
+        assert_eq!(actual, expected);
     }
 }

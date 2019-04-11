@@ -21,7 +21,8 @@
 #![feature(map_get_key_value)]
 #![feature(test)]
 #[macro_use]
-
+extern crate serde_derive;
+#[macro_use]
 extern crate maplit;
 extern crate nom;
 extern crate test;

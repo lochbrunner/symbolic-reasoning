@@ -187,9 +187,9 @@ mod specs {
     use test::Bencher;
 
     fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) -> Context {
-        let mut functions: HashMap<String, Declaration> = HashMap::new();
+        let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
-            functions.insert(
+            declarations.insert(
                 String::from(*function_name),
                 Declaration {
                     is_fixed: true,
@@ -198,7 +198,7 @@ mod specs {
             );
         }
         for fixed_variable_name in fixed_variable_names.iter() {
-            functions.insert(
+            declarations.insert(
                 String::from(*fixed_variable_name),
                 Declaration {
                     is_fixed: true,
@@ -206,7 +206,7 @@ mod specs {
                 },
             );
         }
-        Context { functions }
+        Context { declarations }
     }
 
     fn format_scenario(fit: &FitMap) -> String {

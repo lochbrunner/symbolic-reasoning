@@ -9,7 +9,7 @@ use std::slice::Iter;
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     PLowest,
-    PSeperator,
+    PSeparator,
     PCall,
     POpening,
     // PClosing,
@@ -22,18 +22,18 @@ pub enum Precedence {
     // PHighest,
 }
 #[derive(Debug, PartialEq)]
-enum ParansDirection {
+enum BracketDirection {
     Closing,
     Opening,
 }
 #[derive(Debug, PartialEq)]
-enum ParansType {
+enum BracketType {
     Round,
 }
 #[derive(Debug, PartialEq)]
-struct Parans {
-    pub direction: ParansDirection,
-    pub r#type: ParansType,
+struct Bracket {
+    pub direction: BracketDirection,
+    pub r#type: BracketType,
 }
 
 #[derive(Debug, PartialEq)]
@@ -41,7 +41,7 @@ enum Classification {
     Infix(Operation),
     Prefix(Operation),
     Postfix(Operation),
-    Parans(Parans),
+    Bracket(Bracket),
     Separator,
     Ident(String),
     Literal(i64),
@@ -86,8 +86,8 @@ mod token_type {
     pub const POSTFIX: u32 = 1 << 2;
     pub const IDENT: u32 = 1 << 3;
     pub const LITERAL: u32 = 1 << 4;
-    pub const CLOSING_PARENS: u32 = 1 << 5;
-    pub const OPENING_PARENS: u32 = 1 << 6;
+    pub const CLOSING_BRACKET: u32 = 1 << 5;
+    pub const OPENING_BRACKET: u32 = 1 << 6;
     pub const SEPARATOR: u32 = 1 << 7;
     pub const EOF: u32 = 1 << 8;
 }
@@ -102,14 +102,14 @@ fn token_info(token: &Token) -> (u32, &'static str, Precedence, Option<&String>,
         Token::Multiply => (INFIX, "*", Precedence::PProduct, None, None),
         Token::Divide => (INFIX, "/", Precedence::PProduct, None, None),
         Token::Power => (INFIX, "^", Precedence::PPower, None, None),
-        Token::Equal => (INFIX, "==", Precedence::PEquals, None, None),
+        Token::Equal => (INFIX, "=", Precedence::PEquals, None, None),
         Token::NotEqual => (INFIX, "!=", Precedence::PEquals, None, None),
         Token::GreaterThan => (INFIX, ">", Precedence::PLessGreater, None, None),
         Token::LessThan => (INFIX, "<", Precedence::PLessGreater, None, None),
         Token::GreaterThanEqual => (INFIX, ">=", Precedence::PLessGreater, None, None),
         Token::LessThanEqual => (INFIX, "<=", Precedence::PLessGreater, None, None),
-        Token::ParenL => (OPENING_PARENS, "(", Precedence::POpening, None, None),
-        Token::ParenR => (CLOSING_PARENS, ")", Precedence::POpening, None, None),
+        Token::BracketL => (OPENING_BRACKET, "(", Precedence::POpening, None, None),
+        Token::BracketR => (CLOSING_BRACKET, ")", Precedence::POpening, None, None),
         Token::Comma => (SEPARATOR, ",", Precedence::PLowest, None, None),
         Token::Faculty => (POSTFIX, "!", Precedence::PFaculty, None, None),
         Token::EOF => (EOF, "", Precedence::PLowest, None, None),
@@ -162,15 +162,16 @@ impl<'a> Iterator for Classifier<'a> {
                         create_postfix(token_info.1, token_info.2)
                     } else if token_info.0 & token_type::EOF != 0 {
                         Some(Ok(Classification::EOF))
-                    } else if token_info.0 & token_type::CLOSING_PARENS != 0 {
-                        Some(Ok(Classification::Parans(Parans {
-                            direction: ParansDirection::Closing,
-                            r#type: ParansType::Round,
+                    } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
+                        Some(Ok(Classification::Bracket(Bracket {
+                            direction: BracketDirection::Closing,
+                            r#type: BracketType::Round,
                         })))
                     } else if token_info.0 & token_type::SEPARATOR != 0 {
                         self.expect_operator = false;
                         Some(Ok(Classification::Separator))
-                    } else if token_info.0 & (token_type::IDENT | token_type::OPENING_PARENS) != 0 {
+                    } else if token_info.0 & (token_type::IDENT | token_type::OPENING_BRACKET) != 0
+                    {
                         self.expect_operator = false;
                         self.next = Some(token);
                         create_infix("*", Precedence::PProduct)
@@ -195,16 +196,16 @@ impl<'a> Iterator for Classifier<'a> {
                         create_prefix(token_info.1, token_info.2)
                     } else if token_info.0 & token_type::EOF != 0 {
                         Some(Ok(Classification::EOF))
-                    } else if token_info.0 & token_type::OPENING_PARENS != 0 {
-                        Some(Ok(Classification::Parans(Parans {
-                            direction: ParansDirection::Opening,
-                            r#type: ParansType::Round,
+                    } else if token_info.0 & token_type::OPENING_BRACKET != 0 {
+                        Some(Ok(Classification::Bracket(Bracket {
+                            direction: BracketDirection::Opening,
+                            r#type: BracketType::Round,
                         })))
-                    } else if token_info.0 & token_type::CLOSING_PARENS != 0 {
+                    } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
                         self.expect_operator = true;
-                        Some(Ok(Classification::Parans(Parans {
-                            direction: ParansDirection::Closing,
-                            r#type: ParansType::Round,
+                        Some(Ok(Classification::Bracket(Bracket {
+                            direction: BracketDirection::Closing,
+                            r#type: BracketType::Round,
                         })))
                     } else {
                         Some(Err(format!("Expected literal or ident, found {:?}", token)))
@@ -280,7 +281,7 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
     // TODO: Merge this with astify later
     let mut childs = vec![];
     childs.push(pop_as_symbol(&mut stack.symbol));
-    while stack.infix.pop().expect("Something").precedence == Precedence::PSeperator {
+    while stack.infix.pop().expect("Something").precedence == Precedence::PSeparator {
         childs.push(pop_as_symbol(&mut stack.symbol));
     }
     childs.reverse();
@@ -348,12 +349,12 @@ pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
                     .symbol
                     .push(IdentOrSymbol::Symbol(Symbol::new_number(value))),
                 Classification::EOF => break,
-                Classification::Parans(parans) => match parans.direction {
-                    ParansDirection::Closing => {
+                Classification::Bracket(bracket) => match bracket.direction {
+                    BracketDirection::Closing => {
                         astify(context, &mut stack, Precedence::POpening);
                         apply_function(context, &mut stack);
                     }
-                    ParansDirection::Opening => stack.infix.push(Operation {
+                    BracketDirection::Opening => stack.infix.push(Operation {
                         precedence: Precedence::POpening,
                         ident: String::from("("),
                         r#type: OperationType::Dummy,
@@ -361,7 +362,7 @@ pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
                 },
                 Classification::Separator => {
                     stack.infix.push(Operation {
-                        precedence: Precedence::PSeperator,
+                        precedence: Precedence::PSeparator,
                         ident: String::from(","),
                         r#type: OperationType::Dummy,
                     });
@@ -392,9 +393,9 @@ mod specs {
     }
 
     fn create_context(function_names: Vec<&str>) -> Context {
-        let mut functions: HashMap<String, Declaration> = HashMap::new();
+        let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
-            functions.insert(
+            declarations.insert(
                 String::from(*function_name),
                 Declaration {
                     is_fixed: false,
@@ -402,13 +403,13 @@ mod specs {
                 },
             );
         }
-        Context { functions }
+        Context { declarations }
     }
 
     #[test]
     fn classifier_single_ident_no_args() {
         let context = Context {
-            functions: HashMap::new(),
+            declarations: HashMap::new(),
         };
         let tokens = vec![Token::Ident(String::from("a")), Token::EOF];
         let tokens = Tokens(&tokens);
@@ -428,7 +429,7 @@ mod specs {
     #[test]
     fn single_ident_no_args() {
         let context = Context {
-            functions: HashMap::new(),
+            declarations: HashMap::new(),
         };
         let tokens = vec![Token::Ident(String::from("a")), Token::EOF];
         let actual = parse(&context, &tokens);
@@ -441,9 +442,9 @@ mod specs {
 
         let raw_tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
         let tokens = Tokens(&raw_tokens);
@@ -456,14 +457,14 @@ mod specs {
             actual,
             vec![
                 Ok(create_function("f")),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Opening,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Opening,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::Ident(String::from("a"))),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Closing,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Closing,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::EOF)
             ]
@@ -475,9 +476,9 @@ mod specs {
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
@@ -492,13 +493,13 @@ mod specs {
         let context = create_context(vec!["f"]);
         let raw_tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Comma,
             Token::Ident(String::from("b")),
             Token::Comma,
             Token::Ident(String::from("c")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -512,18 +513,18 @@ mod specs {
             actual,
             vec![
                 Ok(create_function("f")),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Opening,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Opening,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::Ident(String::from("a"))),
                 Ok(Classification::Separator),
                 Ok(Classification::Ident(String::from("b"))),
                 Ok(Classification::Separator),
                 Ok(Classification::Ident(String::from("c"))),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Closing,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Closing,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::EOF)
             ]
@@ -535,13 +536,13 @@ mod specs {
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Comma,
             Token::Ident(String::from("b")),
             Token::Comma,
             Token::Ident(String::from("c")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
@@ -564,12 +565,12 @@ mod specs {
         let context = create_context(vec!["f", "g"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("g")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
-            Token::ParenR,
-            Token::ParenR,
+            Token::BracketR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -589,11 +590,11 @@ mod specs {
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("b")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -616,17 +617,17 @@ mod specs {
         let context = create_context(vec!["f", "g", "h"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("g")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
-            Token::ParenR,
+            Token::BracketR,
             Token::Plus,
             Token::Ident(String::from("h")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("b")),
-            Token::ParenR,
-            Token::ParenR,
+            Token::BracketR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -738,15 +739,15 @@ mod specs {
     }
 
     #[test]
-    fn operators_with_parens_front() {
+    fn operators_with_brackets_front() {
         // (a+b)*c
         let context = create_context(vec![]);
         let tokens = vec![
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("b")),
-            Token::ParenR,
+            Token::BracketR,
             Token::Multiply,
             Token::Ident(String::from("c")),
             Token::EOF,
@@ -774,9 +775,9 @@ mod specs {
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("b")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -796,14 +797,14 @@ mod specs {
                     r#type: OperationType::Infix
                 })),
                 Ok(create_function("f")),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Opening,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Opening,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::Ident(String::from("b"))),
-                Ok(Classification::Parans(Parans {
-                    direction: ParansDirection::Closing,
-                    r#type: ParansType::Round
+                Ok(Classification::Bracket(Bracket {
+                    direction: BracketDirection::Closing,
+                    r#type: BracketType::Round
                 })),
                 Ok(Classification::EOF)
             ]
@@ -818,9 +819,9 @@ mod specs {
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("f")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("b")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
@@ -921,27 +922,27 @@ mod specs {
     }
 
     #[bench]
-    fn implicit_bin_operator_parans(b: &mut Bencher) {
+    fn implicit_bin_operator_brackets(b: &mut Bencher) {
         // ab -> (a+b)(c+d)*e(f+g)
         let context = create_context(vec![]);
         let tokens = vec![
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("b")),
-            Token::ParenR,
-            Token::ParenL,
+            Token::BracketR,
+            Token::BracketL,
             Token::Ident(String::from("c")),
             Token::Plus,
             Token::Ident(String::from("d")),
-            Token::ParenR,
+            Token::BracketR,
             Token::Multiply,
             Token::Ident(String::from("e")),
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("f")),
             Token::Plus,
             Token::Ident(String::from("g")),
-            Token::ParenR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -987,23 +988,23 @@ mod specs {
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
-            Token::ParenL,
+            Token::BracketL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("b")),
-            Token::ParenR,
+            Token::BracketR,
             Token::Multiply,
             Token::Ident(String::from("c")),
             Token::Plus,
             Token::Ident(String::from("d")),
             Token::Multiply,
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("e")),
             Token::Plus,
             Token::Ident(String::from("h")),
-            Token::ParenR,
-            Token::ParenR,
+            Token::BracketR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -1046,17 +1047,17 @@ mod specs {
     }
 
     #[test]
-    fn double_parens() {
+    fn double_brackets() {
         // ((a+b))
         let context = create_context(vec![]);
         let tokens = vec![
-            Token::ParenL,
-            Token::ParenL,
+            Token::BracketL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
             Token::Plus,
             Token::Ident(String::from("b")),
-            Token::ParenR,
-            Token::ParenR,
+            Token::BracketR,
+            Token::BracketR,
             Token::EOF,
         ];
 
@@ -1069,16 +1070,16 @@ mod specs {
     }
 
     #[test]
-    fn function_double_parens() {
+    fn function_double_brackets() {
         // f((a))
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
-            Token::ParenL,
-            Token::ParenL,
+            Token::BracketL,
+            Token::BracketL,
             Token::Ident(String::from("a")),
-            Token::ParenR,
-            Token::ParenR,
+            Token::BracketR,
+            Token::BracketR,
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
@@ -1134,11 +1135,11 @@ mod specs {
             Token::Multiply,
             Token::Ident(String::from("c")),
             Token::Plus,
-            Token::ParenL,
+            Token::BracketL,
             Token::Ident(String::from("e")),
             Token::Multiply,
             Token::Ident(String::from("d")),
-            Token::ParenR,
+            Token::BracketR,
             Token::Faculty,
             Token::EOF,
         ];
@@ -1253,6 +1254,64 @@ mod specs {
             vec![
                 Symbol::new_number(1),
                 Symbol::new_operator("*", vec![Symbol::new_number(2), Symbol::new_number(3)]),
+            ],
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    // Regressions
+
+    #[test]
+    fn equation_1() {
+        // a - b = 0
+        let tokens = vec![
+            Token::Ident(String::from("a")),
+            Token::Minus,
+            Token::Ident(String::from("b")),
+            Token::Equal,
+            Token::Number(0),
+            Token::EOF,
+        ];
+
+        let context = create_context(vec![]);
+
+        let actual = parse(&context, &tokens);
+
+        let expected = Symbol::new_operator(
+            "=",
+            vec![
+                Symbol::new_operator(
+                    "-",
+                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
+                ),
+                Symbol::new_number(0),
+            ],
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn equation_3() {
+        // x = -a
+        let tokens = vec![
+            Token::Ident(String::from("x")),
+            Token::Equal,
+            Token::Minus,
+            Token::Ident(String::from("a")),
+            Token::EOF,
+        ];
+
+        let context = create_context(vec![]);
+
+        let actual = parse(&context, &tokens);
+
+        let expected = Symbol::new_operator(
+            "=",
+            vec![
+                Symbol::new_variable("x"),
+                Symbol::new_operator("-", vec![Symbol::new_variable("a")]),
             ],
         );
 

@@ -19,6 +19,6 @@ pub enum Token {
     Faculty,
     // grouping
     Comma,
-    ParenL,
-    ParenR,
+    BracketL,
+    BracketR,
 }
