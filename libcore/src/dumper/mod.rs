@@ -13,7 +13,7 @@ struct SpecialSymbols<'a> {
 const P_HIGHEST: Precedence = Precedence::PFaculty;
 fn get_precedence_or_default<'a>(
     special_symbols: &'a SpecialSymbols,
-    ident: &String,
+    ident: &str,
 ) -> &'a Precedence {
     match special_symbols.infix.get(&ident[..]) {
         None => &P_HIGHEST,

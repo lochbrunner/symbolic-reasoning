@@ -9,19 +9,24 @@ pub struct FitMap<'a> {
     /// outer is key, inner is value
     pub variable: HashMap<&'a Symbol, &'a Symbol>,
     /// Where the inner root is located in the outer
+    /// [Deprecated]
     pub location: &'a Symbol,
+    /// Path to the node
+    /// Each item represents the index of the next child
+    pub path: Vec<usize>,
 }
 
-// How to indicate no fit? => Empty vector
+/// Empty vector indicates no fit
 fn fit_sym_op_impl<'a>(
     outer: &'a Symbol,
     inner: &'a Symbol,
     maps: &Option<FitMap<'a>>,
+    path: &[usize],
 ) -> Vec<FitMap<'a>> {
     // TODO: Return iter later
     match outer.fixed {
-        false => fit_var_sym_impl(outer, inner, maps),
-        true => fit_op_op_impl(outer, inner, maps),
+        false => fit_var_sym_impl(outer, inner, maps, path),
+        true => fit_op_op_impl(outer, inner, maps, path),
     }
 }
 
@@ -29,10 +34,11 @@ fn fit_sym_sym_impl<'a>(
     outer: &'a Symbol,
     inner: &'a Symbol,
     map: &Option<FitMap<'a>>,
+    path: &[usize],
 ) -> Vec<FitMap<'a>> {
     match outer.fixed {
-        true => fit_op_op_impl(outer, inner, map),
-        false => fit_var_sym_impl(outer, inner, map),
+        true => fit_op_op_impl(outer, inner, map, path),
+        false => fit_var_sym_impl(outer, inner, map, path),
     }
 }
 
@@ -40,36 +46,42 @@ fn fit_var_sym_impl<'a>(
     outer: &'a Symbol,
     inner: &'a Symbol,
     map: &Option<FitMap<'a>>,
+    path: &[usize],
 ) -> Vec<FitMap<'a>> {
     // Do we still have a scenario?
     let mapping = match map {
         Some(prev_map) => {
-            if prev_map.variable.contains_key(outer) {
+            if prev_map.variable.contains_key(inner) {
                 // println!("Map already contains {}", outer);
                 FitMap {
-                    variable: hashmap! {outer => inner},
+                    variable: hashmap! {inner => outer},
                     location: outer, // TODO: Bad hack
+                    path: path.to_vec(),
                 }
             } else {
                 FitMap {
-                    variable: hashmap! {outer => inner},
-                    location: outer, // TODO: Bad hack
+                    variable: hashmap! {inner => outer},
+                    location: outer, // TODO: Bad hack,
+                    path: path.to_vec(),
                 }
             }
         }
         None => {
             FitMap {
-                variable: hashmap! {outer => inner},
-                location: outer, // TODO: Bad hack
+                variable: hashmap! {inner => outer},
+                location: outer, // TODO: Bad hack,
+                path: path.to_vec(),
             }
         }
     };
     vec![mapping]
 }
 
+/// Finds scenarios in which the inner symbol fits into the outer
 pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
     let map = Option::<FitMap>::None;
-    fit_sym_sym_impl(outer, inner, &map)
+    let path = vec![];
+    fit_sym_sym_impl(outer, inner, &map, &path)
 }
 
 /// Assuming for now target and source have length 1
@@ -113,6 +125,7 @@ fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &Vec<FitMap<'a>>) -> Vec<Fit
         let mut target_scenario = FitMap {
             variable: HashMap::new(),
             location: prev.location,
+            path: prev.path.clone(),
         };
         for (key, value) in extension_scenario.variable.iter() {
             target_scenario.variable.insert(*key, *value);
@@ -132,6 +145,7 @@ fn fit_op_op_impl<'a>(
     outer: &'a Symbol,
     inner: &'a Symbol,
     map: &Option<FitMap<'a>>,
+    path: &[usize],
 ) -> Vec<FitMap<'a>> {
     // Check root
     if outer.ident != inner.ident {
@@ -139,9 +153,10 @@ fn fit_op_op_impl<'a>(
         // if outer.depth > inner.depth {
         // Try fit the childs of the outer
         let mut fittings: Vec<FitMap<'a>> = Vec::new();
-        for child in outer.childs.iter() {
-            // let folk = FitMap {};
-            let branches = fit_sym_op_impl(child, inner, map);
+        for (i, child) in outer.childs.iter().enumerate() {
+            let mut path = path.to_vec();
+            path.push(i);
+            let branches = fit_sym_op_impl(child, inner, map, &path);
             // fittings.extend(merge_mappings(map, &branches));
             // Folk here
             fittings.extend(branches);
@@ -156,6 +171,7 @@ fn fit_op_op_impl<'a>(
         let new_scenario = Some(FitMap {
             variable: HashMap::new(),
             location: outer,
+            path: path.to_vec(),
         });
         let scenario = match map {
             Some(_) => map,
@@ -167,10 +183,11 @@ fn fit_op_op_impl<'a>(
         let mut extension: Vec<FitMap> = vec![FitMap {
             variable: HashMap::new(),
             location: outer, // or use from parent
+            path: path.to_vec(),
         }];
 
         'childs: for i in 0..outer.childs.len() {
-            let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], &scenario);
+            let add = fit_sym_sym_impl(&outer.childs[i], &inner.childs[i], &scenario, path);
             add_extension(&mut extension, add);
         }
         match scenario {
@@ -209,6 +226,7 @@ mod specs {
         Context { declarations }
     }
 
+    #[allow(dead_code)]
     fn format_scenario(fit: &FitMap) -> String {
         fit.variable
             .iter()
@@ -217,14 +235,15 @@ mod specs {
             .join("\n")
     }
 
-    // fn format_scenarios(scenarios: &Vec<FitMap>) -> String {
-    //     scenarios
-    //         .iter()
-    //         .map(format_scenario)
-    //         .map(|sc| format!("Scenario:\n {}", sc))
-    //         .collect::<Vec<String>>()
-    //         .join("\n")
-    // }
+    #[allow(dead_code)]
+    fn format_scenarios(scenarios: &[FitMap]) -> String {
+        scenarios
+            .iter()
+            .map(format_scenario)
+            .map(|sc| format!("Scenario:\n {}", sc))
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
 
     #[test]
     fn symbol_fit_root_type() {
@@ -282,6 +301,7 @@ mod specs {
 
     #[test]
     fn operator_flat_single_variable() {
+        // a => b
         let context = create_context(vec!["A"], vec![]);
         let outer = Symbol::parse(&context, "A(a)");
         let inner = Symbol::parse(&context, "A(b)");
@@ -289,11 +309,16 @@ mod specs {
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
-        let FitMap { variable, location } = mapping;
+        let FitMap {
+            variable,
+            location,
+            path,
+        } = mapping;
 
         assert_eq!(variable.len(), 1, "Expected one mapping");
 
         assert_eq!(location, &&outer);
+        assert!(path.is_empty());
         assert_eq!(
             format!("{}", variable.keys().nth(0).unwrap()),
             "a",
@@ -321,6 +346,7 @@ mod specs {
         assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
         assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
     }
 
     #[bench]
@@ -342,6 +368,7 @@ mod specs {
             &inner.childs[0]
         );
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {
             fit(&outer, &inner);
@@ -354,7 +381,7 @@ mod specs {
         let outer = Symbol::parse(&context, "A(B(a))");
         let inner = Symbol::parse(&context, "B(C(b))");
 
-        // Expect a -> C(b)
+        // Expect a -> C(b) [wrong]
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
@@ -373,6 +400,7 @@ mod specs {
         assert_eq!(format!("{}", actual_value), "C(b)");
 
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {
             fit(&outer, &inner);
@@ -390,22 +418,23 @@ mod specs {
         let scenario = all_mappings.iter().nth(0).unwrap();
         assert_eq!(scenario.variable.len(), 2, "Expected 2 mappings");
 
-        let expected_key = Symbol::parse(&context, "a");
+        let expected_key = Symbol::parse(&context, "c");
         assert!(
             scenario.variable.contains_key(&expected_key),
-            "Expect mapping contains variable a"
+            "Expect mapping contains variable c"
         );
         let actual_value = scenario.variable.get(&expected_key).unwrap();
-        assert_eq!(format!("{}", actual_value), "c");
+        assert_eq!(format!("{}", actual_value), "a");
 
-        let expected_key = Symbol::parse(&context, "b");
+        let expected_key = Symbol::parse(&context, "d");
         assert!(
             scenario.variable.contains_key(&expected_key),
-            "Expect mapping contains variable b"
+            "Expect mapping contains variable d"
         );
         let actual_value = scenario.variable.get(&expected_key).unwrap();
-        assert_eq!(format!("{}", actual_value), "d");
+        assert_eq!(format!("{}", actual_value), "b");
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
 
         b.iter(|| {
             fit(&outer, &inner);
@@ -415,8 +444,8 @@ mod specs {
     #[test]
     fn complex_inner_differ_variables() {
         let context = create_context(vec!["A", "B"], vec![]);
-        let outer = Symbol::parse(&context, "A(B(a), a)");
-        let inner = Symbol::parse(&context, "A(B(b), c)");
+        let outer = Symbol::parse(&context, "A(B(b), c)");
+        let inner = Symbol::parse(&context, "A(B(a), a)");
 
         assert!(
             fit(&outer, &inner).is_empty(),
@@ -427,17 +456,18 @@ mod specs {
     #[test]
     fn operator_flat_multiple_variables_same_target() {
         let context = create_context(vec!["A"], vec![]);
-        let outer = Symbol::parse(&context, "A(a,b)");
-        let inner = Symbol::parse(&context, "A(c,c)");
+        let outer = Symbol::parse(&context, "A(c,c)");
+        let inner = Symbol::parse(&context, "A(a,b)");
 
         // Necessary to keep the vector in scope
         let scenarios = fit(&outer, &inner);
         let scenario = scenarios.iter().nth(0).unwrap();
 
         assert_eq!(scenario.variable.len(), 2);
-        assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
-        assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
+        assert_eq!(scenario.variable[&inner.childs[0]], &outer.childs[0]);
+        assert_eq!(scenario.variable[&inner.childs[1]], &outer.childs[1]);
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
     }
 
     #[bench]
@@ -455,6 +485,7 @@ mod specs {
         assert_eq!(scenario.variable[&outer.childs[0]], &inner.childs[0]);
         assert_eq!(scenario.variable[&outer.childs[1]], &inner.childs[1]);
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
 
         b.iter(|| {
             fit(&outer, &inner);
@@ -481,12 +512,14 @@ mod specs {
 
     #[test]
     fn operator_flat_inner_too_large() {
+        // Note: This does not make sense in real world
         let context = create_context(vec!["A", "B", "C"], vec![]);
         let outer = Symbol::parse(&context, "A(a)");
         let inner = Symbol::parse(&context, "B(C(b))");
 
         let scenarios = fit(&outer, &inner);
-        // Expect a => "B(C(b))
+        // Expect a => B(C(b)) [deprecated]
+        // Expect B(C(b)) => a
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         let FitMap { variable, .. } = scenario;
@@ -502,6 +535,7 @@ mod specs {
             &&Symbol::parse(&context, "B(C(b))")
         );
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario.path, vec![0], "Wrong path");
     }
 
     #[test]
@@ -515,8 +549,9 @@ mod specs {
 
         let scenario = scenarios.iter().nth(0).unwrap();
         assert_eq!(scenario.variable.len(), 1, "Expected one variable mapping");
-        assert_eq!(format_scenario(scenario), "a => b");
+        assert_eq!(format_scenario(scenario), "b => a");
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
     }
 
     #[test]
@@ -546,12 +581,14 @@ mod specs {
         assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
         assert_eq!(format_scenario(scenario_ac), "a => c");
         assert_eq!(scenario_ac.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario_ac.path, vec![0], "Wrong path");
 
         let scenario_bc = scenarios.iter().nth(1).unwrap();
         assert_eq!(scenario_bc.variable.len(), 1);
         assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario_bc), "b => c");
         assert_eq!(scenario_bc.location, &outer.childs[1], "Wrong location");
+        assert_eq!(scenario_bc.path, vec![1], "Wrong path");
     }
 
     #[test]
@@ -573,12 +610,14 @@ mod specs {
         assert_eq!(scenario_ac.variable[&outer.childs[0]], &inner);
         assert_eq!(format_scenario(scenario_ac), "a => C");
         assert_eq!(scenario_ac.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario_ac.path, vec![0], "Wrong path");
 
         let scenario_bc = scenarios.iter().nth(1).unwrap();
         assert_eq!(scenario_bc.variable.len(), 1);
         assert_eq!(scenario_bc.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario_bc), "b => C");
         assert_eq!(scenario_bc.location, &outer.childs[1], "Wrong location");
+        assert_eq!(scenario_bc.path, vec![1], "Wrong path");
     }
 
     #[test]
@@ -611,6 +650,7 @@ mod specs {
         assert_eq!(scenario.variable[&outer.childs[1]], &inner);
         assert_eq!(format_scenario(scenario), "c => d");
         assert_eq!(scenario.location, &outer.childs[1], "Wrong location");
+        assert_eq!(scenario.path, vec![1], "Wrong path");
     }
 
     #[test]
@@ -624,6 +664,7 @@ mod specs {
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
     }
 
     #[test]
@@ -637,6 +678,7 @@ mod specs {
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
         assert_eq!(scenario.location, &outer, "Wrong location");
+        assert!(scenario.path.is_empty(), "Wrong path");
     }
 
     #[bench]
@@ -650,6 +692,7 @@ mod specs {
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
         assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
+        assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {
             fit(&outer, &inner);

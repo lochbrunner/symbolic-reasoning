@@ -6,6 +6,8 @@
         "**/.factorypath": true
     },
     "cSpell.words": [
-        "maplit"
+        "Deque",
+        "maplit",
+        "serde"
     ]
 }

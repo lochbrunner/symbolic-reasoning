@@ -14,13 +14,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn is_fixed(&self, ident: &String) -> bool {
+    pub fn is_fixed(&self, ident: &str) -> bool {
         match self.declarations.get(ident) {
             None => false,
             Some(declaration) => declaration.is_fixed,
         }
     }
-    pub fn is_function(&self, ident: &String) -> bool {
+    pub fn is_function(&self, ident: &str) -> bool {
         match self.declarations.get(ident) {
             None => false,
             Some(declaration) => declaration.is_function,

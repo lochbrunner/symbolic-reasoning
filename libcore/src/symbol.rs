@@ -1,6 +1,6 @@
 use std::str;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Symbol {
     pub ident: String,
     // Empty for non operators
@@ -69,7 +69,7 @@ impl Symbol {
         }
     }
 
-    pub fn calc_depth(childs: &Vec<Symbol>) -> u32 {
+    pub fn calc_depth(childs: &[Symbol]) -> u32 {
         let max_child = childs.iter().map(|c| c.depth).max();
 
         match max_child {

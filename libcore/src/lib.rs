@@ -27,12 +27,14 @@ extern crate maplit;
 extern crate nom;
 extern crate test;
 
+pub mod apply;
 pub mod context;
 pub mod dumper;
 pub mod fit;
 pub mod parser;
 pub mod rule;
 pub mod symbol;
+pub use apply::*;
 pub use context::*;
 pub use fit::*;
 pub use rule::*;

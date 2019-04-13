@@ -39,8 +39,8 @@ D(x^n, x) => n*x^(n-1)
 ## Roadmap
 
 * Fitting :heavy_check_mark:
-* Parsing of binary operators :heavy_check_mark: (Using nom)
-* Randomly generating of calculations :soon: (tracing)
+* Parsing of complex formulas :heavy_check_mark:
+* Randomly generating of calculations **ongoing** (tracing)
 * Brute Force breath first search and pattern matching for undoing generated calculations  
 * Adapter to TensorFlow :x:
 * Modeling and Training :x:
