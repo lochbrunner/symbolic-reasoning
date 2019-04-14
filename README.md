@@ -1,26 +1,46 @@
 # Symbolic reasoning
 
-## Simple Example
+## Example
 
-> Note: Variables of rules are written in upper case. Concrete variables in lower case.
-
-Rule
+Consider the following equation
 
 ```latex
-A*B+A*C -> A*(B+C)
+b*(cd-cd)=e
 ```
 
-Can be applied to
+and the following replacement rule
 
 ```latex
-r*s+r*t
+a-a => 0
 ```
 
-which transforms it to
+which comes directly out of the equation
 
 ```latex
-r*(s+t)
+a-a = 0
 ```
+
+When trying to apply this rule on the equation above results in the fitting try of the abstract term `a-a` in one of the nodes of the formula `b*(cd-cd)=e`.
+
+The fitting result would be that the rule fits in the node `cd-cd` and the mapping `a -> cd`.
+
+Applying this fitting result on the initial equation would transform it to
+
+```latex
+b*(a-a)=e
+```
+
+where `a = cd`.
+
+with the conclusion this results in
+
+```latex
+b*0=e
+```
+
+.
+
+You can find this example as a [e2e test](./libcore/src/apply.rs#L148-L167) from line 149.
 
 ## Abstract
 
@@ -35,14 +55,3 @@ F(a,b) -> G(a)
 ```math
 D(x^n, x) => n*x^(n-1)
 ```
-
-## Roadmap
-
-* Fitting :heavy_check_mark:
-* Parsing of complex formulas :heavy_check_mark:
-* Randomly generating of calculations :soon: (tracing)
-* Brute Force breath first search and pattern matching for undoing generated calculations :x:
-* Adapter to TensorFlow :x:
-* Modeling and Training :x:
-* Using inferencing for solving manual and generated calculations :x:
-* Latex loading/dumping :x:

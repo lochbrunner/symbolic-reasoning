@@ -36,7 +36,7 @@ fn deep_replace_impl(path: &[usize], level: usize, orig: &Symbol, new: Symbol) -
 
         let mut childs = Vec::with_capacity(orig.childs.len());
         childs.extend_from_slice(&orig.childs[0..i]);
-        childs.push(new);
+        childs.push(deep_replace_impl(path, level + 1, &orig.childs[i], new));
         childs.extend_from_slice(&orig.childs[i + 1..]);
 
         Symbol {
@@ -56,9 +56,9 @@ fn deep_replace(path: &[usize], orig: &Symbol, new: Symbol) -> Symbol {
 /// Applies the mapping on a expression in order generate a new expression
 pub fn apply(mapping: &FitMap, prev: &Symbol, conclusion: &Symbol) -> Symbol {
     let FitMap { path, variable, .. } = mapping;
-    // Make a deep copy
+    // Adjust the conclusion
     let adjusted = map_deep(&variable, conclusion.clone());
-    println!("adjusted: {}", adjusted);
+    // println!("adjusted: {}", adjusted);
 
     deep_replace(path, prev, adjusted)
 }
@@ -91,6 +91,7 @@ fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) ->
 mod e2e {
     use super::*;
     use crate::fit::*;
+    use crate::rule::Rule;
 
     #[allow(dead_code)]
     fn format_scenario(fit: &FitMap) -> String {
@@ -140,12 +141,28 @@ mod e2e {
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         // Expect e -> C(a,b)
-        println!("Mapping: {}", format_scenario(&mapping));
-        println!("Path: {:?}", mapping.path);
         let actual = apply(&mapping, &prev, &conclusion);
+        assert_eq!(actual, expected);
+    }
 
-        println!("Actual:   {}", actual);
-        println!("Expected: {}", expected);
+    #[test]
+    fn readme_example() {
+        let context = Context::standard();
+        let initial = Symbol::parse(&context, "b*(c*d-c*d)=e");
+        let rule = Rule {
+            condition: Symbol::parse(&context, "a-a"),
+            conclusion: Symbol::parse(&context, "0"),
+        };
+
+        let mapping = fit(&initial, &rule.condition).pop().expect("One mapping");
+
+        let actual = apply(&mapping, &initial, &rule.conclusion);
+        let expected = Symbol::parse(&context, "b*0=e");
+
+        // println!("Mapping: {}", format_scenario(&mapping));
+        // println!("Path: {:?}", mapping.path);
+        // println!("Actual:   {}", actual);
+        // println!("Expected: {}", expected);
         assert_eq!(actual, expected);
     }
 }
