@@ -239,9 +239,12 @@ enum IdentOrSymbol {
     Symbol(Symbol),
 }
 
-fn pop_as_symbol(sym_stack: &mut Vec<IdentOrSymbol>) -> Symbol {
+fn pop_as_symbol(context: &Context, sym_stack: &mut Vec<IdentOrSymbol>) -> Symbol {
     match sym_stack.pop().expect("Getting symbol") {
-        IdentOrSymbol::Ident(ident) => Symbol::new_variable_from_string(ident),
+        IdentOrSymbol::Ident(ident) => {
+            let fixed = context.is_fixed(&ident);
+            Symbol::new_variable_from_string(ident, fixed)
+        }
         IdentOrSymbol::Symbol(symbol) => symbol,
     }
 }
@@ -257,11 +260,11 @@ fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) {
             Operation { ident, r#type, .. } => {
                 let childs = match r#type {
                     OperationType::Infix => {
-                        let b = pop_as_symbol(&mut stack.symbol);
-                        let a = pop_as_symbol(&mut stack.symbol);
+                        let b = pop_as_symbol(context, &mut stack.symbol);
+                        let a = pop_as_symbol(context, &mut stack.symbol);
                         vec![a, b] // Order has to be reverted
                     }
-                    OperationType::Prefix => vec![pop_as_symbol(&mut stack.symbol)],
+                    OperationType::Prefix => vec![pop_as_symbol(context, &mut stack.symbol)],
                     _ => panic!("Invalid argument count {:?}", r#type),
                 };
                 stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
@@ -280,9 +283,9 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
     // Create function
     // TODO: Merge this with astify later
     let mut childs = vec![];
-    childs.push(pop_as_symbol(&mut stack.symbol));
+    childs.push(pop_as_symbol(context, &mut stack.symbol));
     while stack.infix.pop().expect("Something").precedence == Precedence::PSeparator {
-        childs.push(pop_as_symbol(&mut stack.symbol));
+        childs.push(pop_as_symbol(context, &mut stack.symbol));
     }
     childs.reverse();
 
@@ -311,7 +314,7 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
 }
 
 fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
-    let childs = vec![pop_as_symbol(&mut stack.symbol)];
+    let childs = vec![pop_as_symbol(context, &mut stack.symbol)];
     stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
         fixed: context.is_fixed(&ident),
         depth: Symbol::calc_depth(&childs),
@@ -375,7 +378,7 @@ pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
     astify(context, &mut stack, Precedence::PLowest);
     assert!(stack.infix.is_empty());
     assert_eq!(stack.symbol.len(), 1);
-    return pop_as_symbol(&mut stack.symbol);
+    return pop_as_symbol(context, &mut stack.symbol);
 }
 
 #[cfg(test)]
@@ -383,6 +386,18 @@ mod specs {
     use super::*;
     use std::collections::HashMap;
     use test::Bencher;
+
+    fn new_variable(ident: &str) -> Symbol {
+        Symbol::new_variable(ident, false)
+    }
+
+    fn new_op(ident: &str, childs: Vec<Symbol>) -> Symbol {
+        Symbol::new_operator(ident, false, childs)
+    }
+
+    fn new_func(ident: &str, childs: Vec<Symbol>) -> Symbol {
+        Symbol::new_operator(ident, false, childs)
+    }
 
     fn create_function(ident: &str) -> Classification {
         Classification::Prefix(Operation {
@@ -433,7 +448,7 @@ mod specs {
         };
         let tokens = vec![Token::Ident(String::from("a")), Token::EOF];
         let actual = parse(&context, &tokens);
-        assert_eq!(actual, Symbol::new_variable("a"));
+        assert_eq!(actual, new_variable("a"));
     }
 
     #[test]
@@ -484,7 +499,7 @@ mod specs {
         let actual = parse(&context, &tokens);
         assert_eq!(
             actual,
-            Symbol::new_operator("f", vec![Symbol::new_variable("a")])
+            Symbol::new_operator("f", false, vec![new_variable("a")])
         );
     }
 
@@ -551,11 +566,8 @@ mod specs {
             actual,
             Symbol::new_operator(
                 "f",
-                vec![
-                    Symbol::new_variable("a"),
-                    Symbol::new_variable("b"),
-                    Symbol::new_variable("c")
-                ]
+                false,
+                vec![new_variable("a"), new_variable("b"), new_variable("c")]
             )
         );
     }
@@ -579,7 +591,8 @@ mod specs {
             actual,
             Symbol::new_operator(
                 "f",
-                vec![Symbol::new_operator("g", vec![Symbol::new_variable("a")])]
+                false,
+                vec![Symbol::new_operator("g", false, vec![new_variable("a")])]
             )
         );
     }
@@ -603,9 +616,11 @@ mod specs {
             actual,
             Symbol::new_operator(
                 "f",
+                false,
                 vec![Symbol::new_operator(
                     "+",
-                    vec![Symbol::new_variable("a"), Symbol::new_variable("b"),]
+                    false,
+                    vec![new_variable("a"), new_variable("b"),]
                 )]
             )
         );
@@ -634,13 +649,13 @@ mod specs {
         let actual = parse(&context, &tokens);
         assert_eq!(
             actual,
-            Symbol::new_operator(
+            new_op(
                 "f",
-                vec![Symbol::new_operator(
+                vec![new_op(
                     "+",
                     vec![
-                        Symbol::new_operator("g", vec![Symbol::new_variable("a")]),
-                        Symbol::new_operator("h", vec![Symbol::new_variable("b"),])
+                        new_op("g", vec![new_variable("a")]),
+                        new_op("h", vec![new_variable("b"),])
                     ]
                 )]
             )
@@ -694,10 +709,7 @@ mod specs {
         let actual = parse(&context, &tokens);
         assert_eq!(
             actual,
-            Symbol::new_operator(
-                "+",
-                vec![Symbol::new_variable("a"), Symbol::new_variable("b")]
-            )
+            new_op("+", vec![new_variable("a"), new_variable("b")])
         );
     }
 
@@ -719,18 +731,15 @@ mod specs {
 
         assert_eq!(
             actual,
-            Symbol::new_operator(
+            new_op(
                 "+",
                 vec![
-                    Symbol::new_variable("a"),
-                    Symbol::new_operator(
+                    new_variable("a"),
+                    new_op(
                         "-",
                         vec![
-                            Symbol::new_operator(
-                                "*",
-                                vec![Symbol::new_variable("b"), Symbol::new_variable("c")]
-                            ),
-                            Symbol::new_variable("d")
+                            new_op("*", vec![new_variable("b"), new_variable("c")]),
+                            new_variable("d")
                         ]
                     ),
                 ]
@@ -753,14 +762,11 @@ mod specs {
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "*",
             vec![
-                Symbol::new_operator(
-                    "+",
-                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-                ),
-                Symbol::new_variable("c"),
+                new_op("+", vec![new_variable("a"), new_variable("b")]),
+                new_variable("c"),
             ],
         );
         assert_eq!(actual.to_string(), expected.to_string());
@@ -825,12 +831,9 @@ mod specs {
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "+",
-            vec![
-                Symbol::new_variable("a"),
-                Symbol::new_operator("f", vec![Symbol::new_variable("b")]),
-            ],
+            vec![new_variable("a"), new_op("f", vec![new_variable("b")])],
         );
         assert_eq!(actual, expected);
     }
@@ -868,7 +871,7 @@ mod specs {
         let tokens = vec![Token::Minus, Token::Ident(String::from("a")), Token::EOF];
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator("-", vec![Symbol::new_variable("a")]);
+        let expected = new_op("-", vec![new_variable("a")]);
         assert_eq!(actual, expected);
     }
 
@@ -914,10 +917,7 @@ mod specs {
         ];
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
-            "*",
-            vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-        );
+        let expected = new_op("*", vec![new_variable("a"), new_variable("b")]);
         assert_eq!(actual, expected);
     }
 
@@ -947,28 +947,19 @@ mod specs {
         ];
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "*",
             vec![
-                Symbol::new_operator(
-                    "+",
-                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-                ),
-                Symbol::new_operator(
+                new_op("+", vec![new_variable("a"), new_variable("b")]),
+                new_op(
                     "*",
                     vec![
-                        Symbol::new_operator(
-                            "+",
-                            vec![Symbol::new_variable("c"), Symbol::new_variable("d")],
-                        ),
-                        Symbol::new_operator(
+                        new_op("+", vec![new_variable("c"), new_variable("d")]),
+                        new_op(
                             "*",
                             vec![
-                                Symbol::new_variable("e"),
-                                Symbol::new_operator(
-                                    "+",
-                                    vec![Symbol::new_variable("f"), Symbol::new_variable("g")],
-                                ),
+                                new_variable("e"),
+                                new_op("+", vec![new_variable("f"), new_variable("g")]),
                             ],
                         ),
                     ],
@@ -1010,29 +1001,23 @@ mod specs {
 
         let actual = parse(&context, &tokens);
 
-        let expected = Symbol::new_operator(
+        let expected = new_func(
             "f",
-            vec![Symbol::new_operator(
+            vec![new_op(
                 "+",
                 vec![
-                    Symbol::new_operator(
+                    new_op(
                         "*",
                         vec![
-                            Symbol::new_operator(
-                                "+",
-                                vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-                            ),
-                            Symbol::new_variable("c"),
+                            new_op("+", vec![new_variable("a"), new_variable("b")]),
+                            new_variable("c"),
                         ],
                     ),
-                    Symbol::new_operator(
+                    new_op(
                         "*",
                         vec![
-                            Symbol::new_variable("d"),
-                            Symbol::new_operator(
-                                "+",
-                                vec![Symbol::new_variable("e"), Symbol::new_variable("h")],
-                            ),
+                            new_variable("d"),
+                            new_op("+", vec![new_variable("e"), new_variable("h")]),
                         ],
                     ),
                 ],
@@ -1062,10 +1047,7 @@ mod specs {
         ];
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
-            "+",
-            vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-        );
+        let expected = new_op("+", vec![new_variable("a"), new_variable("b")]);
         assert_eq!(actual, expected);
     }
 
@@ -1083,7 +1065,7 @@ mod specs {
             Token::EOF,
         ];
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator("f", vec![Symbol::new_variable("a")]);
+        let expected = new_func("f", vec![new_variable("a")]);
         assert_eq!(actual, expected);
     }
 
@@ -1101,12 +1083,9 @@ mod specs {
         let context = create_context(vec![]);
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "*",
-            vec![
-                Symbol::new_variable("a"),
-                Symbol::new_operator("-", vec![Symbol::new_variable("b")]),
-            ],
+            vec![new_variable("a"), new_op("-", vec![new_variable("b")])],
         );
 
         assert_eq!(actual, expected);
@@ -1119,7 +1098,7 @@ mod specs {
         let context = create_context(vec![]);
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator("!", vec![Symbol::new_variable("a")]);
+        let expected = new_op("!", vec![new_variable("a")]);
 
         assert_eq!(actual, expected);
     }
@@ -1147,26 +1126,20 @@ mod specs {
         let context = create_context(vec![]);
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "+",
             vec![
-                Symbol::new_variable("a"),
-                Symbol::new_operator(
+                new_variable("a"),
+                new_op(
                     "+",
                     vec![
-                        Symbol::new_operator(
+                        new_op(
                             "*",
-                            vec![
-                                Symbol::new_operator("!", vec![Symbol::new_variable("b")]),
-                                Symbol::new_variable("c"),
-                            ],
+                            vec![new_op("!", vec![new_variable("b")]), new_variable("c")],
                         ),
-                        Symbol::new_operator(
+                        new_op(
                             "!",
-                            vec![Symbol::new_operator(
-                                "*",
-                                vec![Symbol::new_variable("e"), Symbol::new_variable("d")],
-                            )],
+                            vec![new_op("*", vec![new_variable("e"), new_variable("d")])],
                         ),
                     ],
                 ),
@@ -1200,27 +1173,21 @@ mod specs {
         let context = create_context(vec![]);
 
         let actual = parse(&context, &tokens);
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "+",
             vec![
-                Symbol::new_operator(
+                new_op(
                     "*",
                     vec![
-                        Symbol::new_variable("a"),
-                        Symbol::new_operator(
-                            "^",
-                            vec![Symbol::new_variable("b"), Symbol::new_variable("c")],
-                        ),
+                        new_variable("a"),
+                        new_op("^", vec![new_variable("b"), new_variable("c")]),
                     ],
                 ),
-                Symbol::new_operator(
+                new_op(
                     "*",
                     vec![
-                        Symbol::new_operator(
-                            "^",
-                            vec![Symbol::new_variable("d"), Symbol::new_variable("e")],
-                        ),
-                        Symbol::new_variable("f"),
+                        new_op("^", vec![new_variable("d"), new_variable("e")]),
+                        new_variable("f"),
                     ],
                 ),
             ],
@@ -1249,11 +1216,11 @@ mod specs {
 
         let actual = parse(&context, &tokens);
 
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "+",
             vec![
                 Symbol::new_number(1),
-                Symbol::new_operator("*", vec![Symbol::new_number(2), Symbol::new_number(3)]),
+                new_op("*", vec![Symbol::new_number(2), Symbol::new_number(3)]),
             ],
         );
 
@@ -1278,13 +1245,10 @@ mod specs {
 
         let actual = parse(&context, &tokens);
 
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "=",
             vec![
-                Symbol::new_operator(
-                    "-",
-                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-                ),
+                new_op("-", vec![new_variable("a"), new_variable("b")]),
                 Symbol::new_number(0),
             ],
         );
@@ -1307,12 +1271,9 @@ mod specs {
 
         let actual = parse(&context, &tokens);
 
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "=",
-            vec![
-                Symbol::new_variable("x"),
-                Symbol::new_operator("-", vec![Symbol::new_variable("a")]),
-            ],
+            vec![new_variable("x"), new_op("-", vec![new_variable("a")])],
         );
 
         assert_eq!(actual, expected);

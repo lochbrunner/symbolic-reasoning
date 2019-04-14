@@ -132,11 +132,11 @@ mod e2e {
 
     #[test]
     fn function_hierarchical_function() {
-        let context = create_context(vec!["A", "B", "C"], vec!["d"]);
+        let context = create_context(vec!["A", "B", "C", "D"], vec!["d"]);
         let prev = Symbol::parse(&context, "A(B(C(a,b),C(a,b)))");
         let condition = Symbol::parse(&context, "B(e,e)");
-        let conclusion = Symbol::parse(&context, "0");
-        let expected = Symbol::parse(&context, "A(0)");
+        let conclusion = Symbol::parse(&context, "D(e)");
+        let expected = Symbol::parse(&context, "A(D(C(a,b)))");
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         // Expect e -> C(a,b)
@@ -154,17 +154,21 @@ mod e2e {
 mod specs {
     use super::*;
 
+    fn new_variable(ident: &str) -> Symbol {
+        Symbol::new_variable(ident, false)
+    }
+
     #[test]
     fn simple_map() {
-        let orig = Symbol::new_variable("a");
-        let a = Symbol::new_variable("a");
-        let b = Symbol::new_variable("b");
+        let orig = new_variable("a");
+        let a = new_variable("a");
+        let b = new_variable("b");
         let mapping = hashmap! {
             &a => &b
         };
 
         let actual = map_deep(&mapping, orig);
-        let expected = Symbol::new_variable("b");
+        let expected = new_variable("b");
 
         assert_eq!(actual, expected);
     }
@@ -186,7 +190,7 @@ mod specs {
 
     #[test]
     fn simple() {
-        let symbol = Symbol::new_variable("a");
+        let symbol = new_variable("a");
         let _mapping = FitMap {
             variable: hashmap! {},
             location: &symbol,

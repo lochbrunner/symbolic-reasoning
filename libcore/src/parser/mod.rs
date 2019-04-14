@@ -25,6 +25,14 @@ mod e2e {
     use crate::context::*;
     use std::collections::HashMap;
 
+    fn new_variable(ident: &str) -> Symbol {
+        Symbol::new_variable(ident, false)
+    }
+
+    fn new_op(ident: &str, childs: Vec<Symbol>) -> Symbol {
+        Symbol::new_operator(ident, false, childs)
+    }
+
     fn create_context(function_names: Vec<&str>) -> Context {
         let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
@@ -46,14 +54,11 @@ mod e2e {
 
         assert_eq!(
             actual,
-            Symbol::new_operator(
+            new_op(
                 "+",
                 vec![
-                    Symbol::new_variable("a"),
-                    Symbol::new_operator(
-                        "*",
-                        vec![Symbol::new_variable("b"), Symbol::new_variable("c"),]
-                    )
+                    new_variable("a"),
+                    new_op("*", vec![new_variable("b"), new_variable("c"),])
                 ]
             )
         );
@@ -65,13 +70,10 @@ mod e2e {
         let context = create_context(vec![]);
         let actual = Symbol::parse(&context, "a - b = 0");
 
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "=",
             vec![
-                Symbol::new_operator(
-                    "-",
-                    vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-                ),
+                new_op("-", vec![new_variable("a"), new_variable("b")]),
                 Symbol::new_number(0),
             ],
         );
@@ -85,10 +87,7 @@ mod e2e {
         let context = create_context(vec![]);
         let actual = Symbol::parse(&context, "a = b");
 
-        let expected = Symbol::new_operator(
-            "=",
-            vec![Symbol::new_variable("a"), Symbol::new_variable("b")],
-        );
+        let expected = new_op("=", vec![new_variable("a"), new_variable("b")]);
 
         assert_eq!(actual, expected);
     }
@@ -98,12 +97,9 @@ mod e2e {
         let context = create_context(vec![]);
         let actual = Symbol::parse(&context, "x = -a");
 
-        let expected = Symbol::new_operator(
+        let expected = new_op(
             "=",
-            vec![
-                Symbol::new_variable("x"),
-                Symbol::new_operator("-", vec![Symbol::new_variable("a")]),
-            ],
+            vec![new_variable("x"), new_op("-", vec![new_variable("a")])],
         );
 
         assert_eq!(actual, expected);

@@ -40,8 +40,8 @@ D(x^n, x) => n*x^(n-1)
 
 * Fitting :heavy_check_mark:
 * Parsing of complex formulas :heavy_check_mark:
-* Randomly generating of calculations **ongoing** (tracing)
-* Brute Force breath first search and pattern matching for undoing generated calculations  
+* Randomly generating of calculations :soon: (tracing)
+* Brute Force breath first search and pattern matching for undoing generated calculations :x:
 * Adapter to TensorFlow :x:
 * Modeling and Training :x:
 * Using inferencing for solving manual and generated calculations :x:

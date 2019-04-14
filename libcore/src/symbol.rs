@@ -29,19 +29,19 @@ impl Symbol {
             value: Some(value),
         }
     }
-    pub fn new_variable(ident: &str) -> Symbol {
+    pub fn new_variable(ident: &str, fixed: bool) -> Symbol {
         Symbol {
             ident: String::from(ident),
             depth: 1,
-            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            fixed,
             childs: Vec::new(),
             value: None,
         }
     }
 
-    pub fn new_variable_from_string(ident: String) -> Symbol {
+    pub fn new_variable_from_string(ident: String, fixed: bool) -> Symbol {
         Symbol {
-            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            fixed,
             ident: ident,
             depth: 1,
             childs: Vec::new(),
@@ -49,19 +49,19 @@ impl Symbol {
         }
     }
 
-    pub fn new_operator(ident: &str, childs: Vec<Symbol>) -> Symbol {
+    pub fn new_operator(ident: &str, fixed: bool, childs: Vec<Symbol>) -> Symbol {
         Symbol {
             ident: String::from(ident),
             depth: Symbol::calc_depth(&childs),
-            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            fixed,
             childs,
             value: None,
         }
     }
 
-    pub fn new_operator_from_string(ident: String, childs: Vec<Symbol>) -> Symbol {
+    pub fn new_operator_from_string(ident: String, fixed: bool, childs: Vec<Symbol>) -> Symbol {
         Symbol {
-            fixed: ident.chars().nth(0).unwrap().is_uppercase(),
+            fixed,
             ident,
             depth: Symbol::calc_depth(&childs),
             childs,
