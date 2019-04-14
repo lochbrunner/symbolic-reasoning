@@ -269,7 +269,7 @@ fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) {
                 };
                 stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
                     depth: Symbol::calc_depth(&childs),
-                    fixed: context.is_fixed(&ident),
+                    flags: context.flags(&ident),
                     ident,
                     childs,
                     value: None,
@@ -295,7 +295,7 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
     {
         let func = stack.infix.pop().expect("Some infix");
         stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
-            fixed: context.is_fixed(&func.ident),
+            flags: context.flags(&func.ident),
             depth: Symbol::calc_depth(&childs),
             ident: func.ident,
             childs,
@@ -316,7 +316,7 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
 fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
     let childs = vec![pop_as_symbol(context, &mut stack.symbol)];
     stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
-        fixed: context.is_fixed(&ident),
+        flags: context.flags(&ident),
         depth: Symbol::calc_depth(&childs),
         ident,
         childs,
@@ -392,11 +392,11 @@ mod specs {
     }
 
     fn new_op(ident: &str, childs: Vec<Symbol>) -> Symbol {
-        Symbol::new_operator(ident, false, childs)
+        Symbol::new_operator(ident, false, false, childs)
     }
 
     fn new_func(ident: &str, childs: Vec<Symbol>) -> Symbol {
-        Symbol::new_operator(ident, false, childs)
+        Symbol::new_operator(ident, false, false, childs)
     }
 
     fn create_function(ident: &str) -> Classification {
@@ -415,6 +415,7 @@ mod specs {
                 Declaration {
                     is_fixed: false,
                     is_function: true,
+                    only_root: false,
                 },
             );
         }
@@ -499,7 +500,7 @@ mod specs {
         let actual = parse(&context, &tokens);
         assert_eq!(
             actual,
-            Symbol::new_operator("f", false, vec![new_variable("a")])
+            Symbol::new_operator("f", false, false, vec![new_variable("a")])
         );
     }
 
@@ -567,6 +568,7 @@ mod specs {
             Symbol::new_operator(
                 "f",
                 false,
+                false,
                 vec![new_variable("a"), new_variable("b"), new_variable("c")]
             )
         );
@@ -592,7 +594,13 @@ mod specs {
             Symbol::new_operator(
                 "f",
                 false,
-                vec![Symbol::new_operator("g", false, vec![new_variable("a")])]
+                false,
+                vec![Symbol::new_operator(
+                    "g",
+                    false,
+                    false,
+                    vec![new_variable("a")]
+                )]
             )
         );
     }
@@ -617,8 +625,10 @@ mod specs {
             Symbol::new_operator(
                 "f",
                 false,
+                false,
                 vec![Symbol::new_operator(
                     "+",
+                    false,
                     false,
                     vec![new_variable("a"), new_variable("b"),]
                 )]

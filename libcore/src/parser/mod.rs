@@ -30,7 +30,7 @@ mod e2e {
     }
 
     fn new_op(ident: &str, childs: Vec<Symbol>) -> Symbol {
-        Symbol::new_operator(ident, false, childs)
+        Symbol::new_operator(ident, false, false, childs)
     }
 
     fn create_context(function_names: Vec<&str>) -> Context {
@@ -41,6 +41,7 @@ mod e2e {
                 Declaration {
                     is_fixed: false,
                     is_function: true,
+                    only_root: false,
                 },
             );
         }

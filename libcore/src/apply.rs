@@ -18,7 +18,7 @@ fn map_deep(mapping: &HashMap<&Symbol, &Symbol>, orig: Symbol) -> Symbol {
                 Symbol {
                     depth: Symbol::calc_depth(&childs),
                     childs,
-                    fixed: orig.fixed,
+                    flags: orig.flags,
                     value: orig.value,
                     ident: orig.ident.clone(),
                 }
@@ -42,7 +42,7 @@ fn deep_replace_impl(path: &[usize], level: usize, orig: &Symbol, new: Symbol) -
         Symbol {
             depth: Symbol::calc_depth(&childs),
             childs,
-            fixed: orig.fixed,
+            flags: orig.flags,
             value: orig.value,
             ident: orig.ident.clone(),
         }
@@ -72,6 +72,7 @@ fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) ->
             Declaration {
                 is_fixed: true,
                 is_function: true,
+                only_root: false,
             },
         );
     }
@@ -81,6 +82,7 @@ fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) ->
             Declaration {
                 is_fixed: true,
                 is_function: false,
+                only_root: false,
             },
         );
     }

@@ -3,6 +3,8 @@ declarations:
   A:
     is_fixed: true
     is_function: true
+    only_root: false
   B:
     is_fixed: true
     is_function: true
+    only_root: false

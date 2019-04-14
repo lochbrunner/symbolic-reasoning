@@ -22,9 +22,9 @@ fn fit_impl<'a>(
     map: &Option<FitMap<'a>>,
     path: &[usize],
 ) -> Vec<FitMap<'a>> {
-    match inner.fixed {
-        true => fit_fixed(outer, inner, map, path),
-        false => fit_abstract(outer, inner, map, path),
+    match inner.fixed() {
+        false if !outer.only_root() => fit_abstract(outer, inner, map, path),
+        _ => fit_fixed(outer, inner, map, path),
     }
 }
 
@@ -41,7 +41,7 @@ fn fit_abstract<'a>(
         }
         None => false,
     };
-    if contradiction {
+    if contradiction || outer.only_root() {
         vec![]
     } else {
         // Add folking
@@ -117,14 +117,18 @@ fn folk_childs<'a>(
     path: &[usize],
     mut fittings: Vec<FitMap<'a>>,
 ) -> Vec<FitMap<'a>> {
-    for (i, child) in outer.childs.iter().enumerate() {
-        let mut path = path.to_vec();
-        path.push(i);
-        let branches = fit_impl(child, inner, map, &path);
-        // Folk here
-        fittings.extend(branches);
+    if false && (inner.only_root() || outer.only_root()) {
+        vec![]
+    } else {
+        for (i, child) in outer.childs.iter().enumerate() {
+            let mut path = path.to_vec();
+            path.push(i);
+            let branches = fit_impl(child, inner, map, &path);
+            // Folk here
+            fittings.extend(branches);
+        }
+        fittings
     }
-    fittings
 }
 
 /// When folking give the child only the relevant branches
@@ -162,6 +166,9 @@ fn fit_fixed<'a>(
 
         for i in 0..outer.childs.len() {
             let add = fit_impl(&outer.childs[i], &inner.childs[i], &scenario, path);
+            if add.is_empty() {
+                return vec![];
+            }
             add_extension(&mut extension, add);
         }
         match scenario {
@@ -192,6 +199,7 @@ mod specs {
                 Declaration {
                     is_fixed: true,
                     is_function: true,
+                    only_root: false,
                 },
             );
         }
@@ -201,6 +209,7 @@ mod specs {
                 Declaration {
                     is_fixed: true,
                     is_function: false,
+                    only_root: false,
                 },
             );
         }
@@ -242,7 +251,7 @@ mod specs {
 
         let a = Symbol {
             ident: String::from("a"),
-            fixed: false,
+            flags: 0,
             depth: 1,
             childs: Vec::new(),
             value: None,
@@ -250,7 +259,7 @@ mod specs {
 
         let b = Symbol {
             ident: String::from("b"),
-            fixed: false,
+            flags: 0,
             depth: 1,
             childs: Vec::new(),
             value: None,
@@ -262,7 +271,7 @@ mod specs {
 
         let b = Symbol {
             ident: String::from("b"),
-            fixed: false,
+            flags: 0,
             depth: 1,
             childs: Vec::new(),
             value: None,
@@ -273,7 +282,7 @@ mod specs {
 
         let a = Symbol {
             ident: String::from("a"),
-            fixed: false,
+            flags: 0,
             depth: 1,
             childs: Vec::new(),
             value: None,
@@ -495,34 +504,6 @@ mod specs {
         assert!(fit(&outer, &inner).is_empty());
     }
 
-    // #[test]
-    // fn operator_flat_inner_too_large() {
-    //     // Note: This does not make sense in real world
-    //     let context = create_context(vec!["A", "B", "C"], vec![]);
-    //     let outer = Symbol::parse(&context, "A(B(C(b)))");
-    //     let inner = Symbol::parse(&context, "a");
-
-    //     let scenarios = fit(&outer, &inner);
-    //     // Expect a => B(C(b)) [deprecated]
-    //     // Expect B(C(b)) => a
-    //     assert_eq!(scenarios.len(), 1);
-    //     let scenario = scenarios.iter().nth(0).unwrap();
-    //     let FitMap { variable, .. } = scenario;
-    //     assert_eq!(variable.len(), 1);;
-
-    //     assert!(
-    //         variable.contains_key(&Symbol::parse(&context, "a")),
-    //         "Expect mapping contains variable a"
-    //     );
-
-    //     assert_eq!(
-    //         variable.get(&Symbol::parse(&context, "a")).unwrap(),
-    //         &&Symbol::parse(&context, "B(C(b))")
-    //     );
-    //     assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
-    //     assert_eq!(scenario.path, vec![0], "Wrong path");
-    // }
-
     #[test]
     fn flat_operators() {
         let context = create_context(vec!["A"], vec![]);
@@ -657,5 +638,40 @@ mod specs {
         assert_eq!(scenario.variable.len(), 1);
         assert_eq!(format_scenario(scenario), "e => C(a, b)");
         assert_eq!(scenario.path, vec![0], "Wrong path");
+    }
+
+    #[test]
+    fn respect_only_root() {
+        let mut context = create_context(vec![], vec!["a", "b", "c"]);
+        context.register_standard_operators();
+        let outer = Symbol::parse(&context, "a=b");
+        let inner = Symbol::parse(&context, "c");
+
+        let scenarios = fit(&outer, &inner);
+        println!("Scenarios:\n{}", format_scenarios(&scenarios));
+        assert!(scenarios.is_empty(), "No match expected");
+    }
+
+    #[test]
+    fn generator_issue_1() {
+        let context = Context::standard();
+        let outer = Symbol::parse(&context, "a=b");
+        let inner = Symbol::parse(&context, "a");
+
+        // Expect two scenarios:
+        // 1. a=>a
+        // 2. a=>b
+        let scenarios = fit(&outer, &inner);
+        assert_eq!(scenarios.len(), 2);
+
+        let scenario_aa = scenarios.iter().nth(0).unwrap();
+        assert_eq!(scenario_aa.variable.len(), 1);
+        assert_eq!(format_scenario(scenario_aa), "a => a");
+        assert_eq!(scenario_aa.path, vec![0], "Wrong path");
+
+        let scenario_ab = scenarios.iter().nth(1).unwrap();
+        assert_eq!(scenario_ab.variable.len(), 1);
+        assert_eq!(format_scenario(scenario_ab), "a => b");
+        assert_eq!(scenario_ab.path, vec![1], "Wrong path");
     }
 }

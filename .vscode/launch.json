@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/deps/core-b7a3976c1ed4d36b",
-            "args": ["--test", "readme_example", "--nocapture"],
+            "args": ["--test", "generator_issue_1", "--nocapture"],
             "sourceLanguages": ["rust"],
             "cwd": "${workspaceFolder}"
         },

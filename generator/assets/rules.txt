@@ -1,6 +1,9 @@
 a-a <=> 0
 a+a <=> 2*a
 a <=> a+0
+a*b <=> b*a
+0*a <=> 0
+1*a <=> a
 // equations
 a = b <=> a - b = 0
 x + a = 0 <=> x = -a

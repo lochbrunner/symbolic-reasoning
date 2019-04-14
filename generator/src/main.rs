@@ -1,8 +1,23 @@
-use core::{Context, Rule, Symbol};
+use core::{apply, fit, Context, Rule, Symbol};
 
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+
+struct ApplyInfo<'a> {
+    rule: &'a Rule,
+    initial: &'a Symbol,
+    deduced: Symbol,
+}
+
+impl<'a> ApplyInfo<'a> {
+    fn print(&self) {
+        let ded_str = format!("{}", self.deduced);
+        let ini_str = format!("{}", self.initial);
+        let rule = format!("{}", self.rule);
+        println!("  {0: <10} | {1: <10} | {2: <10}", ded_str, ini_str, rule);
+    }
+}
 
 fn read_rules(context: &Context) -> Vec<Rule> {
     let file = File::open("./generator/assets/rules.txt").expect("Opening file of rules");
@@ -59,8 +74,34 @@ fn read_premises(context: &Context) -> Vec<Symbol> {
     premises
 }
 
+fn deduce_once<'a>(initial: &'a Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
+    fit(initial, &rule.condition)
+        .iter()
+        .map(|scenario| apply(scenario, initial, &rule.conclusion))
+        .map(|deduced| ApplyInfo {
+            rule,
+            initial,
+            deduced,
+        })
+        .collect()
+}
+
+fn deduce(initial: &Symbol, rules: &[Rule]) {
+    let mut deduced: Vec<ApplyInfo> = Vec::new();
+
+    for rule in rules.iter() {
+        deduced.extend(deduce_once(initial, rule));
+    }
+
+    println!("Deduced:");
+    for ded in deduced.iter() {
+        ded.print();
+    }
+}
+
 fn main() {
-    let context = Context::load("generator/assets/declarations.yaml");
+    let mut context = Context::load("generator/assets/declarations.yaml");
+    context.register_standard_operators();
 
     let rules = read_rules(&context);
 
@@ -75,4 +116,8 @@ fn main() {
     for premise in &premises {
         println!("  {}", premise);
     }
+
+    let initial = &premises[0];
+
+    deduce(initial, &rules);
 }

@@ -117,6 +117,7 @@ mod e2e {
                 Declaration {
                     is_fixed: false,
                     is_function: true,
+                    only_root: false,
                 },
             );
         }
