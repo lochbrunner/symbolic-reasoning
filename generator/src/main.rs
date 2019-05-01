@@ -1,8 +1,8 @@
-use core::{apply, fit, Context, Rule, Symbol};
-
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
+use core::{apply_batch, fit, Context, Rule, Symbol};
+mod io;
+use io::*;
+mod variable_generator;
+use variable_generator::*;
 
 struct ApplyInfo<'a> {
     rule: &'a Rule,
@@ -11,6 +11,11 @@ struct ApplyInfo<'a> {
 }
 
 impl<'a> ApplyInfo<'a> {
+    fn print_header() {
+        println!("  {0: <10} | {1: <10} | {2: <10}", "new", "initial", "rule");
+        println!("  -----------------------------------------");
+    }
+
     fn print(&self) {
         let ded_str = format!("{}", self.deduced);
         let ini_str = format!("{}", self.initial);
@@ -19,65 +24,17 @@ impl<'a> ApplyInfo<'a> {
     }
 }
 
-fn read_rules(context: &Context) -> Vec<Rule> {
-    let file = File::open("./generator/assets/rules.txt").expect("Opening file of rules");
-    let file = BufReader::new(&file);
-    let mut rules = Vec::new();
-    for (_, line) in file.lines().enumerate() {
-        let line = line.expect("Line");
-        let parts = line.split("//").collect::<Vec<&str>>();
-        let code = parts[0];
-        if code.len() > 0 {
-            let mut parts = code.split("<=>").collect::<Vec<&str>>();
-            if parts.len() == 2 {
-                let first = parts.pop().expect("First part");
-                let second = parts.pop().expect("Second part");
-
-                rules.push(Rule {
-                    conclusion: Symbol::parse(context, first),
-                    condition: Symbol::parse(context, second),
-                });
-
-                rules.push(Rule {
-                    conclusion: Symbol::parse(context, second),
-                    condition: Symbol::parse(context, first),
-                });
-            } else {
-                let mut parts = code.split("=>").collect::<Vec<&str>>();
-                if parts.len() == 2 {
-                    let first = parts.pop().expect("First part");
-                    let second = parts.pop().expect("Second part");
-
-                    rules.push(Rule {
-                        conclusion: Symbol::parse(context, first),
-                        condition: Symbol::parse(context, second),
-                    });
-                }
-            }
-        }
-    }
-    rules
-}
-
-fn read_premises(context: &Context) -> Vec<Symbol> {
-    let file = File::open("./generator/assets/premises.txt").expect("Opening file of premises");
-    let file = BufReader::new(&file);
-    let mut premises = Vec::new();
-    for (_, line) in file.lines().enumerate() {
-        let line = line.expect("Line");
-        let parts = line.split("//").collect::<Vec<&str>>();
-        let code = parts[0];
-        if code.len() > 0 {
-            premises.push(Symbol::parse(context, &code));
-        }
-    }
-    premises
-}
-
 fn deduce_once<'a>(initial: &'a Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     fit(initial, &rule.condition)
         .iter()
-        .map(|scenario| apply(scenario, initial, &rule.conclusion))
+        .flat_map(|scenario| {
+            apply_batch(
+                scenario,
+                variables_generator(initial), // May return vector
+                initial,
+                &rule.conclusion,
+            )
+        })
         .map(|deduced| ApplyInfo {
             rule,
             initial,
@@ -94,28 +51,18 @@ fn deduce(initial: &Symbol, rules: &[Rule]) {
     }
 
     println!("Deduced:");
+    ApplyInfo::print_header();
     for ded in deduced.iter() {
         ded.print();
     }
 }
 
 fn main() {
-    let mut context = Context::load("generator/assets/declarations.yaml");
+    let mut context = Context::load("./generator/assets/declarations.yaml");
     context.register_standard_operators();
 
-    let rules = read_rules(&context);
-
-    println!("Rules:");
-    for rule in &rules {
-        println!("  {}", rule);
-    }
-
-    let premises = read_premises(&context);
-    println!("\nPremises:");
-
-    for premise in &premises {
-        println!("  {}", premise);
-    }
+    let rules = read_rules(&context, "./generator/assets/rules.txt");
+    let premises = read_premises(&context, "./generator/assets/premises.txt");
 
     let initial = &premises[0];
 
