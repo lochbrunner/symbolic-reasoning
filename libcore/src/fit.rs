@@ -188,6 +188,7 @@ pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
 #[cfg(test)]
 mod specs {
     use super::*;
+    use crate::common::format_mapping;
     use crate::context::*;
     use test::Bencher;
 
@@ -218,11 +219,7 @@ mod specs {
 
     #[allow(dead_code)]
     fn format_scenario(fit: &FitMap) -> String {
-        fit.variable
-            .iter()
-            .map(|(source, target)| format!("{} => {}", source, target))
-            .collect::<Vec<String>>()
-            .join("\n")
+        format_mapping(&fit.variable)
     }
 
     #[allow(dead_code)]

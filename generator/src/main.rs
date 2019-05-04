@@ -25,12 +25,13 @@ impl<'a> ApplyInfo<'a> {
 }
 
 fn deduce_once<'a>(initial: &'a Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
+    let alphabet = create_alphabet();
     fit(initial, &rule.condition)
         .iter()
         .flat_map(|scenario| {
             apply_batch(
                 scenario,
-                variables_generator(initial), // May return vector
+                variables_generator(initial, &alphabet), // May return vector
                 initial,
                 &rule.conclusion,
             )

@@ -28,6 +28,7 @@ extern crate nom;
 extern crate test;
 
 pub mod apply;
+pub mod common;
 pub mod context;
 pub mod dumper;
 pub mod fit;

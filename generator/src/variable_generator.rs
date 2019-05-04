@@ -16,13 +16,11 @@ fn list_all_nodes<'a>(symbol: &'a Symbol) -> Vec<&'a Symbol> {
     result
 }
 
-// const alphabet: [&'static str; 26] = [
-//     "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
-//     "t", "u", "v", "w", "x", "y", "z",
-// ];
-
 /// In alphabetical order
-fn next_variable(nodes: &[&Symbol]) -> Result<Symbol, &'static str> {
+fn next_variable<'a>(
+    nodes: &[&Symbol],
+    alphabet: &'a [Symbol],
+) -> Result<&'a Symbol, &'static str> {
     let mut variables = HashSet::new();
 
     for variable in nodes.iter().filter(|node| node.childs.is_empty()) {
@@ -33,34 +31,45 @@ fn next_variable(nodes: &[&Symbol]) -> Result<Symbol, &'static str> {
 
     // Find first character in alphabet not contained in variables
     // TODO: Use macro for that
-    let alphabet = (b'a'..b'z').map(|c| c as char).map(|c| c.to_string());
     for letter in alphabet {
-        if !variables.contains(&letter) {
-            return Ok(Symbol::new_variable(&letter, false));
+        if !variables.contains(&letter.ident) {
+            return Ok(letter);
         }
     }
     Err("No letter in alphabet found")
 }
 
 /// TODO: Consider using Memoization here
-pub fn variables_generator<'a>(current: &'a Symbol) -> impl Fn() -> Vec<Symbol> + 'a {
+pub fn variables_generator<'a>(
+    current: &'a Symbol,
+    alphabet: &'a [Symbol],
+) -> impl Fn() -> Vec<&'a Symbol> + 'a {
     move || {
         let all_symbols = list_all_nodes(&current);
-        let next = next_variable(&all_symbols).expect("");
-        let mut symbols: Vec<Symbol> = all_symbols
+        let next = next_variable(&all_symbols, &alphabet).expect("");
+        let mut symbols: Vec<&'a Symbol> = all_symbols
             .iter()
             .filter(|s| s.ident != "=")
-            .map(|s| (*s).clone())
+            .map(|s| s.clone())
             .collect();
         symbols.push(next);
         symbols
     }
 }
 
+pub fn create_alphabet() -> Vec<Symbol> {
+    (b'a'..b'z')
+        .map(|c| c as char)
+        .map(|c| c.to_string())
+        .map(|letter| Symbol::new_variable(&letter, false))
+        .collect::<Vec<Symbol>>()
+}
+
 #[cfg(test)]
 mod specs {
     use super::*;
     use core::Context;
+
     #[test]
     fn list_all_nodes_simple() {
         let context = Context::standard();
@@ -84,21 +93,23 @@ mod specs {
     #[test]
     fn next_variable_simple() {
         let context = Context::standard();
+        let alphabet = create_alphabet();
         let symbol = Symbol::parse(&context, "a+b=c");
 
         let nodes = list_all_nodes(&symbol);
 
-        let actual = next_variable(&nodes).expect("Some variable");
+        let actual = next_variable(&nodes, &alphabet).expect("Some variable");
         let expected = Symbol::parse(&context, "d");
-        assert_eq!(actual, expected);
+        assert_eq!(actual, &expected);
     }
 
     #[test]
     fn variables_generator_addition() {
         let context = Context::standard();
+        let alphabet = create_alphabet();
         let symbol = Symbol::parse(&context, "a+b");
 
-        let actual = variables_generator(&symbol)();
+        let actual = variables_generator(&symbol, &alphabet)();
 
         let expected = vec![
             Symbol::parse(&context, "a+b"),
@@ -107,15 +118,16 @@ mod specs {
             Symbol::parse(&context, "c"),
         ];
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual, expected.iter().collect::<Vec<&Symbol>>());
     }
 
     #[test]
     fn variables_generator_omit_equation() {
         let context = Context::standard();
+        let alphabet = create_alphabet();
         let symbol = Symbol::parse(&context, "a=b");
 
-        let actual = variables_generator(&symbol)();
+        let actual = variables_generator(&symbol, &alphabet)();
 
         // Expect "=" being omitted
         let expected = vec![
@@ -124,6 +136,6 @@ mod specs {
             Symbol::parse(&context, "c"),
         ];
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual, expected.iter().collect::<Vec<&Symbol>>());
     }
 }

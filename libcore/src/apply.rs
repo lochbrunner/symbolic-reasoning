@@ -1,13 +1,18 @@
+use crate::common::merge_from;
 use crate::fit::FitMap;
 use crate::symbol::Symbol;
 use std::collections::HashMap;
+use std::slice::from_ref;
 
 /// Maps all the symbols defined in the map with its new values
-fn map_deep(
+fn map_deep<'a, F>(
     mapping: &HashMap<&Symbol, &Symbol>,
-    variable_creator: fn() -> Symbol,
+    variable_creator: &F,
     orig: Symbol,
-) -> Symbol {
+) -> Symbol
+where
+    F: Fn() -> &'a Symbol + Sized,
+{
     match orig.fixed() {
         _ => (),
     };
@@ -19,7 +24,7 @@ fn map_deep(
                     orig
                 } else {
                     // Introduce new variable
-                    variable_creator()
+                    variable_creator().clone()
                 }
             } else {
                 assert!(
@@ -44,54 +49,45 @@ fn map_deep(
     }
 }
 
-fn multiply_scenarios(factor: usize, prev: &mut Vec<Vec<Symbol>>) {
-    assert!(factor > 0);
-    if factor == 1 {
-        return;
-    }
-    let orig: Vec<_> = prev.drain(..).collect();
+struct DeepMapFinding<'a> {
+    symbol: Symbol,
+    additional_mapping: HashMap<&'a Symbol, &'a Symbol>,
+}
 
-    for item in orig.iter() {
-        for _ in 0..factor {
-            prev.push(item.clone());
+#[derive(Clone)]
+struct ChildBranch<'a> {
+    childs: Vec<Symbol>,
+    current_mapping: HashMap<&'a Symbol, &'a Symbol>,
+}
+
+impl<'a> DeepMapFinding<'a> {
+    pub fn no_mapping(symbol: Symbol) -> DeepMapFinding<'a> {
+        DeepMapFinding {
+            additional_mapping: HashMap::new(),
+            symbol,
         }
     }
-
-    // *prev = prev
-    //     .iter()
-    //     .cycle()
-    //     .take(factor * prev.len())
-    //     .cloned()
-    //     .collect();
 }
 
-fn push_child_scenarios_cycle(child: &[Symbol], scenarios: &mut Vec<Vec<Symbol>>) {
-    for (scenario, child_scen) in scenarios.into_iter().zip(child.iter().cycle()) {
-        scenario.push(child_scen.clone());
+fn sub_hashmap<'a, 'b>(
+    minuend: &'a mut HashMap<&Symbol, &Symbol>,
+    subtrahend: &'b HashMap<&Symbol, &Symbol>,
+) {
+    for (key, _) in subtrahend.iter() {
+        if minuend.contains_key(key) {
+            minuend.remove(*key);
+        }
     }
-}
-
-/// Converts
-/// from [childs][scenarios of different length]
-/// to [scenarios equal length][childs]
-fn fill_gaps_and_transpose(sparse: Vec<Vec<Symbol>>) -> Vec<Vec<Symbol>> {
-    let mut scenarios: Vec<Vec<Symbol>> = vec![Vec::with_capacity(sparse.len())];
-    // Find number of scenarios
-    for (_i, child) in sparse.into_iter().enumerate() {
-        multiply_scenarios(child.len(), &mut scenarios);
-        push_child_scenarios_cycle(&child, &mut scenarios);
-    }
-    scenarios
 }
 
 /// Maps all the symbols defined in the map with its new values
-fn map_deep_batch<F>(
-    mapping: &HashMap<&Symbol, &Symbol>,
+fn map_deep_batch<'a, F>(
+    mapping: HashMap<&'a Symbol, &'a Symbol>,
     variable_creator: &F,
-    orig: Symbol,
-) -> Vec<Symbol>
+    orig: &'a Symbol,
+) -> Vec<DeepMapFinding<'a>>
 where
-    F: Fn() -> Vec<Symbol> + Sized,
+    F: Fn() -> Vec<&'a Symbol> + Sized,
 {
     match orig.fixed() {
         _ => (),
@@ -101,36 +97,79 @@ where
         None => {
             if orig.childs.is_empty() {
                 if orig.fixed() {
-                    vec![orig]
+                    vec![DeepMapFinding::no_mapping(orig.clone())]
                 } else {
                     // Introduce new variable
                     variable_creator()
+                        .into_iter()
+                        .map(|symbol| DeepMapFinding {
+                            additional_mapping: hashmap! {orig => symbol},
+                            symbol: symbol.clone(),
+                        })
+                        .collect()
                 }
             } else {
                 assert!(
                     orig.fixed(),
                     "Not fixed functions/operators not implemented yet!"
                 );
-                // Folking here!
-                let childs = orig
-                    .childs
-                    .iter()
-                    .map(|child| map_deep_batch(mapping, variable_creator, child.clone()))
-                    .collect::<Vec<Vec<Symbol>>>();
 
-                fill_gaps_and_transpose(childs)
+                let mut scenarios = vec![ChildBranch {
+                    childs: vec![],
+                    current_mapping: mapping.clone(),
+                }];
+
+                for (i, child) in orig.childs.iter().enumerate() {
+                    let mut additional_scenarios: Vec<ChildBranch> = Vec::new();
+                    for scenario in scenarios.iter_mut() {
+                        let prev_mapping = scenario.current_mapping.clone();
+                        let mut patches = map_deep_batch(prev_mapping, variable_creator, child);
+                        if patches.len() == 0 {
+                            unimplemented!();
+                        } else {
+                            let patch = patches.pop().expect("To be in");
+                            scenario.childs.push(patch.symbol);
+                            merge_from(&mut scenario.current_mapping, patch.additional_mapping);
+
+                            while !patches.is_empty() {
+                                let patch = patches.pop().expect("To be in");
+
+                                // Clone everything but the last child
+                                let mut additional_scenario = ChildBranch {
+                                    childs: [&scenario.childs[0..i], from_ref(&patch.symbol)]
+                                        .concat(),
+                                    current_mapping: scenario.current_mapping.clone(),
+                                };
+                                merge_from(
+                                    &mut additional_scenario.current_mapping,
+                                    patch.additional_mapping,
+                                );
+                                additional_scenarios.push(additional_scenario);
+                            }
+                        }
+                    }
+                    scenarios.append(&mut additional_scenarios);
+                }
+
+                scenarios
                     .into_iter()
-                    .map(|childs| Symbol {
-                        depth: Symbol::calc_depth(&childs),
-                        childs,
-                        flags: orig.flags,
-                        value: orig.value,
-                        ident: orig.ident.clone(),
+                    .map(|mut scenario| {
+                        sub_hashmap(&mut scenario.current_mapping, &mapping);
+                        DeepMapFinding {
+                            additional_mapping: scenario.current_mapping,
+                            symbol: Symbol {
+                                depth: Symbol::calc_depth(&scenario.childs),
+                                childs: scenario.childs,
+                                flags: orig.flags,
+                                value: orig.value,
+                                ident: orig.ident.clone(),
+                            },
+                        }
                     })
                     .collect()
             }
         }
-        Some(&value) => vec![value.clone()],
+        Some(&value) => vec![DeepMapFinding::no_mapping(value.clone())],
     }
 }
 
@@ -162,33 +201,36 @@ fn deep_replace(path: &[usize], orig: &Symbol, new: &Symbol) -> Symbol {
 /// Applies the mapping on a expression in order generate a new expression
 /// * `variable_creator` - Is only used rarely that's why it should be evaluated lazy
 /// * `prev` - The symbol which should be transformed to the new symbol
-pub fn apply(
-    mapping: &FitMap,
-    variable_creator: fn() -> Symbol,
-    prev: &Symbol,
-    conclusion: &Symbol,
-) -> Symbol {
-    let FitMap { path, variable, .. } = mapping;
-    // Adjust the conclusion
-    let adjusted = map_deep(&variable, variable_creator, conclusion.clone());
-    deep_replace(path, prev, &adjusted)
-}
-
-pub fn apply_batch<F>(
+pub fn apply<'a, F>(
     mapping: &FitMap,
     variable_creator: F,
     prev: &Symbol,
     conclusion: &Symbol,
-) -> Vec<Symbol>
+) -> Symbol
 where
-    F: Fn() -> Vec<Symbol> + Sized,
+    F: Fn() -> &'a Symbol + Sized,
 {
     let FitMap { path, variable, .. } = mapping;
     // Adjust the conclusion
-    let adjusteds = map_deep_batch(&variable, &variable_creator, conclusion.clone());
-    adjusteds
-        .iter()
-        .map(|adjusted| deep_replace(path, prev, adjusted))
+    let adjusted = map_deep(&variable, &variable_creator, conclusion.clone());
+    deep_replace(path, prev, &adjusted)
+}
+
+pub fn apply_batch<'a, F>(
+    mapping: &'a FitMap,
+    variable_creator: F,
+    prev: &Symbol,
+    conclusion: &'a Symbol,
+) -> Vec<Symbol>
+where
+    F: Fn() -> Vec<&'a Symbol> + Sized,
+{
+    let FitMap { path, variable, .. } = mapping;
+    // Adjust the conclusion
+    map_deep_batch(variable.clone(), &variable_creator, conclusion)
+        .into_iter()
+        .map(|dm| dm.symbol)
+        .map(|adjusted| deep_replace(path, prev, &adjusted))
         .collect()
 }
 
@@ -222,9 +264,10 @@ fn create_context(function_names: Vec<&str>, fixed_variable_names: Vec<&str>) ->
     }
     Context { declarations }
 }
+
 #[cfg(test)]
-fn new_std_var() -> Symbol {
-    Symbol::new_variable("a", false)
+fn new_variable(ident: &str) -> Symbol {
+    Symbol::new_variable(ident, false)
 }
 
 #[cfg(test)]
@@ -250,8 +293,8 @@ mod e2e {
         let conclusion = Symbol::parse(&context, "B(b)");
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
-
-        let actual = apply(&mapping, new_std_var, &prev, &conclusion);
+        let var = new_variable("a");
+        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
         let expected = Symbol::parse(&context, "B(a)");
 
         assert_eq!(actual, expected);
@@ -266,8 +309,8 @@ mod e2e {
         let expected = Symbol::parse(&context, "A(C(a))");
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
-
-        let actual = apply(&mapping, new_std_var, &prev, &conclusion);
+        let var = new_variable("a");
+        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
         assert_eq!(actual, expected);
     }
 
@@ -281,7 +324,8 @@ mod e2e {
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         // Expect e -> C(a,b)
-        let actual = apply(&mapping, new_std_var, &prev, &conclusion);
+        let var = new_variable("a");
+        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
         assert_eq!(actual, expected);
     }
 
@@ -295,8 +339,8 @@ mod e2e {
         };
 
         let mapping = fit(&initial, &rule.condition).pop().expect("One mapping");
-
-        let actual = apply(&mapping, new_std_var, &initial, &rule.conclusion);
+        let var = new_variable("a");
+        let actual = apply(&mapping, &|| &var, &initial, &rule.conclusion);
         let expected = Symbol::parse(&context, "b*0=e");
 
         // println!("Mapping: {}", format_scenario(&mapping));
@@ -311,10 +355,6 @@ mod e2e {
 mod specs {
     use super::*;
 
-    fn new_variable(ident: &str) -> Symbol {
-        Symbol::new_variable(ident, false)
-    }
-
     #[test]
     fn map_deep_simple() {
         let orig = new_variable("a");
@@ -323,8 +363,9 @@ mod specs {
         let mapping = hashmap! {
             &a => &b
         };
+        let var = new_variable("a");
 
-        let actual = map_deep(&mapping, new_std_var, orig);
+        let actual = map_deep(&mapping, &|| &var, orig);
         let expected = new_variable("b");
 
         assert_eq!(actual, expected);
@@ -357,7 +398,9 @@ mod specs {
             variable: hashmap! {},
         };
 
-        let actual = apply(&scenario, || new_variable("v"), &orig, &conclusion);
+        let var = new_variable("v");
+
+        let actual = apply(&scenario, || &var, &orig, &conclusion);
 
         let expected = Symbol::parse(&context, "v");
 
@@ -378,12 +421,9 @@ mod specs {
             variable: hashmap! {},
         };
 
-        let actual = apply_batch(
-            &scenario,
-            || vec![parse("v"), parse("w")],
-            &orig,
-            &conclusion,
-        );
+        let vars = vec![parse("v"), parse("w")];
+
+        let actual = apply_batch(&scenario, || vars.iter().collect(), &orig, &conclusion);
 
         let expected = vec![parse("v"), parse("w")];
 
@@ -391,7 +431,8 @@ mod specs {
     }
 
     #[test]
-    fn apply_batch_introduce_consistent_variable_consistent() {
+    fn apply_batch_introduce_consistent_variable_consistent_flat() {
+        // Issue #8
         let context = Context::standard();
 
         let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula) };
@@ -405,85 +446,38 @@ mod specs {
             variable: hashmap! {},
         };
 
-        let actual = apply_batch(
-            &scenario,
-            || vec![new_variable("v"), new_variable("w")],
-            &orig,
-            &conclusion,
-        );
+        let vars = vec![parse("v"), parse("w"), parse("u")];
 
-        let expected = vec![parse("v-v"), parse("v-v")];
+        let actual = apply_batch(&scenario, || vars.iter().collect(), &orig, &conclusion);
+
+        let expected = vec![parse("u-u"), parse("w-w"), parse("v-v")];
 
         assert_eq!(actual.len(), expected.len());
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn fill_gaps_and_transpose_one_child_one_scenario() {
-        let input = vec![vec![new_variable("a")]];
-        let actual = fill_gaps_and_transpose(input);
+    fn apply_batch_introduce_consistent_variable_consistent_deep() {
+        // Issue #8
+        let context = Context::standard();
 
-        let expected = vec![vec![new_variable("a")]];
-        assert_eq!(actual, expected);
-    }
+        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula) };
 
-    #[test]
-    fn fill_gaps_and_transpose_one_child_multiple_scenario() {
-        let input = vec![vec![new_variable("a"), new_variable("b")]];
-        let actual = fill_gaps_and_transpose(input);
+        let orig = new_variable("a");
+        let conclusion = parse("x*x-x");
 
-        let expected = vec![vec![new_variable("a")], vec![new_variable("b")]];
-        assert_eq!(actual, expected);
-    }
+        let scenario = FitMap {
+            location: &orig,
+            path: vec![],
+            variable: hashmap! {},
+        };
 
-    #[test]
-    fn fill_gaps_and_transpose_multiple_child_one_scenario() {
-        let input = vec![vec![new_variable("a")], vec![new_variable("b")]];
-        let actual = fill_gaps_and_transpose(input);
+        let vars = vec![parse("v"), parse("w"), parse("u")];
 
-        let expected = vec![vec![new_variable("a"), new_variable("b")]];
-        assert_eq!(actual, expected);
-    }
+        let actual = apply_batch(&scenario, || vars.iter().collect(), &orig, &conclusion);
 
-    #[test]
-    fn fill_gaps_and_transpose_multiple_child_same_length_multiple_scenario() {
-        let input = vec![
-            vec![new_variable("c1_s1"), new_variable("c1_s2")],
-            vec![new_variable("c2_s1"), new_variable("c2_s2")],
-        ];
-        let actual = fill_gaps_and_transpose(input);
+        let expected = vec![parse("v*v-v"), parse("w*w-w"), parse("u*u-u")];
 
-        let expected = vec![
-            vec![new_variable("c1_s1"), new_variable("c2_s1")],
-            vec![new_variable("c1_s1"), new_variable("c2_s2")],
-            vec![new_variable("c1_s2"), new_variable("c2_s1")],
-            vec![new_variable("c1_s2"), new_variable("c2_s2")],
-        ];
-        assert_eq!(actual.len(), expected.len());
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn fill_gaps_and_transpose_multiple_child_diff_length_multiple_scenario() {
-        let input = vec![
-            vec![new_variable("c1_s1"), new_variable("c1_s2")],
-            vec![
-                new_variable("c2_s1"),
-                new_variable("c2_s2"),
-                new_variable("c2_s3"),
-            ],
-        ];
-
-        let actual = fill_gaps_and_transpose(input);
-
-        let expected = vec![
-            vec![new_variable("c1_s1"), new_variable("c2_s1")],
-            vec![new_variable("c1_s1"), new_variable("c2_s2")],
-            vec![new_variable("c1_s1"), new_variable("c2_s3")],
-            vec![new_variable("c1_s2"), new_variable("c2_s1")],
-            vec![new_variable("c1_s2"), new_variable("c2_s2")],
-            vec![new_variable("c1_s2"), new_variable("c2_s3")],
-        ];
         assert_eq!(actual.len(), expected.len());
         assert_eq!(actual, expected);
     }
