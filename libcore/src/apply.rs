@@ -122,8 +122,11 @@ where
                 for (i, child) in orig.childs.iter().enumerate() {
                     let mut additional_scenarios: Vec<ChildBranch> = Vec::new();
                     for scenario in scenarios.iter_mut() {
-                        let prev_mapping = scenario.current_mapping.clone();
-                        let mut patches = map_deep_batch(prev_mapping, variable_creator, child);
+                        let mut patches = map_deep_batch(
+                            scenario.current_mapping.clone(),
+                            variable_creator,
+                            child,
+                        );
                         if patches.len() == 0 {
                             unimplemented!();
                         } else {
@@ -131,6 +134,7 @@ where
                             scenario.childs.push(patch.symbol);
                             merge_from(&mut scenario.current_mapping, patch.additional_mapping);
 
+                            // For the remaining scenarios create new branches
                             while !patches.is_empty() {
                                 let patch = patches.pop().expect("To be in");
 
@@ -150,7 +154,7 @@ where
                     }
                     scenarios.append(&mut additional_scenarios);
                 }
-
+                // Convert ChildBranches to DeepMapFindings
                 scenarios
                     .into_iter()
                     .map(|mut scenario| {

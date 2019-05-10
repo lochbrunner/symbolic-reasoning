@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 core = { path = "../libcore" }
 maplit = "^1.0.1"
+palette = "0.4"

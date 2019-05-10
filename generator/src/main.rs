@@ -1,28 +1,14 @@
+use crate::trace::ApplyInfo;
+use crate::trace::Trace;
 use core::{apply_batch, fit, Context, Rule, Symbol};
+use rose::draw_rose;
 mod io;
 use io::*;
 mod variable_generator;
 use variable_generator::*;
-
-struct ApplyInfo<'a> {
-    rule: &'a Rule,
-    initial: &'a Symbol,
-    deduced: Symbol,
-}
-
-impl<'a> ApplyInfo<'a> {
-    fn print_header() {
-        println!("  {0: <10} | {1: <10} | {2: <10}", "new", "initial", "rule");
-        println!("  -----------------------------------------");
-    }
-
-    fn print(&self) {
-        let ded_str = format!("{}", self.deduced);
-        let ini_str = format!("{}", self.initial);
-        let rule = format!("{}", self.rule);
-        println!("  {0: <10} | {1: <10} | {2: <10}", ded_str, ini_str, rule);
-    }
-}
+mod rose;
+mod svg;
+mod trace;
 
 fn deduce_once<'a>(initial: &'a Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     let alphabet = create_alphabet();
@@ -45,17 +31,22 @@ fn deduce_once<'a>(initial: &'a Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
 }
 
 fn deduce(initial: &Symbol, rules: &[Rule]) {
-    let mut deduced: Vec<ApplyInfo> = Vec::new();
+    let mut trace = Trace {
+        initial,
+        stage: Vec::new(),
+    };
 
     for rule in rules.iter() {
-        deduced.extend(deduce_once(initial, rule));
+        trace.stage.extend(deduce_once(initial, rule));
     }
 
     println!("Deduced:");
     ApplyInfo::print_header();
-    for ded in deduced.iter() {
+    for ded in trace.stage.iter() {
         ded.print();
     }
+
+    draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
 }
 
 fn main() {
