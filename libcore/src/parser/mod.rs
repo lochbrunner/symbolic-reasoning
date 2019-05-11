@@ -1,21 +1,21 @@
+mod astifier;
 mod lexer;
-mod parser;
 mod token;
 
 use super::symbol::Symbol;
 use crate::context::Context;
 
-pub use parser::Precedence;
+pub use astifier::Precedence;
 
 impl Symbol {
     pub fn parse_from_str(context: &Context, code: String) -> Symbol {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        parser::parse(context, &tokens)
+        astifier::parse(context, &tokens)
     }
 
     pub fn parse(context: &Context, code: &str) -> Symbol {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        parser::parse(context, &tokens)
+        astifier::parse(context, &tokens)
     }
 }
 

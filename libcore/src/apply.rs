@@ -13,10 +13,6 @@ fn map_deep<'a, F>(
 where
     F: Fn() -> &'a Symbol + Sized,
 {
-    match orig.fixed() {
-        _ => (),
-    };
-
     match mapping.get(&orig) {
         None => {
             if orig.childs.is_empty() {
@@ -89,10 +85,6 @@ fn map_deep_batch<'a, F>(
 where
     F: Fn() -> Vec<&'a Symbol> + Sized,
 {
-    match orig.fixed() {
-        _ => (),
-    };
-
     match mapping.get(&orig) {
         None => {
             if orig.childs.is_empty() {
@@ -127,7 +119,7 @@ where
                             variable_creator,
                             child,
                         );
-                        if patches.len() == 0 {
+                        if patches.is_empty() {
                             unimplemented!();
                         } else {
                             let patch = patches.pop().expect("To be in");

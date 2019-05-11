@@ -11,7 +11,7 @@ pub fn read_rules(context: &Context, filename: &str) -> Vec<Rule> {
         let line = line.expect("Line");
         let parts = line.split("//").collect::<Vec<&str>>();
         let code = parts[0];
-        if code.len() > 0 {
+        if !code.is_empty() {
             let mut parts = code.split("<=>").collect::<Vec<&str>>();
             if parts.len() == 2 {
                 let first = parts.pop().expect("First part");
@@ -51,7 +51,7 @@ pub fn read_premises(context: &Context, filename: &str) -> Vec<Symbol> {
         let line = line.expect("Line");
         let parts = line.split("//").collect::<Vec<&str>>();
         let code = parts[0];
-        if code.len() > 0 {
+        if !code.is_empty() {
             premises.push(Symbol::parse(context, &code));
         }
     }

@@ -1,4 +1,4 @@
- use std::io::Result;
+use std::io::Result;
 use std::io::Write;
 
 pub trait Node {
@@ -16,30 +16,29 @@ pub struct Style {
 
 impl Node for Style {
     fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
-        write!(writer, "{:indent$}<style>\n", "", indent = indent)?;
+        writeln!(writer, "{:indent$}<style>", "", indent = indent)?;
         for class in self.classes.iter() {
+            let ident_str = format!("{:indent$}", "", indent = indent + 2);
             write!(
                 writer,
-                "{:indent$}.{name} {{\nfill: rgb({r}, {g}, {b});\n}}\n",
-                "",
-                indent = indent + 2,
+                "{indent}.{name} {{\n{indent}  fill: rgb({r:.0}, {g:.0}, {b:.0});\n{indent}}}\n",
+                indent = ident_str,
                 name = class.name,
-                r = class.color.red*255.0,
-                g = class.color.green*255.0,
-                b = class.color.blue*255.0,
+                r = class.color.red * 255.0,
+                g = class.color.green * 255.0,
+                b = class.color.blue * 255.0,
             )?;
             write!(
                 writer,
-                "{:indent$}line.{name} {{\nstroke: rgb({r}, {g}, {b});\n}}\n",
-                "",
-                indent = indent + 2,
+                "{indent}line.{name} {{\n{indent}  stroke: rgb({r:.0}, {g:.0}, {b:.0});\n{indent}}}\n",
+                indent = ident_str,
                 name = class.name,
-                r = class.color.red*255.0,
-                g = class.color.green*255.0,
-                b = class.color.blue*255.0,
+                r = class.color.red * 255.0,
+                g = class.color.green * 255.0,
+                b = class.color.blue * 255.0,
             )?;
         }
-        write!(writer, "{:indent$}</style>\n", "", indent = indent)
+        writeln!(writer, "{:indent$}</style>", "", indent = indent)
     }
 }
 
@@ -50,9 +49,9 @@ pub struct Document {
 
 impl Document {
     pub fn serialize(&self, writer: &mut Write) -> Result<()> {
-        write!(
+        writeln!(
             writer,
-            "<svg viewBox=\"{}\" xmlns=\"http://www.w3.org/2000/svg\">\n",
+            "<svg viewBox=\"{}\" xmlns=\"http://www.w3.org/2000/svg\">",
             self.view_box
         )?;
         for child in self.childs.iter() {
@@ -71,10 +70,10 @@ pub struct Text {
 
 impl Node for Text {
     fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
-        write!(writer, "{:indent$}<text class=\"{class_name}\" alignment-baseline=\"middle\" font-size=\"8\" font-family=\"sans-serif\" text-anchor=\"middle\" x=\"{x}\" y=\"{y}\">", 
+        write!(writer, "{:indent$}<text class=\"{class_name}\" alignment-baseline=\"middle\" font-size=\"8\" font-family=\"sans-serif\" text-anchor=\"middle\" x=\"{x:.1}\" y=\"{y:.1}\">", 
         "",indent=indent, class_name=self.class_name ,x=self.x, y=self.y)?;
         write!(writer, "{}", self.content)?;
-        write!(writer, "</text>\n")
+        writeln!(writer, "</text>")
     }
 }
 
@@ -89,7 +88,7 @@ pub struct Line {
 
 impl Node for Line {
     fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
-        write!(writer, "{:indent$}<line class=\"{class_name}\" x1=\"{x1}\" y1=\"{y1}\" x2=\"{x2}\" y2=\"{y2}\" stroke-width=\"{stroke_width}\" />\n",
+        writeln!(writer, "{:indent$}<line class=\"{class_name}\" x1=\"{x1:.1}\" y1=\"{y1:.1}\" x2=\"{x2:.1}\" y2=\"{y2:.1}\" stroke-width=\"{stroke_width}\" />",
         "",indent=indent, class_name=self.class_name, x1=self.x1, y1=self.y1,x2=self.x2, y2=self.y2, stroke_width=self.stroke_width)
     }
 }

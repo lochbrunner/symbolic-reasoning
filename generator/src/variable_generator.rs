@@ -50,7 +50,7 @@ pub fn variables_generator<'a>(
         let mut symbols: Vec<&'a Symbol> = all_symbols
             .iter()
             .filter(|s| s.ident != "=")
-            .map(|s| s.clone())
+            .cloned()
             .collect();
         symbols.push(next);
         symbols

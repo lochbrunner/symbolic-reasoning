@@ -81,7 +81,7 @@ fn create_postfix(ident: &str, precedence: Precedence) -> Option<Result<Classifi
 }
 
 mod token_type {
-    pub const PREFIX: u32 = 1 << 0;
+    pub const PREFIX: u32 = 1;
     pub const INFIX: u32 = 1 << 1;
     pub const POSTFIX: u32 = 1 << 2;
     pub const IDENT: u32 = 1 << 3;
@@ -127,7 +127,7 @@ struct Classifier<'a> {
     context: &'a Context,
 }
 
-struct Tokens<'a>(&'a Vec<Token>);
+struct Tokens<'a>(&'a [Token]);
 
 impl<'a> Tokens<'a> {
     pub fn iter(&'a self, context: &'a Context) -> Classifier<'a> {
@@ -140,6 +140,7 @@ impl<'a> Tokens<'a> {
     }
 }
 
+#[allow(clippy::collapsible_if)]
 impl<'a> Iterator for Classifier<'a> {
     type Item = Result<Classification, String>;
 
@@ -190,7 +191,7 @@ impl<'a> Iterator for Classifier<'a> {
                         }
                     } else if token_info.0 & token_type::LITERAL != 0 {
                         self.expect_operator = true;
-                        let value = token_info.4.expect("Value in tuple").clone();
+                        let value = *token_info.4.expect("Value in tuple");
                         Some(Ok(Classification::Literal(value)))
                     } else if token_info.0 & token_type::PREFIX != 0 {
                         create_prefix(token_info.1, token_info.2)
@@ -324,7 +325,7 @@ fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
     }));
 }
 
-pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
+pub fn parse(context: &Context, tokens: &[Token]) -> Symbol {
     let mut stack = ParseStack {
         infix: Vec::new(),
         symbol: Vec::new(),
@@ -378,7 +379,7 @@ pub fn parse(context: &Context, tokens: &Vec<Token>) -> Symbol {
     astify(context, &mut stack, Precedence::PLowest);
     assert!(stack.infix.is_empty());
     assert_eq!(stack.symbol.len(), 1);
-    return pop_as_symbol(context, &mut stack.symbol);
+    pop_as_symbol(context, &mut stack.symbol)
 }
 
 #[cfg(test)]

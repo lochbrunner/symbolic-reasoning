@@ -11,7 +11,7 @@ mod symbol_flags {
     /// Example function: "+" Example variable constant of gravitation "G"
     /// Later on it will depend on the context if function is fixed or not.
     /// For instance "G" could stand for another variable, but not the constant of gravitation.
-    pub const FIXED: FlagType = 1 << 0;
+    pub const FIXED: FlagType = 1;
     pub const ROOT_ONLY: FlagType = 1 << 1;
 }
 
@@ -68,7 +68,7 @@ impl Symbol {
     pub fn new_variable_from_string(ident: String, fixed: bool) -> Symbol {
         Symbol {
             flags: if fixed { symbol_flags::FIXED } else { 0 },
-            ident: ident,
+            ident,
             depth: 1,
             childs: Vec::new(),
             value: None,

@@ -1,67 +1,68 @@
-<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    .rule_0 {
-fill: rgb(203.42311, 0, 0);
-}
-    line.rule_0 {
-stroke: rgb(203.42311, 0, 0);
-}
-    .rule_1 {
-fill: rgb(203.42311, 203.42311, 0);
-}
-    line.rule_1 {
-stroke: rgb(203.42311, 203.42311, 0);
-}
-    .rule_2 {
-fill: rgb(0, 203.42311, 0);
-}
-    line.rule_2 {
-stroke: rgb(0, 203.42311, 0);
-}
-    .rule_3 {
-fill: rgb(0, 203.42311, 203.42311);
-}
-    line.rule_3 {
-stroke: rgb(0, 203.42311, 203.42311);
-}
-    .rule_4 {
-fill: rgb(0, 0, 203.42311);
-}
-    line.rule_4 {
-stroke: rgb(0, 0, 203.42311);
-}
-    .rule_5 {
-fill: rgb(203.42311, 0, 203.42311);
-}
-    line.rule_5 {
-stroke: rgb(203.42311, 0, 203.42311);
-}
-  </style>
-  <text class="rule_0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="192" y="128">x=a-a</text>
-  <line class="rule_0" x1="138" y1="128" x2="182" y2="128" stroke-width="1" />
-  <text class="rule_0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="184.66919" y="157.74228">x=0-0</text>
-  <line class="rule_0" x1="136.85455" y1="132.64723" x2="175.81462" y2="153.09505" stroke-width="1" />
-  <text class="rule_0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="164.35614" y="180.67096">x=x-x</text>
-  <line class="rule_0" x1="133.68065" y1="136.22984" x2="158.67549" y2="172.44113" stroke-width="1" />
-  <text class="rule_1" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="135.71436" y="191.53337">x+0=0</text>
-  <line class="rule_1" x1="129.20537" y1="137.9271" x2="134.50899" y2="181.60628" stroke-width="1" />
-  <text class="rule_1" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="105.30528" y="187.84103">x=0+0</text>
-  <line class="rule_1" x1="124.45395" y1="137.35016" x2="108.85133" y2="178.49088" stroke-width="1" />
-  <text class="rule_2" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="80.09531" y="170.43985">1*x=0</text>
-  <line class="rule_2" x1="120.51489" y1="134.63123" x2="87.580414" y2="163.80862" stroke-width="1" />
-  <text class="rule_2" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="65.859726" y="143.31621">x=1*0</text>
-  <line class="rule_2" x1="118.29058" y1="130.39316" x2="75.56914" y2="140.92305" stroke-width="1" />
-  <text class="rule_3" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="65.859726" y="112.683784">x^1=0</text>
-  <line class="rule_3" x1="118.29058" y1="125.60684" x2="75.569145" y2="115.07694" stroke-width="1" />
-  <text class="rule_3" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="80.09532" y="85.56014">x=0^1</text>
-  <line class="rule_3" x1="120.51489" y1="121.368774" x2="87.58043" y2="92.191376" stroke-width="1" />
-  <text class="rule_4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="105.30528" y="68.158966">x=0*a</text>
-  <line class="rule_4" x1="124.45395" y1="118.64984" x2="108.85133" y2="77.509125" stroke-width="1" />
-  <text class="rule_4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="135.71436" y="64.46663">x=0*0</text>
-  <line class="rule_4" x1="129.20537" y1="118.072914" x2="134.50899" y2="74.39372" stroke-width="1" />
-  <text class="rule_4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="164.35616" y="75.32904">x=0*x</text>
-  <line class="rule_4" x1="133.68065" y1="119.770164" x2="158.6755" y2="83.558876" stroke-width="1" />
-  <text class="rule_5" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="184.66919" y="98.25771">x-0=0</text>
-  <line class="rule_5" x1="136.85455" y1="123.35277" x2="175.81462" y2="102.904945" stroke-width="1" />
-  <text class="black" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="128" y="128">x=0</text>
+<svg viewBox="0 0 256 256" 
+    xmlns="http://www.w3.org/2000/svg">
+    <style>
+    .rule-0 {
+      fill: rgb(203, 0, 0);
+    }
+    line.rule-0 {
+      stroke: rgb(203, 0, 0);
+    }
+    .rule-1 {
+      fill: rgb(203, 203, 0);
+    }
+    line.rule-1 {
+      stroke: rgb(203, 203, 0);
+    }
+    .rule-2 {
+      fill: rgb(0, 203, 0);
+    }
+    line.rule-2 {
+      stroke: rgb(0, 203, 0);
+    }
+    .rule-3 {
+      fill: rgb(0, 203, 203);
+    }
+    line.rule-3 {
+      stroke: rgb(0, 203, 203);
+    }
+    .rule-4 {
+      fill: rgb(0, 0, 203);
+    }
+    line.rule-4 {
+      stroke: rgb(0, 0, 203);
+    }
+    .rule-5 {
+      fill: rgb(203, 0, 203);
+    }
+    line.rule-5 {
+      stroke: rgb(203, 0, 203);
+    }
+    </style>
+    <text class="rule-0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="192.0" y="128.0">x=a-a</text>
+    <line class="rule-0" x1="140.0" y1="128.0" x2="180.0" y2="128.0" stroke-width="1" />
+    <text class="rule-0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="184.7" y="157.7">x=0-0</text>
+    <line class="rule-0" x1="138.6" y1="133.6" x2="174.0" y2="152.2" stroke-width="1" />
+    <text class="rule-0" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="164.4" y="180.7">x=x-x</text>
+    <line class="rule-0" x1="134.8" y1="137.9" x2="157.5" y2="170.8" stroke-width="1" />
+    <text class="rule-1" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="135.7" y="191.5">x+0=0</text>
+    <line class="rule-1" x1="129.4" y1="139.9" x2="134.3" y2="179.6" stroke-width="1" />
+    <text class="rule-1" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="105.3" y="187.8">x=0+0</text>
+    <line class="rule-1" x1="123.7" y1="139.2" x2="109.6" y2="176.6" stroke-width="1" />
+    <text class="rule-2" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="80.1" y="170.4">1*x=0</text>
+    <line class="rule-2" x1="119.0" y1="136.0" x2="89.1" y2="162.5" stroke-width="1" />
+    <text class="rule-2" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="65.9" y="143.3">x=1*0</text>
+    <line class="rule-2" x1="116.3" y1="130.9" x2="77.5" y2="140.4" stroke-width="1" />
+    <text class="rule-3" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="65.9" y="112.7">x^1=0</text>
+    <line class="rule-3" x1="116.3" y1="125.1" x2="77.5" y2="115.6" stroke-width="1" />
+    <text class="rule-3" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="80.1" y="85.6">x=0^1</text>
+    <line class="rule-3" x1="119.0" y1="120.0" x2="89.1" y2="93.5" stroke-width="1" />
+    <text class="rule-4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="105.3" y="68.2">x=0*a</text>
+    <line class="rule-4" x1="123.7" y1="116.8" x2="109.6" y2="79.4" stroke-width="1" />
+    <text class="rule-4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="135.7" y="64.5">x=0*0</text>
+    <line class="rule-4" x1="129.4" y1="116.1" x2="134.3" y2="76.4" stroke-width="1" />
+    <text class="rule-4" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="164.4" y="75.3">x=0*x</text>
+    <line class="rule-4" x1="134.8" y1="118.1" x2="157.5" y2="85.2" stroke-width="1" />
+    <text class="rule-5" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="184.7" y="98.3">x-0=0</text>
+    <line class="rule-5" x1="138.6" y1="122.4" x2="174.0" y2="103.8" stroke-width="1" />
+    <text class="black" alignment-baseline="middle" font-size="8" font-family="sans-serif" text-anchor="middle" x="128.0" y="128.0">x=0</text>
 </svg>

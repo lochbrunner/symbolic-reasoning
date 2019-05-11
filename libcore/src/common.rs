@@ -1,12 +1,12 @@
 use crate::symbol::Symbol;
 use std::collections::HashMap;
-use std::hash::Hash;
+use std::hash::{BuildHasher, Hash};
 
-pub fn merge<K: Hash + Eq + Copy, V: Copy>(
-    first: &HashMap<K, V>,
-    second: &HashMap<K, V>,
-) -> HashMap<K, V> {
-    let mut merged = HashMap::new();
+pub fn merge<K: Hash + Eq + Copy, V: Copy, S: BuildHasher + Default>(
+    first: &HashMap<K, V, S>,
+    second: &HashMap<K, V, S>,
+) -> HashMap<K, V, S> {
+    let mut merged = HashMap::default();
     for (key, value) in first.iter() {
         merged.insert(*key, *value);
     }
@@ -16,22 +16,25 @@ pub fn merge<K: Hash + Eq + Copy, V: Copy>(
     merged
 }
 
-pub fn merge_in_place<K: Hash + Eq + Copy, V: Copy>(
-    target: &mut HashMap<K, V>,
-    source: &HashMap<K, V>,
+pub fn merge_in_place<K: Hash + Eq + Copy, V: Copy, S: BuildHasher + Default>(
+    target: &mut HashMap<K, V, S>,
+    source: &HashMap<K, V, S>,
 ) {
     for (key, value) in source.iter() {
         target.insert(*key, *value);
     }
 }
 
-pub fn merge_from<K: Hash + Eq + Copy, V: Copy>(target: &mut HashMap<K, V>, source: HashMap<K, V>) {
+pub fn merge_from<K: Hash + Eq + Copy, V: Copy, S: BuildHasher + Default>(
+    target: &mut HashMap<K, V, S>,
+    source: HashMap<K, V, S>,
+) {
     for (key, value) in source.into_iter() {
         target.insert(key, value);
     }
 }
 
-pub fn format_mapping(mapping: &HashMap<&Symbol, &Symbol>) -> String {
+pub fn format_mapping<S: BuildHasher + Default>(mapping: &HashMap<&Symbol, &Symbol, S>) -> String {
     mapping
         .iter()
         .map(|(source, target)| format!("{} => {}", source, target))

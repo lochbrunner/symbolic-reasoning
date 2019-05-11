@@ -26,19 +26,19 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
     let mut rules_i = 0;
     for deduced in trace.stage.iter(){
         let key = deduced.rule.to_string();
-        let name = format!("rule_{}", rules_i);
+        let name = format!("rule-{}", rules_i);
         if !rules_styles.contains_key(&key) {
             rules_styles.insert(deduced.rule.to_string(), name);
             rules_i += 1;
         }
     }
+
     let total_rules = rules_styles.len();
-        let mut style = svg::Style {
-            classes: vec![]};
+    let mut style = svg::Style {classes: vec![]};
 
     for i in 0..total_rules {
         let angle = 360.0 * (i as f32) / (total_rules as f32);
-        let name = format!("rule_{}", i);
+        let name = format!("rule-{}", i);
             let c = svg::Class {
                 name,
                 color: palette::Srgb::from(palette::Hsv::new(
@@ -69,7 +69,7 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
         };
         childs.push(Box::new(text));
 
-        let margin = 10.0;
+        let margin = 12.0;
         let outer_r = r - margin;
         let x1 = margin * angle.cos() + mx;
         let y1 = margin * angle.sin() + mx;

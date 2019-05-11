@@ -22,9 +22,10 @@ fn fit_impl<'a>(
     map: &Option<FitMap<'a>>,
     path: &[usize],
 ) -> Vec<FitMap<'a>> {
-    match inner.fixed() {
-        false if !outer.only_root() => fit_abstract(outer, inner, map, path),
-        _ => fit_fixed(outer, inner, map, path),
+    if !inner.fixed() && !outer.only_root() {
+        fit_abstract(outer, inner, map, path)
+    } else {
+        fit_fixed(outer, inner, map, path)
     }
 }
 
@@ -37,7 +38,7 @@ fn fit_abstract<'a>(
 ) -> Vec<FitMap<'a>> {
     let contradiction = match map {
         Some(prev_map) => {
-            prev_map.variable.contains_key(inner) && prev_map.variable.get(inner).unwrap() != &outer
+            prev_map.variable.contains_key(inner) && prev_map.variable[inner] != outer
         }
         None => false,
     };
@@ -55,17 +56,18 @@ fn fit_abstract<'a>(
 }
 
 /// Assuming for now target and source have length 1
-fn add_extension<'a>(target: &mut Vec<FitMap<'a>>, source: Vec<FitMap<'a>>) -> () {
+#[allow(clippy::needless_range_loop, clippy::get_unwrap)]
+fn add_extension<'a>(target: &mut Vec<FitMap<'a>>, source: Vec<FitMap<'a>>) {
     assert_eq!(
         target.len(),
         1,
         "Folking of extensions is not supported yet"
     );
-    if source.len() == 0 {
+    if source.is_empty() {
         target.clear();
     } else {
         'scenario: for i in 0..target.len() {
-            let target_scenario = target.iter_mut().nth(i).unwrap();
+            let target_scenario = target.get_mut(i).unwrap();
             let source_scenario = &source[i];
             // Contradiction with previous?
             'conflicts: for (key, new_value) in source_scenario.variable.iter() {
@@ -88,11 +90,10 @@ fn add_extension<'a>(target: &mut Vec<FitMap<'a>>, source: Vec<FitMap<'a>>) -> (
 
 /// Merges the mappings of one scenario
 /// The usage of this function is not the most preferment approach
-fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &Vec<FitMap<'a>>) -> Vec<FitMap<'a>> {
+fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &[FitMap<'a>]) -> Vec<FitMap<'a>> {
     let mut merged = Vec::new();
 
-    for scenario in 0..extension.len() {
-        let extension_scenario = &extension[scenario];
+    for extension_scenario in extension.iter() {
         let mut target_scenario = FitMap {
             variable: HashMap::new(),
             location: prev.location,
@@ -117,18 +118,17 @@ fn folk_childs<'a>(
     path: &[usize],
     mut fittings: Vec<FitMap<'a>>,
 ) -> Vec<FitMap<'a>> {
-    if false && (inner.only_root() || outer.only_root()) {
-        vec![]
-    } else {
-        for (i, child) in outer.childs.iter().enumerate() {
-            let mut path = path.to_vec();
-            path.push(i);
-            let branches = fit_impl(child, inner, map, &path);
-            // Folk here
-            fittings.extend(branches);
-        }
-        fittings
+    // if (inner.only_root() || outer.only_root()) {
+    //     return vec![];
+
+    for (i, child) in outer.childs.iter().enumerate() {
+        let mut path = path.to_vec();
+        path.push(i);
+        let branches = fit_impl(child, inner, map, &path);
+        // Folk here
+        fittings.extend(branches);
     }
+    fittings
 }
 
 /// When folking give the child only the relevant branches
