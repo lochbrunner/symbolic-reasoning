@@ -5,6 +5,7 @@ mod io;
 use io::*;
 mod variable_generator;
 use variable_generator::*;
+mod iter_extensions;
 mod rose;
 mod svg;
 mod trace;
