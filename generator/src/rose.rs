@@ -25,10 +25,10 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
     let mut rules_styles = HashMap::new();
     let mut rules_i = 0;
     for deduced in trace.stage.iter(){
-        let key = deduced.rule.to_string();
+        let key = deduced.info.rule.to_string();
         let name = format!("rule-{}", rules_i);
         if !rules_styles.contains_key(&key) {
-            rules_styles.insert(deduced.rule.to_string(), name);
+            rules_styles.insert(deduced.info.rule.to_string(), name);
             rules_i += 1;
         }
     }
@@ -60,12 +60,12 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
         let angle = 2.0 * f32::consts::PI * (i as f32) / (total_deduced as f32);
         let x = r * angle.cos() + mx;
         let y = r * angle.sin() + my;
-        let class_name = rules_styles.get(&deduced.rule.to_string()).expect("Rule");
+        let class_name = rules_styles.get(&deduced.info.rule.to_string()).expect("Rule");
         let text = svg::Text {
             x,
             y,
             class_name: class_name.clone(),
-            content: deduced.deduced.to_string(),
+            content: deduced.info.deduced.to_string(),
         };
         childs.push(Box::new(text));
 
