@@ -102,7 +102,7 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
         childs.push(Box::new(line));
 
         // Second stage
-        let r2 = 116.0;
+        let r2 = 112.0;
         let max_spread_angle = 0.7*PI / (num_stage_1 as f32);
         let spread_delta = 2.0*max_spread_angle / (num_stage_2 as f32 - 1.0);
         for (j, stage2) in stage1.successors.pick(Strategy::Uniform(num_stage_2)).enumerate() {
@@ -145,7 +145,7 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
     childs.push(Box::new(style));
 
     let document = svg::Document {
-        view_box: "0 0 256 256",
+        view_box: [0, 0, width, height],
         childs,
     };
 

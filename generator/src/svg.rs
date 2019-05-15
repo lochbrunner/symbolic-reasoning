@@ -44,15 +44,19 @@ impl Node for Style {
 
 pub struct Document {
     pub childs: Vec<Box<Node>>,
-    pub view_box: &'static str,
+    /// min x, min y, width, height
+    pub view_box: [u32; 4],
 }
 
 impl Document {
     pub fn serialize(&self, writer: &mut Write) -> Result<()> {
         writeln!(
             writer,
-            "<svg viewBox=\"{}\" xmlns=\"http://www.w3.org/2000/svg\">",
-            self.view_box
+            "<svg viewBox=\"{bx} {by} {bw} {bh}\" xmlns=\"http://www.w3.org/2000/svg\">",
+            bx = self.view_box[0],
+            by = self.view_box[1],
+            bw = self.view_box[2],
+            bh = self.view_box[3],
         )?;
         for child in self.childs.iter() {
             child.serialize_impl(2, writer)?;

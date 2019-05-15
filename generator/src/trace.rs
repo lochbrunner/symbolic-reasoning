@@ -10,11 +10,13 @@ pub struct ApplyInfo<'a> {
 }
 
 impl<'a> ApplyInfo<'a> {
+    #[allow(dead_code)]
     pub fn print_header() {
         println!("  {0: <14} | {1: <14} | {2: <14}", "new", "initial", "rule");
         println!("  -----------------------------------------");
     }
 
+    #[allow(dead_code)]
     pub fn print(&self) {
         let ded_str = format!("{}", self.deduced);
         let ini_str = format!("{}", self.initial);

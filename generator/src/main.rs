@@ -1,3 +1,4 @@
+use crate::iter_extensions::{PickTraitVec, Strategy};
 use crate::trace::{ApplyInfo, Trace, TraceStep};
 use core::{apply_batch, fit, Context, Rule, Symbol};
 use rose::draw_rose;
@@ -9,7 +10,6 @@ mod iter_extensions;
 mod rose;
 mod svg;
 mod trace;
-use itertools::Itertools;
 
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     fit(initial, &rule.condition)
@@ -38,44 +38,37 @@ fn deduce_impl<'a>(
     alphabet: &'a [Symbol],
     initial: &Symbol,
     rules: &'a [Rule],
-    remaining_stages: u32,
+    stages: &[usize],
+    stage_index: usize,
 ) -> Vec<TraceStep<'a>> {
-    if remaining_stages < 1 {
+    if stages.len() == stage_index {
         return vec![];
     }
     let mut stage = vec![];
+    // How to reduce for all rules in sum
     for rule in rules.iter() {
         stage.extend(
             deduce_once(alphabet, initial, rule)
-                .into_iter()
+                .pick(Strategy::Random(true))
+                .take(stages[stage_index])
+                .cloned()
                 .map(|a| TraceStep {
-                    successors: deduce_impl(alphabet, &a.deduced, rules, remaining_stages - 1),
+                    successors: deduce_impl(alphabet, &a.deduced, rules, stages, stage_index + 1),
                     info: a,
                 })
-                .unique_by(|ts| ts.info.deduced.to_string())
                 .collect::<Vec<TraceStep>>(),
         );
     }
     stage
 }
 
-fn deduce(initial: &Symbol, rules: &[Rule], stages: u32) {
+fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) {
     let alphabet = create_alphabet();
 
     let trace = Trace {
         initial,
-        stage: deduce_impl(&alphabet, initial, rules, stages),
+        stage: deduce_impl(&alphabet, initial, rules, &stages, 0),
     };
-
-    println!("Deduced:");
-    ApplyInfo::print_header();
-    for ded in trace.stage.iter() {
-        println!("##########################################");
-        ded.info.print();
-        for ded2 in ded.successors.iter() {
-            ded2.info.print();
-        }
-    }
 
     draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
 }
@@ -89,5 +82,5 @@ fn main() {
 
     let initial = &premises[0];
 
-    deduce(initial, &rules, 2);
+    deduce(initial, &rules, vec![2, 2, 2]);
 }

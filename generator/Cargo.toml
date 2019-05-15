@@ -9,3 +9,4 @@ core = { path = "../libcore" }
 maplit = "^1.0.1"
 palette = "0.4"
 itertools = "0.8"
+rand = "0.6.5"
