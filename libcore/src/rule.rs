@@ -1,10 +1,9 @@
 // use super::parsers_dep::parse_rule;
-use super::symbol::Symbol;
-use crate::context::Context;
+use super::{Context, Symbol};
 
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Rule {
     pub condition: Symbol,
     pub conclusion: Symbol,

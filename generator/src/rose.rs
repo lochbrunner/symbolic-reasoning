@@ -1,6 +1,5 @@
-use core::Rule;
+use core::{Rule, Trace};
 use crate::svg;
-use crate::trace::Trace;
 use crate::iter_extensions::{PickTraitVec, Strategy};
 use palette;
 use std::collections::HashMap;

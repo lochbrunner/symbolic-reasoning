@@ -1,15 +1,16 @@
 use crate::iter_extensions::{PickTraitVec, Strategy};
-use crate::trace::{ApplyInfo, Trace, TraceStep};
-use core::{apply_batch, fit, Context, Rule, Symbol};
+use core::DenseTrace;
+use core::{apply_batch, fit, ApplyInfo, Context, Rule, Symbol, Trace, TraceStep};
 use rose::draw_rose;
 mod io;
 use io::*;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 mod variable_generator;
 use variable_generator::*;
 mod iter_extensions;
 mod rose;
 mod svg;
-mod trace;
 
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     fit(initial, &rule.condition)
@@ -62,7 +63,7 @@ fn deduce_impl<'a>(
     stage
 }
 
-fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) {
+fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
     let alphabet = create_alphabet();
 
     let trace = Trace {
@@ -71,6 +72,8 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) {
     };
 
     draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
+
+    DenseTrace::from_trace(&trace)
 }
 
 fn main() {
@@ -82,5 +85,14 @@ fn main() {
 
     let initial = &premises[0];
 
-    deduce(initial, &rules, vec![2, 2, 2]);
+    let trace = deduce(initial, &rules, vec![2, 2]);
+
+    let writer = BufWriter::new(File::create("out/trace.yaml").unwrap());
+    trace.write_yaml(writer).expect("Writing.yaml file");
+
+    let writer = BufWriter::new(File::create("out/trace.bin").unwrap());
+    trace.write_bincode(writer).expect("Writing.bin file");
+
+    let reader = BufReader::new(File::open("out/trace.bin").expect("Opening trace.bin"));
+    let trace_loaded = DenseTrace::read_bincode(reader);
 }

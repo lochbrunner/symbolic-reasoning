@@ -15,7 +15,7 @@ mod symbol_flags {
     pub const ROOT_ONLY: FlagType = 1 << 1;
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Symbol {
     pub ident: String,
     // Empty for non operators
