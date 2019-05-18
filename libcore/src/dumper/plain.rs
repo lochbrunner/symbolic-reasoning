@@ -1,4 +1,4 @@
-use super::base::{dump_base, SpecialFormatRules, SpecialSymbols};
+use super::base::*;
 use crate::parser::Precedence;
 use crate::Symbol;
 use std::fmt;
@@ -23,7 +23,13 @@ pub fn dump_simple(symbol: &Symbol) -> String {
         },
     };
     let mut string = String::new();
-    dump_base(&special_symbols, symbol, &mut string);
+    dump_base(
+        &special_symbols,
+        symbol,
+        &mut string,
+        &None,
+        FormatingLocation::new(),
+    );
     string
 }
 

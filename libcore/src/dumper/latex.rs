@@ -1,14 +1,18 @@
 use super::base::*;
 use crate::parser::Precedence;
-use crate::Symbol;
+use crate::{Rule, Symbol};
 
 pub trait LaTeX {
     fn write_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
     where
         W: std::io::Write;
+
+    fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
+    where
+        W: std::io::Write;
 }
 
-pub fn dump_latex(symbol: &Symbol) -> String {
+pub fn dump_latex(symbol: &Symbol, embedding: &Option<Decoration>) -> String {
     let special_symbols = SpecialSymbols {
         infix: hashmap! {
             "+" => Precedence::PSum,
@@ -42,8 +46,38 @@ pub fn dump_latex(symbol: &Symbol) -> String {
         },
     };
     let mut string = String::new();
-    dump_base(&special_symbols, symbol, &mut string);
+    dump_base(
+        &special_symbols,
+        symbol,
+        &mut string,
+        embedding,
+        FormatingLocation::new(),
+    );
     string
+}
+
+impl Symbol {
+    pub fn write_latex_highlight<W>(
+        &self,
+        path: &[usize],
+        writer: &mut W,
+    ) -> Result<(), std::io::Error>
+    where
+        W: std::io::Write,
+    {
+        write!(
+            writer,
+            "{}",
+            dump_latex(
+                self,
+                &Some(Decoration {
+                    path,
+                    pre: "\\mathbin{\\textcolor{red}{",
+                    post: "}}",
+                })
+            )
+        )
+    }
 }
 
 impl LaTeX for Symbol {
@@ -51,7 +85,40 @@ impl LaTeX for Symbol {
     where
         W: std::io::Write,
     {
-        write!(writer, "{}", dump_latex(self))
+        write!(writer, "{}", dump_latex(self, &None))
+    }
+
+    fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
+    where
+        W: std::io::Write,
+    {
+        write!(writer, "{}\n", dump_latex(self, &None))
+    }
+}
+
+impl LaTeX for Rule {
+    fn write_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
+    where
+        W: std::io::Write,
+    {
+        write!(
+            writer,
+            "{} \\Rightarrow {}",
+            dump_latex(&self.condition, &None),
+            dump_latex(&self.conclusion, &None)
+        )
+    }
+
+    fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
+    where
+        W: std::io::Write,
+    {
+        writeln!(
+            writer,
+            "{} \\Rightarrow {}",
+            dump_latex(&self.condition, &None),
+            dump_latex(&self.conclusion, &None)
+        )
     }
 }
 
@@ -80,20 +147,54 @@ mod e2e {
     fn fraction_simple() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/b");
-        assert_eq!(dump_latex(&term), String::from("\\frac{a}{b}"));
+        assert_eq!(dump_latex(&term, &None), String::from("\\frac{a}{b}"));
     }
 
     #[test]
     fn fraction_double() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/(b/c)");
-        assert_eq!(dump_latex(&term), String::from("\\frac{a}{\\frac{b}{c}}"));
+        assert_eq!(
+            dump_latex(&term, &None),
+            String::from("\\frac{a}{\\frac{b}{c}}")
+        );
     }
 
     #[test]
     fn brackets() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a*(b+c)");
-        assert_eq!(dump_latex(&term), String::from("a*\\left b+c\\right "));
+        assert_eq!(
+            dump_latex(&term, &None),
+            String::from("a*\\left b+c\\right ")
+        );
+    }
+
+    #[test]
+    fn decoration_variable() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "a");
+        let path = vec![];
+        let deco = Some(Decoration {
+            path: &path,
+            pre: "<",
+            post: ">",
+        });
+
+        assert_eq!(dump_latex(&term, &deco), String::from("<a>"));
+    }
+
+    #[test]
+    fn decoration_operator() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "a+b");
+        let path = vec![0];
+        let deco = Some(Decoration {
+            path: &path,
+            pre: "<",
+            post: ">",
+        });
+
+        assert_eq!(dump_latex(&term, &deco), String::from("<a>+b"));
     }
 }
