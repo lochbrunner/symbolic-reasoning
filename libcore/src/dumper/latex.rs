@@ -27,7 +27,7 @@ pub fn dump_latex(symbol: &Symbol, embedding: &Option<Decoration>) -> String {
         postfix: hashset! {"!"},
         prefix: hashset! {"-"},
         format: SpecialFormatRules {
-            symbols: hashmap! {"(" => "\\left ", ")" => "\\right "},
+            symbols: hashmap! {"(" => "\\left( ", ")" => "\\right) ", "*" => "\\cdot "},
             functions: hashmap! {
                 "^" => vec![
                     FormatItem::Child(0),
@@ -92,7 +92,7 @@ impl LaTeX for Symbol {
     where
         W: std::io::Write,
     {
-        write!(writer, "{}\n", dump_latex(self, &None))
+        writeln!(writer, "{}", dump_latex(self, &None))
     }
 }
 
@@ -166,7 +166,7 @@ mod e2e {
         let term = Symbol::parse(&context, "a*(b+c)");
         assert_eq!(
             dump_latex(&term, &None),
-            String::from("a*\\left b+c\\right ")
+            String::from("a\\cdot \\left( b+c\\right) ")
         );
     }
 

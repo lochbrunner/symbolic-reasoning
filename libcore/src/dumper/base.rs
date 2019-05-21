@@ -55,10 +55,10 @@ pub struct SpecialSymbols<'a> {
     pub format: SpecialFormatRules,
 }
 
-const EMPTY_VEC: &'static [usize] = &[];
+const EMPTY_VEC: &[usize] = &[];
 
 impl<'a> SpecialSymbols<'a> {
-    pub fn get(&self, key: &'static str) -> &'static str {
+    pub fn get<'b>(&self, key: &'b str) -> &'b str {
         self.format.symbols.get(key).unwrap_or(&key)
     }
 
@@ -144,17 +144,17 @@ pub fn dump_base(
     } else {
         &EMPTY_VEC
     };
-    let decoration = if location.on_track(path) {
+    let actual_decoration = if location.on_track(path) {
         decoration
     } else {
         &None
     };
-    if let Some(decoration) = decoration {
+    if let Some(decoration) = actual_decoration {
         string.push_str(decoration.pre);
     }
 
     match symbol.childs.len() {
-        0 => string.push_str(&symbol.ident),
+        0 => string.push_str(special_symbols.get(&symbol.ident)),
         1 if special_symbols.postfix.contains(&symbol.ident[..]) => {
             let child = &symbol.childs[0];
             let pre_child = get_precedence_or_default(special_symbols, &child.ident);
@@ -166,13 +166,13 @@ pub fn dump_base(
                 decoration,
                 location,
             );
-            string.push_str(&symbol.ident);
+            string.push_str(special_symbols.get(&symbol.ident));
         }
         1 if special_symbols.prefix.contains(&symbol.ident[..]) => {
             match special_symbols.format_function(decoration, &location, &symbol, &mut string) {
                 Some(_) => (),
                 None => {
-                    string.push_str(&symbol.ident);
+                    string.push_str(special_symbols.get(&symbol.ident));
                     let child = &symbol.childs[0];
                     let pre_child = get_precedence_or_default(special_symbols, &child.ident);
                     dump_atomic(
@@ -203,7 +203,8 @@ pub fn dump_base(
                         decoration,
                         location.deeper(0, path),
                     );
-                    string.push_str(&symbol.ident);
+                    string.push_str(special_symbols.get(&symbol.ident));
+
                     dump_atomic(
                         special_symbols,
                         right,
@@ -216,7 +217,7 @@ pub fn dump_base(
             }
         }
         _ => {
-            string.push_str(&symbol.ident);
+            string.push_str(special_symbols.get(&symbol.ident));
             let mut first = true;
             string.push_str(special_symbols.get("("));
             for (i, child) in symbol.childs.iter().enumerate() {
@@ -236,7 +237,7 @@ pub fn dump_base(
         }
     };
 
-    if let Some(decoration) = decoration {
+    if let Some(decoration) = actual_decoration {
         string.push_str(decoration.post);
     }
 }

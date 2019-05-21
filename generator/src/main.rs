@@ -5,7 +5,7 @@ use rose::draw_rose;
 mod io;
 use io::*;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 mod variable_generator;
 use variable_generator::*;
 mod iter_extensions;
@@ -85,7 +85,7 @@ fn main() {
 
     let initial = &premises[0];
 
-    let trace = deduce(initial, &rules, vec![2, 2]);
+    let trace = deduce(initial, &rules, vec![1, 1, 1]);
 
     let writer = BufWriter::new(File::create("out/trace.yaml").unwrap());
     trace.write_yaml(writer).expect("Writing.yaml file");
@@ -93,6 +93,9 @@ fn main() {
     let writer = BufWriter::new(File::create("out/trace.bin").unwrap());
     trace.write_bincode(writer).expect("Writing.bin file");
 
-    let reader = BufReader::new(File::open("out/trace.bin").expect("Opening trace.bin"));
-    let trace_loaded = DenseTrace::read_bincode(reader);
+    // let reader = BufReader::new(File::open("out/trace.bin").expect("Opening trace.bin"));
+    // let trace_loaded = DenseTrace::read_bincode(reader);
+
+    let mut writer = BufWriter::new(File::create("out/trace.tex").unwrap());
+    trace.write_latex(&mut writer).expect("Writing.bin file");
 }
