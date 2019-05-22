@@ -4,33 +4,30 @@ use crate::Symbol;
 use std::fmt;
 
 pub fn dump_simple(symbol: &Symbol) -> String {
-    let special_symbols = SpecialSymbols {
-        infix: hashmap! {
-            "+" => Precedence::PSum,
-            "-" => Precedence::PSum,
-            "*" => Precedence::PProduct,
-            "/" => Precedence::PProduct,
-            "^" => Precedence::PPower,
-            "=" => Precedence::PEquals,
-            "==" => Precedence::PEquals,
-            "!=" => Precedence::PEquals,
+    let context = FormatContext {
+        operators: Operators {
+            infix: hashmap! {
+                "+" => Precedence::PSum,
+                "-" => Precedence::PSum,
+                "*" => Precedence::PProduct,
+                "/" => Precedence::PProduct,
+                "^" => Precedence::PPower,
+                "=" => Precedence::PEquals,
+                "==" => Precedence::PEquals,
+                "!=" => Precedence::PEquals,
+            },
+            postfix: hashset! {"!"},
+            prefix: hashset! {"-"},
+            non_associative: hashset! {"-","/"},
         },
-        postfix: hashset! {"!"},
-        prefix: hashset! {"-"},
-        format: SpecialFormatRules {
+        formats: SpecialFormatRules {
             symbols: hashmap! {},
             functions: hashmap! {},
         },
-        non_associative: hashset! {"-","/"},
+        decoration: None,
     };
     let mut string = String::new();
-    dump_base(
-        &special_symbols,
-        symbol,
-        &mut string,
-        &None,
-        FormatingLocation::new(),
-    );
+    dump_base(&context, symbol, FormatingLocation::new(), &mut string);
     string
 }
 

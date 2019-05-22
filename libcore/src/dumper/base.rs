@@ -2,23 +2,6 @@ use crate::parser::Precedence;
 use crate::Symbol;
 use std::collections::{HashMap, HashSet};
 
-pub enum FormatItem {
-    Tag(&'static str),
-    Child(usize),
-}
-
-// pub struct FormatContext<'a> {
-//     operators: SpecialSymbols<'a>,
-//     formats: SpecialFormatRules,
-//     location: FormatingLocation,
-// }
-
-// impl<'a> FormatContext<'a> {
-//     pub fn deeper(&self) {
-//         if let self.operators
-//     }
-// }
-
 pub struct FormatingLocation {
     depth: usize,
     on_track: bool,
@@ -43,50 +26,70 @@ impl FormatingLocation {
     }
 }
 
+pub enum FormatItem {
+    Tag(&'static str),
+    Child(usize),
+}
+
+pub struct FormatContext<'a> {
+    pub operators: Operators<'a>,
+    pub formats: SpecialFormatRules,
+    pub decoration: Option<Decoration<'a>>,
+}
+
+impl<'a> FormatContext<'a> {}
+
 pub struct SpecialFormatRules {
     pub symbols: HashMap<&'static str, &'static str>,
     pub functions: HashMap<&'static str, Vec<FormatItem>>,
 }
 
-pub struct SpecialSymbols<'a> {
+pub struct Operators<'a> {
     pub infix: HashMap<&'a str, Precedence>,
     pub postfix: HashSet<&'a str>,
     pub prefix: HashSet<&'a str>,
-    pub format: SpecialFormatRules,
     pub non_associative: HashSet<&'a str>,
+}
+
+pub struct Decoration<'a> {
+    pub path: &'a [usize],
+    pub pre: &'static str,
+    pub post: &'static str,
 }
 
 const EMPTY_VEC: &[usize] = &[];
 
-impl<'a> SpecialSymbols<'a> {
+const P_HIGHEST: Precedence = Precedence::PFaculty;
+impl<'a> FormatContext<'a> {
     pub fn get<'b>(&self, key: &'b str) -> &'b str {
-        self.format.symbols.get(key).unwrap_or(&key)
+        self.formats.symbols.get(key).unwrap_or(&key)
+    }
+
+    pub fn get_decoration_path(&self) -> &[usize] {
+        match &self.decoration {
+            Some(deco) => deco.path,
+            None => &EMPTY_VEC,
+        }
     }
 
     pub fn format_function(
         &self,
-        decoration: &Option<Decoration>,
-        location: &FormatingLocation,
         symbol: &Symbol,
+        location: &FormatingLocation,
         mut code: &mut String,
     ) -> Option<()> {
-        match self.format.functions.get::<str>(&symbol.ident) {
+        match self.formats.functions.get::<str>(&symbol.ident) {
             Some(rules) => {
                 for rule in rules.iter() {
                     match rule {
                         FormatItem::Tag(tag) => code.push_str(tag),
                         FormatItem::Child(index) => {
-                            let path = if let Some(deco) = decoration {
-                                deco.path
-                            } else {
-                                &EMPTY_VEC
-                            };
+                            let path = self.get_decoration_path();
                             dump_base(
                                 self,
                                 symbol.childs.get(*index).expect(""),
-                                &mut code,
-                                decoration,
                                 location.deeper(*index, &path),
+                                &mut code,
                             )
                         }
                     }
@@ -96,57 +99,40 @@ impl<'a> SpecialSymbols<'a> {
             None => None,
         }
     }
-}
-
-const P_HIGHEST: Precedence = Precedence::PFaculty;
-fn get_precedence_or_default<'a>(
-    special_symbols: &'a SpecialSymbols,
-    ident: &str,
-) -> &'a Precedence {
-    match special_symbols.infix.get(&ident[..]) {
-        None => &P_HIGHEST,
-        Some(pre) => pre,
+    pub fn get_precedence_or_default(&self, symbol: &Symbol) -> &Precedence {
+        match self.operators.infix.get(&symbol.ident[..]) {
+            None => &P_HIGHEST,
+            Some(pre) => pre,
+        }
     }
 }
 
 fn dump_atomic(
-    special_symbols: &SpecialSymbols,
+    context: &FormatContext,
     symbol: &Symbol,
     bracket: bool,
-    string: &mut String,
-    decoration: &Option<Decoration>,
     location: FormatingLocation,
+    string: &mut String,
 ) {
     if bracket {
-        string.push_str(special_symbols.get("("));
-        dump_base(special_symbols, symbol, string, decoration, location);
-        string.push_str(special_symbols.get(")"));
+        string.push_str(context.get("("));
+        dump_base(context, symbol, location, string);
+        string.push_str(context.get(")"));
     } else {
-        dump_base(special_symbols, symbol, string, decoration, location);
+        dump_base(context, symbol, location, string);
     }
-}
-
-pub struct Decoration<'a> {
-    pub path: &'a [usize],
-    pub pre: &'static str,
-    pub post: &'static str,
 }
 
 /// Improvement hint: implement a version taking a Writer instead a String
 pub fn dump_base(
-    special_symbols: &SpecialSymbols,
+    context: &FormatContext,
     symbol: &Symbol,
-    mut string: &mut String,
-    decoration: &Option<Decoration>,
     location: FormatingLocation,
+    mut string: &mut String,
 ) {
-    let path = if let Some(deco) = decoration {
-        deco.path
-    } else {
-        &EMPTY_VEC
-    };
+    let path = context.get_decoration_path();
     let actual_decoration = if location.on_track(path) {
-        decoration
+        &context.decoration
     } else {
         &None
     };
@@ -155,87 +141,74 @@ pub fn dump_base(
     }
 
     match symbol.childs.len() {
-        0 => string.push_str(special_symbols.get(&symbol.ident)),
-        1 if special_symbols.postfix.contains(&symbol.ident[..]) => {
+        0 => string.push_str(context.get(&symbol.ident)),
+        1 if context.operators.postfix.contains(&symbol.ident[..]) => {
             let child = &symbol.childs[0];
-            let pre_child = get_precedence_or_default(special_symbols, &child.ident);
-            dump_atomic(
-                special_symbols,
-                child,
-                pre_child < &P_HIGHEST,
-                string,
-                decoration,
-                location,
-            );
-            string.push_str(special_symbols.get(&symbol.ident));
+            let pre_child = context.get_precedence_or_default(&child);
+            dump_atomic(context, child, pre_child < &P_HIGHEST, location, string);
+            string.push_str(context.get(&symbol.ident));
         }
-        1 if special_symbols.prefix.contains(&symbol.ident[..]) => {
-            match special_symbols.format_function(decoration, &location, &symbol, &mut string) {
+        1 if context.operators.prefix.contains(&symbol.ident[..]) => {
+            match context.format_function(&symbol, &location, &mut string) {
                 Some(_) => (),
                 None => {
-                    string.push_str(special_symbols.get(&symbol.ident));
+                    string.push_str(context.get(&symbol.ident));
                     let child = &symbol.childs[0];
-                    let pre_child = get_precedence_or_default(special_symbols, &child.ident);
+                    let pre_child = context.get_precedence_or_default(&child);
                     dump_atomic(
-                        special_symbols,
+                        context,
                         child,
                         pre_child < &P_HIGHEST,
-                        string,
-                        decoration,
                         location.deeper(0, path),
+                        string,
                     );
                 }
             }
         }
-        2 if special_symbols.infix.contains_key(&symbol.ident[..]) => {
-            match special_symbols.format_function(decoration, &location, &symbol, &mut string) {
+        2 if context.operators.infix.contains_key(&symbol.ident[..]) => {
+            match context.format_function(&symbol, &location, &mut string) {
                 Some(_) => (),
                 None => {
-                    let pre_root = get_precedence_or_default(special_symbols, &symbol.ident);
+                    let pre_root = context.get_precedence_or_default(&symbol);
                     let left = &symbol.childs[0];
                     let right = &symbol.childs[1];
-                    let pre_left = get_precedence_or_default(special_symbols, &left.ident);
-                    let pre_right = get_precedence_or_default(special_symbols, &right.ident);
+                    let pre_left = context.get_precedence_or_default(&left);
+                    let pre_right = context.get_precedence_or_default(&right);
                     dump_atomic(
-                        special_symbols,
+                        context,
                         left,
                         pre_left < pre_root,
-                        string,
-                        decoration,
                         location.deeper(0, path),
+                        string,
                     );
-                    string.push_str(special_symbols.get(&symbol.ident));
+                    string.push_str(context.get(&symbol.ident));
 
                     dump_atomic(
-                        special_symbols,
+                        context,
                         right,
                         pre_right < pre_root
-                            || special_symbols.non_associative.contains(&symbol.ident[..]),
-                        string,
-                        decoration,
+                            || context
+                                .operators
+                                .non_associative
+                                .contains(&symbol.ident[..]),
                         location.deeper(1, path),
+                        string,
                     );
                 }
             }
         }
         _ => {
-            string.push_str(special_symbols.get(&symbol.ident));
+            string.push_str(context.get(&symbol.ident));
             let mut first = true;
-            string.push_str(special_symbols.get("("));
+            string.push_str(context.get("("));
             for (i, child) in symbol.childs.iter().enumerate() {
                 if !first {
                     string.push_str(", ");
                 }
-                dump_base(
-                    special_symbols,
-                    child,
-                    string,
-                    decoration,
-                    location.deeper(i, path),
-                );
+                dump_base(context, child, location.deeper(i, path), string);
                 first = false;
             }
-            string.push_str(special_symbols.get(")"));
+            string.push_str(context.get(")"));
         }
     };
 
