@@ -21,6 +21,7 @@ pub fn dump_simple(symbol: &Symbol) -> String {
             symbols: hashmap! {},
             functions: hashmap! {},
         },
+        non_associative: hashset! {"-","/"},
     };
     let mut string = String::new();
     dump_base(
@@ -45,7 +46,7 @@ mod e2e {
     use crate::context::*;
     use std::collections::HashMap;
 
-    fn create_context(function_names: Vec<&str>) -> Context {
+    fn create_context(function_names: &[&str]) -> Context {
         let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
             declarations.insert(
@@ -60,45 +61,50 @@ mod e2e {
         Context { declarations }
     }
 
+    fn test(code: &str) {
+        let context = create_context(&[]);
+        let term = Symbol::parse(&context, code);
+        assert_eq!(dump_simple(&term), String::from(code));
+    }
+
+    fn test_with_function(function_names: &[&str], code: &str) {
+        let context = create_context(function_names);
+        let term = Symbol::parse(&context, code);
+        assert_eq!(dump_simple(&term), String::from(code));
+    }
+
     #[test]
     fn function_simple() {
-        let context = create_context(vec!["f"]);
-        let term = Symbol::parse(&context, "f(a)");
-        assert_eq!(dump_simple(&term), String::from("f(a)"));
+        test_with_function(&["f"], "f(a)");
     }
 
     #[test]
     fn infix_simple() {
-        let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a+b");
-        assert_eq!(dump_simple(&term), String::from("a+b"));
+        test("a+b");
     }
 
     #[test]
     fn infix_precedence() {
-        let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a+b*c");
-        assert_eq!(dump_simple(&term), String::from("a+b*c"));
+        test("a+b*c");
     }
 
     #[test]
     fn infix_parenthesis() {
-        let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "(a+b)*c");
-        assert_eq!(dump_simple(&term), String::from("(a+b)*c"));
+        test("(a+b)*c");
     }
 
     #[test]
     fn postfix_simple() {
-        let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a!");
-        assert_eq!(dump_simple(&term), String::from("a!"));
+        test("a!");
     }
 
     #[test]
     fn postfix_with_infix() {
-        let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "(a+b)!");
-        assert_eq!(dump_simple(&term), String::from("(a+b)!"));
+        test("(a+b)!");
+    }
+
+    #[test]
+    fn bug_15_substraction() {
+        test("a-(b+c)");
     }
 }

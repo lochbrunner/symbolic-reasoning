@@ -1289,4 +1289,30 @@ mod specs {
 
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn non_associative() {
+        // a-(b+c)
+        let context = create_context(vec![]);
+        let tokens = vec![
+            Token::Ident(String::from("a")),
+            Token::Minus,
+            Token::BracketL,
+            Token::Ident(String::from("b")),
+            Token::Plus,
+            Token::Ident(String::from("c")),
+            Token::BracketR,
+            Token::EOF,
+        ];
+        let actual = parse(&context, &tokens);
+        let expected = new_op(
+            "-",
+            vec![
+                new_variable("a"),
+                new_op("+", vec![new_variable("b"), new_variable("c")]),
+            ],
+        );
+        assert_eq!(actual.to_string(), expected.to_string());
+        assert_eq!(actual, expected);
+    }
 }

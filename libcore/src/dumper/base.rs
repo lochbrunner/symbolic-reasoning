@@ -53,6 +53,7 @@ pub struct SpecialSymbols<'a> {
     pub postfix: HashSet<&'a str>,
     pub prefix: HashSet<&'a str>,
     pub format: SpecialFormatRules,
+    pub non_associative: HashSet<&'a str>,
 }
 
 const EMPTY_VEC: &[usize] = &[];
@@ -208,7 +209,8 @@ pub fn dump_base(
                     dump_atomic(
                         special_symbols,
                         right,
-                        pre_right < pre_root,
+                        pre_right < pre_root
+                            || special_symbols.non_associative.contains(&symbol.ident[..]),
                         string,
                         decoration,
                         location.deeper(1, path),

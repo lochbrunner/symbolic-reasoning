@@ -44,6 +44,7 @@ pub fn dump_latex(symbol: &Symbol, embedding: &Option<Decoration>) -> String {
                 ]
             },
         },
+        non_associative: hashset! {"-","/"},
     };
     let mut string = String::new();
     dump_base(
