@@ -1,9 +1,8 @@
 use crate::iter_extensions::{PickTraitVec, Strategy};
+use core::io::*;
 use core::DenseTrace;
 use core::{apply_batch, fit, ApplyInfo, Context, Rule, Symbol, Trace, TraceStep};
 use rose::draw_rose;
-mod io;
-use io::*;
 use std::fs::File;
 use std::io::BufWriter;
 mod variable_generator;
@@ -80,7 +79,7 @@ fn main() {
     let mut context = Context::load("./generator/assets/declarations.yaml");
     context.register_standard_operators();
 
-    let rules = read_rules(&context, "./generator/assets/rules.txt");
+    let rules = read_rules(&context, "./generator/assets/rules.txt", Mode::Reversed);
     let premises = read_premises(&context, "./generator/assets/premises.txt");
 
     let initial = &premises[0];

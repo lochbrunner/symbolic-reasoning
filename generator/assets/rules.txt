@@ -1,4 +1,4 @@
-a-a <=> 0
+a-a => 0
 a+a <=> 2*a
 // Commutative property
 a*b <=> b*a
@@ -6,17 +6,18 @@ a+b <=> b+a
 // Associative property
 a*(b*c) <=> (a*b)*c 
 // Distributive property
-a*(b+c) <=> a*b+a*c
-a*(b-c) <=> a*b-a*c
+a*(b+c) => a*b+a*c
+a*(b-c) => a*b-a*c
 // neutrals
-a <=> a+0
-1*a <=> a
+a+0 => a
+1*a => a
 // exponentiation
 a*a <=> a^2
-a*a^n <=> a^(n+1)
-a <=> a^1
-1 <=> a^0
-0*a <=> 0
+a*a^n => a^(n+1)
+a^1 => a
+a^0 => 1
+0*a => 0 
 // equations
-a = b <=> a - b = 0
+a - b = 0 => a = b
 x + a = 0 <=> x = -a
+// trigonometry

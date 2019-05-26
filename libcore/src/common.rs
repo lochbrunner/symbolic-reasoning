@@ -2,6 +2,21 @@ use crate::symbol::Symbol;
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 
+/// Example
+/// ```
+/// #[macro_use]
+/// extern crate maplit;
+/// use core::common::merge;
+///
+/// fn main() {
+///     let first = hashmap! {"a" => 1};
+///     let second = hashmap! {"b" => 2};
+///
+///     let actual = merge(&first, &second);
+///     let expected = hashmap! {"a" => 1, "b" => 2};
+///     assert_eq!(actual, expected);
+/// }
+/// ```
 pub fn merge<K: Hash + Eq + Copy, V: Copy, S: BuildHasher + Default>(
     first: &HashMap<K, V, S>,
     second: &HashMap<K, V, S>,

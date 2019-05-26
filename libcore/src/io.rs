@@ -1,9 +1,14 @@
-use core::{Context, Rule, Symbol};
+use super::{Context, Rule, Symbol};
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
-pub fn read_rules(context: &Context, filename: &str) -> Vec<Rule> {
+pub enum Mode {
+    Reversed,
+    Normal,
+}
+
+pub fn read_rules(context: &Context, filename: &str, mode: Mode) -> Vec<Rule> {
     let file = File::open(filename).expect("Opening file of rules");
     let file = BufReader::new(&file);
     let mut rules = Vec::new();
@@ -32,9 +37,15 @@ pub fn read_rules(context: &Context, filename: &str) -> Vec<Rule> {
                     let first = parts.pop().expect("First part");
                     let second = parts.pop().expect("Second part");
 
-                    rules.push(Rule {
-                        conclusion: Symbol::parse(context, first),
-                        condition: Symbol::parse(context, second),
+                    rules.push(match mode {
+                        Mode::Reversed => Rule {
+                            conclusion: Symbol::parse(context, second),
+                            condition: Symbol::parse(context, first),
+                        },
+                        Mode::Normal => Rule {
+                            conclusion: Symbol::parse(context, first),
+                            condition: Symbol::parse(context, second),
+                        },
                     });
                 }
             }
