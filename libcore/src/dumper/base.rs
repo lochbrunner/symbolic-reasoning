@@ -85,12 +85,16 @@ impl<'a> FormatContext<'a> {
                         FormatItem::Tag(tag) => code.push_str(tag),
                         FormatItem::Child(index) => {
                             let path = self.get_decoration_path();
-                            dump_base(
+                            let child = symbol.childs.get(*index).expect("");
+                            let bracket = child.depth > 1
+                                && !self.formats.functions.contains_key(&child.ident[..]);
+                            dump_atomic(
                                 self,
-                                symbol.childs.get(*index).expect(""),
+                                child,
+                                bracket,
                                 location.deeper(*index, &path),
                                 &mut code,
-                            )
+                            );
                         }
                     }
                 }
@@ -187,10 +191,11 @@ pub fn dump_base(
                         context,
                         right,
                         pre_right < pre_root
-                            || context
-                                .operators
-                                .non_associative
-                                .contains(&symbol.ident[..]),
+                            || (pre_right == pre_root
+                                && context
+                                    .operators
+                                    .non_associative
+                                    .contains(&symbol.ident[..])),
                         location.deeper(1, path),
                         string,
                     );

@@ -102,11 +102,32 @@ impl Symbol {
     }
 
     pub fn calc_depth(childs: &[Symbol]) -> u32 {
-        let max_child = childs.iter().map(|c| c.depth).max();
+        childs.iter().map(|c| c.depth).max().unwrap_or(0) + 1
+    }
+}
 
-        match max_child {
-            Some(c) => c + 1,
-            None => 1,
-        }
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn calc_depth_unary_op() {
+        let v = Symbol::new_variable("a", false);
+        let o = Symbol::new_operator("o", true, false, vec![v]);
+
+        assert_eq!(o.depth, 2);
+    }
+
+    #[test]
+    fn calc_depth_complex_op() {
+        let a = Symbol::new_variable("a", false);
+        let b = Symbol::new_variable("b", false);
+        let c = Symbol::new_variable("c", false);
+
+        let o = Symbol::new_operator("o", true, false, vec![a]);
+        let u = Symbol::new_operator("u", true, false, vec![o, b]);
+        let v = Symbol::new_operator("v", true, false, vec![u, c]);
+
+        assert_eq!(v.depth, 4);
     }
 }

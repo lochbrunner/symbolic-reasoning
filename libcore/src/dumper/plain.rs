@@ -104,4 +104,14 @@ mod e2e {
     fn bug_15_substraction() {
         test("a-(b+c)");
     }
+
+    #[test]
+    fn bug_15_substraction_false_positive() {
+        test("a-b");
+    }
+
+    #[test]
+    fn bug_16() {
+        test("(a+b)^c");
+    }
 }

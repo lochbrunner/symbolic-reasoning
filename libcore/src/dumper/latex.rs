@@ -169,6 +169,16 @@ mod e2e {
     }
 
     #[test]
+    fn bug_16() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "(a+b)^c");
+        assert_eq!(
+            dump_latex(&term, None),
+            String::from("\\left( a+b\\right) ^{c}")
+        );
+    }
+
+    #[test]
     fn decoration_variable() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a");
