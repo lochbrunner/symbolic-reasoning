@@ -67,7 +67,7 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
 
     let trace = Trace {
         initial,
-        stage: deduce_impl(&alphabet, initial, rules, &stages, 0),
+        stages: deduce_impl(&alphabet, initial, rules, &stages, 0),
     };
 
     draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
@@ -76,7 +76,7 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
 }
 
 fn main() {
-    let mut context = Context::load("./generator/assets/declarations.yaml");
+    let mut context = Context::load("./generator/assets/declarations.yaml").expect("Loading context");
     context.register_standard_operators();
 
     let rules = read_rules(&context, "./generator/assets/rules.txt", Mode::Reversed);

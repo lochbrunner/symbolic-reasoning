@@ -68,7 +68,7 @@ pub fn draw_rose(path: &str, trace: &Trace) -> io::Result<()> {
 
     let num_stage_1 = 7;
     let num_stage_2 = 4;
-    for (i, stage1) in trace.stage.pick(Strategy::Uniform(num_stage_1)).enumerate() {
+    for (i, stage1) in trace.stages.pick(Strategy::Uniform(num_stage_1)).enumerate() {
         let r1 = 56.0;
         let mx = (width as f32) / 2.0;
         let my = (height as f32) / 2.0;

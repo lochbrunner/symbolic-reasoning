@@ -36,7 +36,7 @@ pub struct TraceStep<'a> {
 #[derive(Serialize)]
 pub struct Trace<'a> {
     pub initial: &'a Symbol,
-    pub stage: Vec<TraceStep<'a>>,
+    pub stages: Vec<TraceStep<'a>>,
 }
 
 impl<'a> Trace<'a> {
@@ -61,7 +61,7 @@ impl<'a> Trace<'a> {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct DenseApplyInfo {
     pub rule: Rule,
     pub path: Vec<usize>,
@@ -78,7 +78,7 @@ pub struct DenseTraceStep {
 #[derive(Deserialize, Serialize)]
 pub struct DenseTrace {
     pub initial: Symbol,
-    pub stage: Vec<DenseTraceStep>,
+    pub stages: Vec<DenseTraceStep>,
 }
 
 impl DenseTrace {
@@ -105,8 +105,8 @@ impl DenseTrace {
     pub fn from_trace(trace: &Trace) -> DenseTrace {
         DenseTrace {
             initial: trace.initial.clone(),
-            stage: trace
-                .stage
+            stages: trace
+                .stages
                 .iter()
                 .map(|ts| DenseTrace::from_trace_step(ts))
                 .collect(),
@@ -127,7 +127,7 @@ impl<'a> TraceIter<'a> {
     #[inline]
     fn get_steps(&self) -> Vec<&'a DenseApplyInfo> {
         // Extract item
-        let mut step = &self.trace.stage;
+        let mut step = &self.trace.stages;
         let mut steps = vec![];
         for i in self.cursor.iter() {
             steps.push(&step[*i].info);
@@ -142,7 +142,7 @@ impl<'a> TraceIter<'a> {
             return Err(());
         }
         // Check we can go sideward
-        let mut current_stage = &self.trace.stage;
+        let mut current_stage = &self.trace.stages;
         // Go to second last
         if self.cursor.len() > 1 {
             for i in self.cursor.iter().take(self.cursor.len() - 1) {
@@ -159,7 +159,7 @@ impl<'a> TraceIter<'a> {
     }
     #[inline]
     fn go_to_ground(&mut self) {
-        let mut current_stage = &self.trace.stage;
+        let mut current_stage = &self.trace.stages;
         for i in self.cursor.iter() {
             current_stage = &current_stage[*i].successors;
         }
@@ -199,16 +199,19 @@ impl<'a> Iterator for TraceIter<'a> {
 }
 
 impl DenseTrace {
-    pub fn unroll(&self) -> TraceIter {
+    pub fn initial_cursor(&self) -> Vec<usize> {
         let mut cursor = Vec::new();
-        let mut current_stage = &self.stage;
+        let mut current_stage = &self.stages;
 
         while !current_stage.is_empty() {
             cursor.push(0);
             current_stage = &current_stage[0].successors;
         }
+        cursor
+    }
+    pub fn unroll(&self) -> TraceIter {
         TraceIter {
-            cursor,
+            cursor: self.initial_cursor(),
             trace: self,
         }
     }
@@ -302,7 +305,7 @@ mod specs {
     fn rollout_no_stages() {
         let context = Context::standard();
         let trace = DenseTrace {
-            stage: vec![],
+            stages: vec![],
             initial: Symbol::parse(&context, "a"),
         };
 
@@ -315,7 +318,7 @@ mod specs {
     fn rollout_flat_stages() {
         let context = Context::standard();
 
-        let stage = [Symbol::parse(&context, "a"), Symbol::parse(&context, "b")]
+        let stages = [Symbol::parse(&context, "a"), Symbol::parse(&context, "b")]
             .into_iter()
             .map(|deduced| DenseTraceStep {
                 info: DenseApplyInfo {
@@ -329,7 +332,7 @@ mod specs {
             .collect();
 
         let trace = DenseTrace {
-            stage,
+            stages,
             initial: Symbol::parse(&context, "a"),
         };
 
@@ -360,10 +363,10 @@ mod specs {
         let stage_1 = get_stage(vec![("a", vec![]), ("b", vec![])]);
         let stage_2 = get_stage(vec![("c", vec![]), ("d", vec![])]);
 
-        let stage = get_stage(vec![("v", stage_1), ("u", stage_2)]);
+        let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
 
         let trace = DenseTrace {
-            stage,
+            stages,
             initial: Symbol::parse(&context, "a"),
         };
 
@@ -408,10 +411,10 @@ mod specs {
         let stage_a = get_stage(vec![("A", stage_a_1), ("B", stage_a_2)]);
         let stage_b = get_stage(vec![("C", stage_b_1), ("D", stage_b_2)]);
 
-        let stage = get_stage(vec![("v", stage_a), ("u", stage_b)]);
+        let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
 
         let trace = DenseTrace {
-            stage,
+            stages,
             initial: Symbol::parse(&context, "a"),
         };
 

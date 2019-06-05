@@ -17,6 +17,7 @@ pub struct CalculationStep<'a> {
 pub struct Statistics {
     pub fits_count: u32,
     pub applies_count: u32,
+    pub fit_calls_count: u32,
 }
 
 impl Statistics {
@@ -24,6 +25,7 @@ impl Statistics {
         Statistics {
             fits_count: 0,
             applies_count: 0,
+            fit_calls_count: 0,
         }
     }
 }
@@ -75,10 +77,17 @@ pub fn solve<'a>(
     }]];
     let mut statistics = Statistics::new();
     let variable_creator = &|| &def_symbol;
-    for _ in 0..timeout {
+    loop {
         let mut next = vec![];
         for rule in rules.iter() {
             for (prev_index, prev_step) in stages.last().unwrap().iter().enumerate() {
+                statistics.fit_calls_count += 1;
+                if statistics.fit_calls_count > timeout {
+                    return SolveResult {
+                        statistics,
+                        trace: Err(()),
+                    };
+                }
                 let matches = fit(&prev_step.deduced, &rule.condition);
                 statistics.fits_count += 1;
                 for m in matches.iter() {
@@ -110,10 +119,5 @@ pub fn solve<'a>(
             }
         }
         stages.push(next);
-    }
-
-    SolveResult {
-        statistics,
-        trace: Err(()),
     }
 }

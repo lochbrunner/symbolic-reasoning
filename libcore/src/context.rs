@@ -42,9 +42,15 @@ impl Context {
         }
     }
 
-    pub fn load(filename: &str) -> Context {
-        let file = File::open(filename).expect("Opening file");
-        serde_yaml::from_reader(file).expect("Deserialize context")
+    pub fn load(filename: &str) -> Result<Context, String> {
+        let file = match File::open(filename) {
+            Ok(f) => f,
+            Err(msg) => return Err(msg.to_string()),
+        };
+        match serde_yaml::from_reader(file) {
+            Ok(r) => Ok(r),
+            Err(msg) => Err(msg.to_string()),
+        }
     }
 
     pub fn register_standard_operators(&mut self) {

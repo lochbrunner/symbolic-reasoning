@@ -1,5 +1,7 @@
 [workspace]
 
 members = [
-    "generator"
+    "generator",
+    "solver",
+    "pycore"
 ]
