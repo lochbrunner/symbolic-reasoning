@@ -24,6 +24,9 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate maplit;
+#[macro_use]
+#[cfg(test)]
+extern crate p_macro;
 extern crate nom;
 extern crate test;
 

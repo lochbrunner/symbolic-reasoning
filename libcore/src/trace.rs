@@ -61,7 +61,7 @@ impl<'a> Trace<'a> {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DenseApplyInfo {
     pub rule: Rule,
     pub path: Vec<usize>,
@@ -136,6 +136,7 @@ impl<'a> TraceIter<'a> {
         steps
     }
 
+    /// Returns an error, if it was not possible to go one step sideward
     #[inline]
     fn try_go_sideward(&mut self) -> Result<(), ()> {
         if self.cursor.is_empty() {
@@ -153,10 +154,11 @@ impl<'a> TraceIter<'a> {
             *self.cursor.last_mut().unwrap() += 1;
             Ok(())
         } else {
-            // Go one up to the next: Recursion
+            // Indicate to go one up to the next: Recursion
             Err(())
         }
     }
+
     #[inline]
     fn go_to_ground(&mut self) {
         let mut current_stage = &self.trace.stages;
@@ -182,7 +184,7 @@ impl<'a> Iterator for TraceIter<'a> {
         } else {
             let steps = self.get_steps();
             while let Err(_) = self.try_go_sideward() {
-                // Go deeper
+                // Go upwards
                 if self.cursor.is_empty() {
                     break;
                 } else {
@@ -194,6 +196,42 @@ impl<'a> Iterator for TraceIter<'a> {
                 self.go_to_ground();
             }
             Some(Calculation { steps })
+        }
+    }
+}
+
+pub struct StepsIter<'a> {
+    cursors: Vec<Vec<usize>>,
+    trace: &'a DenseTrace,
+}
+
+impl<'a> StepsIter<'a> {
+    fn get_node(&self, cursor: &[usize]) -> &'a DenseTraceStep {
+        let mut current_stage = &self.trace.stages;
+        for i in cursor.iter().take(cursor.len() - 1) {
+            current_stage = &current_stage[*i].successors;
+        }
+        &current_stage[*cursor.last().unwrap()]
+    }
+}
+
+impl<'a> Iterator for StepsIter<'a> {
+    type Item = &'a DenseApplyInfo;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        // Using depth first search in order to minimize queue size
+        if self.cursors.is_empty() {
+            None
+        } else {
+            let cursor = self.cursors.pop().unwrap();
+            let node = self.get_node(&cursor);
+            for (i, _) in node.successors.iter().enumerate() {
+                let mut cursor = cursor.clone();
+                cursor.push(i);
+                self.cursors.push(cursor);
+            }
+            Some(&node.info)
         }
     }
 }
@@ -212,6 +250,18 @@ impl DenseTrace {
     pub fn unroll(&self) -> TraceIter {
         TraceIter {
             cursor: self.initial_cursor(),
+            trace: self,
+        }
+    }
+
+    pub fn all_steps(&self) -> StepsIter {
+        StepsIter {
+            cursors: self
+                .stages
+                .iter()
+                .enumerate()
+                .map(|(i, _)| vec![i])
+                .collect(),
             trace: self,
         }
     }
@@ -430,5 +480,144 @@ mod specs {
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
         assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn all_steps_no_stages() {
+        let context = Context::standard();
+        let trace = DenseTrace {
+            stages: vec![],
+            initial: Symbol::parse(&context, "a"),
+        };
+
+        let lines = trace.all_steps().collect::<Vec<&DenseApplyInfo>>();
+
+        assert!(lines.is_empty());
+    }
+
+    #[test]
+    fn all_steps_flat_stages() {
+        let context = Context::standard();
+
+        let stages = [Symbol::parse(&context, "a"), Symbol::parse(&context, "b")]
+            .into_iter()
+            .map(|deduced| DenseTraceStep {
+                info: DenseApplyInfo {
+                    rule: Rule::parse(&context, "v => c"),
+                    path: vec![],
+                    initial: Symbol::parse(&context, "i"),
+                    deduced: deduced.clone(),
+                },
+                successors: vec![],
+            })
+            .collect();
+
+        let trace = DenseTrace {
+            stages,
+            initial: Symbol::parse(&context, "a"),
+        };
+
+        let steps = trace
+            .all_steps()
+            .map(|l| l.deduced.ident.clone())
+            .collect::<Vec<String>>();;
+
+        assert_eq!(steps.len(), 2);
+    }
+
+    #[test]
+    fn all_steps_hierarchical_two_stages() {
+        let context = Context::standard();
+
+        let get_stage = |symbols: Vec<(&'static str, Vec<DenseTraceStep>)>| -> Vec<DenseTraceStep> {
+            symbols
+                .into_iter()
+                .map(|(symbol, successors)| DenseTraceStep {
+                    info: DenseApplyInfo {
+                        rule: Rule::parse(&context, "v => c"),
+                        path: vec![],
+                        initial: Symbol::parse(&context, "i"),
+                        deduced: Symbol::parse(&context, symbol),
+                    },
+                    successors,
+                })
+                .collect()
+        };
+
+        let stage_1 = get_stage(vec![("a", vec![]), ("b", vec![])]);
+        let stage_2 = get_stage(vec![("c", vec![]), ("d", vec![])]);
+
+        let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
+
+        let trace = DenseTrace {
+            stages,
+            initial: Symbol::parse(&context, "a"),
+        };
+
+        let steps = trace
+            .all_steps()
+            .map(|l| l.deduced.ident.clone())
+            .collect::<Vec<String>>();
+
+        assert_eq!(steps.len(), 6);
+
+        // pre order. Childs in reverse order
+        let expected = ["u", "d", "c", "v", "b", "a"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+        assert_eq!(steps, expected);
+    }
+
+    #[test]
+    fn all_steps_hierarchical_tree_stages() {
+        let context = Context::standard();
+
+        let get_stage = |symbols: Vec<(&'static str, Vec<DenseTraceStep>)>| -> Vec<DenseTraceStep> {
+            symbols
+                .into_iter()
+                .map(|(symbol, successors)| DenseTraceStep {
+                    info: DenseApplyInfo {
+                        rule: Rule::parse(&context, "v => c"),
+                        path: vec![],
+                        initial: Symbol::parse(&context, "i"),
+                        deduced: Symbol::parse(&context, symbol),
+                    },
+                    successors,
+                })
+                .collect()
+        };
+
+        let stage_a_1 = get_stage(vec![("a", vec![]), ("b", vec![])]);
+        let stage_a_2 = get_stage(vec![("c", vec![]), ("d", vec![])]);
+        let stage_b_1 = get_stage(vec![("e", vec![]), ("f", vec![])]);
+        let stage_b_2 = get_stage(vec![("g", vec![]), ("h", vec![])]);
+
+        let stage_a = get_stage(vec![("A", stage_a_1), ("B", stage_a_2)]);
+        let stage_b = get_stage(vec![("C", stage_b_1), ("D", stage_b_2)]);
+
+        let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
+
+        let trace = DenseTrace {
+            stages,
+            initial: Symbol::parse(&context, "a"),
+        };
+
+        let steps = trace
+            .all_steps()
+            .map(|l| l.deduced.ident.clone())
+            .collect::<Vec<String>>();
+
+        p!(steps);
+
+        let expected = [
+            "u", "D", "h", "g", "C", "f", "e", "v", "B", "d", "c", "A", "b", "a",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+
+        assert_eq!(steps.len(), expected.len());
+        assert_eq!(steps, expected);
     }
 }
