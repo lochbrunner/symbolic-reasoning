@@ -2,7 +2,7 @@ use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
 use pyo3::class::iter::PyIterProtocol;
-use pyo3::exceptions;
+use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
 use std::rc::Rc;
 
@@ -33,13 +33,17 @@ impl PyApplyInfo {
     #[getter]
     fn get_initial(&self) -> PyResult<PySymbol> {
         let inner = self.inner.initial.clone();
-        Ok(PySymbol { inner })
+        Ok(PySymbol {
+            inner: Rc::new(inner),
+        })
     }
 
     #[getter]
     fn get_deduced(&self) -> PyResult<PySymbol> {
         let inner = self.inner.deduced.clone();
-        Ok(PySymbol { inner })
+        Ok(PySymbol {
+            inner: Rc::new(inner),
+        })
     }
 }
 
@@ -224,6 +228,16 @@ impl PyMeta {
     fn used_idents(&self) -> PyResult<Vec<String>> {
         Ok(self.trace.meta.used_idents.iter().cloned().collect())
     }
+    #[getter]
+    fn rules(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self
+            .trace
+            .meta
+            .rules
+            .iter()
+            .map(|r| PyRule { inner: r.clone() })
+            .collect())
+    }
 }
 
 #[pyclass(name=Trace,subclass)]
@@ -236,18 +250,19 @@ impl PyTrace {
     #[staticmethod]
     fn load(path: String) -> PyResult<PyTrace> {
         let file = match File::open(path) {
-            Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg.to_string())),
+            Err(msg) => Err(PyErr::new::<FileNotFoundError, _>(msg.to_string())),
             Ok(file) => Ok(file),
         }?;
         let reader = BufReader::new(file);
         let inner = match DenseTrace::read_bincode(reader) {
-            Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg.to_string())),
+            Err(msg) => Err(PyErr::new::<TypeError, _>(msg.to_string())),
             Ok(trace) => Ok(trace),
         }?;
         let inner = Rc::new(inner);
         Ok(PyTrace { inner })
     }
 
+    #[getter]
     fn unroll(&self) -> PyResult<PyTraceIter> {
         Ok(PyTraceIter {
             trace: self.inner.clone(),
@@ -255,6 +270,7 @@ impl PyTrace {
         })
     }
 
+    #[getter]
     fn all_steps(&self) -> PyResult<PyStepsIter> {
         Ok(PyStepsIter {
             trace: self.inner.clone(),

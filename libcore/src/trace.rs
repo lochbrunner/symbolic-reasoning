@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use super::{Rule, Symbol};
 use crate::dumper::latex::LaTeX;
+use std::collections::HashSet;
 extern crate chrono;
 extern crate serde_yaml;
 
@@ -34,17 +34,10 @@ pub struct TraceStep<'a> {
     pub successors: Vec<TraceStep<'a>>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Meta {
     pub used_idents: HashSet<String>,
-}
-
-impl Meta {
-    pub fn new() -> Meta {
-        Meta {
-            used_idents: HashSet::new()
-        }
-    }
+    pub rules: Vec<Rule>,
 }
 
 #[derive(Serialize)]
@@ -371,7 +364,7 @@ mod specs {
     fn rollout_no_stages() {
         let context = Context::standard();
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages: vec![],
             initial: Symbol::parse(&context, "a"),
         };
@@ -399,7 +392,7 @@ mod specs {
             .collect();
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -434,7 +427,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -483,7 +476,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -506,7 +499,7 @@ mod specs {
     fn all_steps_no_stages() {
         let context = Context::standard();
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages: vec![],
             initial: Symbol::parse(&context, "a"),
         };
@@ -534,7 +527,7 @@ mod specs {
             .collect();
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -572,7 +565,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -622,7 +615,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
 
         let trace = DenseTrace {
-            meta: Meta::new(),
+            meta: Meta::default(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };

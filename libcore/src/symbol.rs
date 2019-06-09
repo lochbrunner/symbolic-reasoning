@@ -64,7 +64,7 @@ impl Symbol {
         self.flags & symbol_flags::FIXED != 0
     }
 
-    pub fn iter<'a>(&'a self) -> SymbolIter<'a> {
+    pub fn parts(&self) -> SymbolIter {
         SymbolIter::new(self)
     }
 
@@ -184,7 +184,7 @@ mod specs {
         let u = Symbol::new_operator("u", true, false, vec![o, b]);
         let v = Symbol::new_operator("v", true, false, vec![u, c]);
 
-        let actual: Vec<_> = v.iter().map(|s| &s.ident).collect();
+        let actual: Vec<_> = v.parts().map(|s| &s.ident).collect();
         let expected = vec!["v", "c", "u", "b", "o", "a"];
 
         assert_eq!(actual.len(), expected.len());

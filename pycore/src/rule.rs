@@ -1,5 +1,6 @@
 use crate::context::PyContext;
 use crate::symbol::PySymbol;
+use std::rc::Rc;
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
@@ -21,13 +22,13 @@ impl PyRule {
     #[getter]
     fn get_condition(&self) -> PyResult<PySymbol> {
         let inner = self.inner.condition.clone();
-        Ok(PySymbol { inner })
+        Ok(PySymbol { inner: Rc::new(inner) })
     }
 
     #[getter]
     fn get_conclusion(&self) -> PyResult<PySymbol> {
         let inner = self.inner.conclusion.clone();
-        Ok(PySymbol { inner })
+        Ok(PySymbol { inner: Rc::new(inner) })
     }
 }
 

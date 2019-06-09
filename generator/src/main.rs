@@ -63,13 +63,13 @@ fn deduce_impl<'a>(
     stage
 }
 
-fn extract_idents_from_rule<'a>(rules: &'a [Rule]) -> HashSet<String> {
+fn extract_idents_from_rule(rules: &[Rule]) -> HashSet<String> {
     let mut used_idents = HashSet::new();
 
     for rule in rules.iter() {
         for part in rule
             .condition
-            .iter()
+            .parts()
             .filter(|s| s.fixed())
             .map(|s| &s.ident)
         {
@@ -88,14 +88,14 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
     // Find all concrete ident of the rules
     let mut used_idents = extract_idents_from_rule(rules);
 
-    for part in initial.iter() {
+    for part in initial.parts() {
         if !used_idents.contains(&part.ident) {
             used_idents.insert(part.ident.clone());
         }
     }
 
     for item in alphabet.iter() {
-        for part in item.iter() {
+        for part in item.parts() {
             if !used_idents.contains(&part.ident) {
                 used_idents.insert(part.ident.clone());
             }
@@ -103,7 +103,10 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
     }
 
     let trace = Trace {
-        meta: Meta { used_idents },
+        meta: Meta {
+            used_idents,
+            rules: rules.to_vec(),
+        },
         initial,
         stages: deduce_impl(&alphabet, initial, rules, &stages, 0),
     };
