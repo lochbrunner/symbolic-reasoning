@@ -1,8 +1,9 @@
 use crate::iter_extensions::{PickTraitVec, Strategy};
 use core::io::*;
-use core::DenseTrace;
-use core::{apply_batch, fit, ApplyInfo, Context, Rule, Symbol, Trace, TraceStep};
+use core::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
+use core::{apply_batch, fit, Context, Rule, Symbol};
 use rose::draw_rose;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
 mod variable_generator;
@@ -62,10 +63,47 @@ fn deduce_impl<'a>(
     stage
 }
 
+fn extract_idents_from_rule<'a>(rules: &'a [Rule]) -> HashSet<String> {
+    let mut used_idents = HashSet::new();
+
+    for rule in rules.iter() {
+        for part in rule
+            .condition
+            .iter()
+            .filter(|s| s.fixed())
+            .map(|s| &s.ident)
+        {
+            if !used_idents.contains(part) {
+                used_idents.insert(part.clone());
+            }
+        }
+    }
+
+    used_idents
+}
+
 fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
     let alphabet = create_alphabet();
 
+    // Find all concrete ident of the rules
+    let mut used_idents = extract_idents_from_rule(rules);
+
+    for part in initial.iter() {
+        if !used_idents.contains(&part.ident) {
+            used_idents.insert(part.ident.clone());
+        }
+    }
+
+    for item in alphabet.iter() {
+        for part in item.iter() {
+            if !used_idents.contains(&part.ident) {
+                used_idents.insert(part.ident.clone());
+            }
+        }
+    }
+
     let trace = Trace {
+        meta: Meta { used_idents },
         initial,
         stages: deduce_impl(&alphabet, initial, rules, &stages, 0),
     };
@@ -76,7 +114,8 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
 }
 
 fn main() {
-    let mut context = Context::load("./generator/assets/declarations.yaml").expect("Loading context");
+    let mut context =
+        Context::load("./generator/assets/declarations.yaml").expect("Loading context");
     context.register_standard_operators();
 
     let rules = read_rules(&context, "./generator/assets/rules.txt", Mode::Reversed);
@@ -91,9 +130,6 @@ fn main() {
 
     let writer = BufWriter::new(File::create("out/trace.bin").unwrap());
     trace.write_bincode(writer).expect("Writing.bin file");
-
-    // let reader = BufReader::new(File::open("out/trace.bin").expect("Opening trace.bin"));
-    // let trace_loaded = DenseTrace::read_bincode(reader);
 
     let mut writer = BufWriter::new(File::create("out/trace.tex").unwrap());
     trace.write_latex(&mut writer).expect("Writing.bin file");

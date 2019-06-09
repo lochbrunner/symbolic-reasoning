@@ -16,6 +16,7 @@ impl PySymbol {
         Ok(PySymbol { inner })
     }
 
+    #[getter]
     fn ident(&self) -> PyResult<String> {
         Ok(self.inner.ident.clone())
     }

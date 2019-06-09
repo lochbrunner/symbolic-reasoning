@@ -1,6 +1,6 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core::{DenseApplyInfo, DenseTrace, DenseTraceStep};
+use core::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions;
 use pyo3::prelude::*;
@@ -213,6 +213,19 @@ impl PyIterProtocol for PyStepsIter {
     }
 }
 
+#[pyclass(name=Meta,subclass)]
+pub struct PyMeta {
+    trace: Rc<DenseTrace>,
+}
+
+#[pymethods]
+impl PyMeta {
+    #[getter]
+    fn used_idents(&self) -> PyResult<Vec<String>> {
+        Ok(self.trace.meta.used_idents.iter().cloned().collect())
+    }
+}
+
 #[pyclass(name=Trace,subclass)]
 pub struct PyTrace {
     inner: Rc<DenseTrace>,
@@ -252,6 +265,13 @@ impl PyTrace {
                 .enumerate()
                 .map(|(i, _)| vec![i])
                 .collect(),
+        })
+    }
+
+    #[getter]
+    fn meta(&self) -> PyResult<PyMeta> {
+        Ok(PyMeta {
+            trace: self.inner.clone(),
         })
     }
 }

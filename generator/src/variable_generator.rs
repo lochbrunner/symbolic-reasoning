@@ -58,7 +58,7 @@ pub fn variables_generator<'a>(
 }
 
 pub fn create_alphabet() -> Vec<Symbol> {
-    (b'a'..b'z')
+    (b'a'..b'f')
         .map(|c| c as char)
         .map(|c| c.to_string())
         .map(|letter| Symbol::new_variable(&letter, false))

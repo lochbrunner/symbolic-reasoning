@@ -15,6 +15,34 @@ mod symbol_flags {
     pub const ROOT_ONLY: FlagType = 1 << 1;
 }
 
+pub struct SymbolIter<'a> {
+    stack: Vec<&'a Symbol>,
+}
+
+impl<'a> SymbolIter<'a> {
+    pub fn new(parent: &'a Symbol) -> SymbolIter {
+        SymbolIter {
+            stack: vec![parent],
+        }
+    }
+}
+
+impl<'a> Iterator for SymbolIter<'a> {
+    type Item = &'a Symbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.stack.pop() {
+            None => None,
+            Some(current) => {
+                for child in current.childs.iter() {
+                    self.stack.push(child);
+                }
+                Some(current)
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Symbol {
     pub ident: String,
@@ -34,6 +62,21 @@ impl Symbol {
 
     pub fn fixed(&self) -> bool {
         self.flags & symbol_flags::FIXED != 0
+    }
+
+    pub fn iter<'a>(&'a self) -> SymbolIter<'a> {
+        SymbolIter::new(self)
+    }
+
+    pub fn get<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
+        let mut current = self;
+        for i in path.iter() {
+            match &current.childs.get(*i) {
+                None => return None,
+                Some(next) => current = next,
+            }
+        }
+        Some(current)
     }
 
     pub fn create_flags(fixed: bool, only_root: bool) -> FlagType {
@@ -107,7 +150,7 @@ impl Symbol {
 }
 
 #[cfg(test)]
-mod test {
+mod specs {
     use super::*;
 
     #[test]
@@ -129,5 +172,54 @@ mod test {
         let v = Symbol::new_operator("v", true, false, vec![u, c]);
 
         assert_eq!(v.depth, 4);
+    }
+
+    #[test]
+    fn iter() {
+        let a = Symbol::new_variable("a", false);
+        let b = Symbol::new_variable("b", false);
+        let c = Symbol::new_variable("c", false);
+
+        let o = Symbol::new_operator("o", true, false, vec![a]);
+        let u = Symbol::new_operator("u", true, false, vec![o, b]);
+        let v = Symbol::new_operator("v", true, false, vec![u, c]);
+
+        let actual: Vec<_> = v.iter().map(|s| &s.ident).collect();
+        let expected = vec!["v", "c", "u", "b", "o", "a"];
+
+        assert_eq!(actual.len(), expected.len());
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn get_in_bound() {
+        let a = Symbol::new_variable("a", false);
+        let b = Symbol::new_variable("b", false);
+        let c = Symbol::new_variable("c", false);
+
+        let o = Symbol::new_operator("o", true, false, vec![a]);
+        let u = Symbol::new_operator("u", true, false, vec![o, b]);
+        let v = Symbol::new_operator("v", true, false, vec![u, c]);
+
+        let actual = &v.get(&[0, 1]).expect("retuning value").ident;
+        let expected = "b";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn get_out_of_bound() {
+        let a = Symbol::new_variable("a", false);
+        let b = Symbol::new_variable("b", false);
+        let c = Symbol::new_variable("c", false);
+
+        let o = Symbol::new_operator("o", true, false, vec![a]);
+        let u = Symbol::new_operator("u", true, false, vec![o, b]);
+        let v = Symbol::new_operator("v", true, false, vec![u, c]);
+
+        let actual = v.get(&[0, 4]);
+        let expected: Option<&Symbol> = None;
+
+        assert_eq!(actual, expected);
     }
 }

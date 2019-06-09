@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use super::{Rule, Symbol};
 use crate::dumper::latex::LaTeX;
 extern crate chrono;
@@ -33,8 +34,22 @@ pub struct TraceStep<'a> {
     pub successors: Vec<TraceStep<'a>>,
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+pub struct Meta {
+    pub used_idents: HashSet<String>,
+}
+
+impl Meta {
+    pub fn new() -> Meta {
+        Meta {
+            used_idents: HashSet::new()
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Trace<'a> {
+    pub meta: Meta,
     pub initial: &'a Symbol,
     pub stages: Vec<TraceStep<'a>>,
 }
@@ -77,6 +92,7 @@ pub struct DenseTraceStep {
 
 #[derive(Deserialize, Serialize)]
 pub struct DenseTrace {
+    pub meta: Meta,
     pub initial: Symbol,
     pub stages: Vec<DenseTraceStep>,
 }
@@ -104,6 +120,7 @@ impl DenseTrace {
 
     pub fn from_trace(trace: &Trace) -> DenseTrace {
         DenseTrace {
+            meta: trace.meta.clone(),
             initial: trace.initial.clone(),
             stages: trace
                 .stages
@@ -220,18 +237,17 @@ impl<'a> Iterator for StepsIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // Using depth first search in order to minimize queue size
-        if self.cursors.is_empty() {
-            None
-        } else {
-            let cursor = self.cursors.pop().unwrap();
-            let node = self.get_node(&cursor);
-            for (i, _) in node.successors.iter().enumerate() {
-                let mut cursor = cursor.clone();
-                cursor.push(i);
-                self.cursors.push(cursor);
+        match self.cursors.pop() {
+            None => None,
+            Some(cursor) => {
+                let node = self.get_node(&cursor);
+                for (i, _) in node.successors.iter().enumerate() {
+                    let mut cursor = cursor.clone();
+                    cursor.push(i);
+                    self.cursors.push(cursor);
+                }
+                Some(&node.info)
             }
-            Some(&node.info)
         }
     }
 }
@@ -355,6 +371,7 @@ mod specs {
     fn rollout_no_stages() {
         let context = Context::standard();
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages: vec![],
             initial: Symbol::parse(&context, "a"),
         };
@@ -382,6 +399,7 @@ mod specs {
             .collect();
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -416,6 +434,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -464,6 +483,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -486,6 +506,7 @@ mod specs {
     fn all_steps_no_stages() {
         let context = Context::standard();
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages: vec![],
             initial: Symbol::parse(&context, "a"),
         };
@@ -513,6 +534,7 @@ mod specs {
             .collect();
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -550,6 +572,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_1), ("u", stage_2)]);
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
@@ -599,6 +622,7 @@ mod specs {
         let stages = get_stage(vec![("v", stage_a), ("u", stage_b)]);
 
         let trace = DenseTrace {
+            meta: Meta::new(),
             stages,
             initial: Symbol::parse(&context, "a"),
         };
