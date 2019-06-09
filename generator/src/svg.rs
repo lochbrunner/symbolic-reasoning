@@ -2,7 +2,7 @@ use std::io::Result;
 use std::io::Write;
 
 pub trait Node {
-    fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()>;
+    fn serialize_impl(&self, indent: usize, writer: &mut dyn Write) -> Result<()>;
 }
 
 pub struct Class {
@@ -15,7 +15,7 @@ pub struct Style {
 }
 
 impl Node for Style {
-    fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
+    fn serialize_impl(&self, indent: usize, writer: &mut dyn Write) -> Result<()> {
         writeln!(writer, "{:indent$}<style>", "", indent = indent)?;
         for class in self.classes.iter() {
             let ident_str = format!("{:indent$}", "", indent = indent + 2);
@@ -43,13 +43,13 @@ impl Node for Style {
 }
 
 pub struct Document {
-    pub childs: Vec<Box<Node>>,
+    pub childs: Vec<Box<dyn Node>>,
     /// min x, min y, width, height
     pub view_box: [u32; 4],
 }
 
 impl Document {
-    pub fn serialize(&self, writer: &mut Write) -> Result<()> {
+    pub fn serialize(&self, writer: &mut dyn Write) -> Result<()> {
         writeln!(
             writer,
             "<svg viewBox=\"{bx} {by} {bw} {bh}\" xmlns=\"http://www.w3.org/2000/svg\">",
@@ -73,7 +73,7 @@ pub struct Text {
 }
 
 impl Node for Text {
-    fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
+    fn serialize_impl(&self, indent: usize, writer: &mut dyn Write) -> Result<()> {
         write!(writer, "{:indent$}<text class=\"{class_name}\" alignment-baseline=\"middle\" font-size=\"8\" font-family=\"sans-serif\" text-anchor=\"middle\" x=\"{x:.1}\" y=\"{y:.1}\">", 
         "",indent=indent, class_name=self.class_name ,x=self.x, y=self.y)?;
         write!(writer, "{}", self.content)?;
@@ -91,7 +91,7 @@ pub struct Line {
 }
 
 impl Node for Line {
-    fn serialize_impl(&self, indent: usize, writer: &mut Write) -> Result<()> {
+    fn serialize_impl(&self, indent: usize, writer: &mut dyn Write) -> Result<()> {
         writeln!(writer, "{:indent$}<line class=\"{class_name}\" x1=\"{x1:.1}\" y1=\"{y1:.1}\" x2=\"{x2:.1}\" y2=\"{y2:.1}\" stroke-width=\"{stroke_width}\" />",
         "",indent=indent, class_name=self.class_name, x1=self.x1, y1=self.y1,x2=self.x2, y2=self.y2, stroke_width=self.stroke_width)
     }

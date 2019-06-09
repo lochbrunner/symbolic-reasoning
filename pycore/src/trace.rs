@@ -161,6 +161,58 @@ impl PyIterProtocol for PyTraceIter {
     }
 }
 
+#[pyclass(name=StepsIter)]
+pub struct PyStepsIter {
+    cursors: Vec<Vec<usize>>,
+    trace: Rc<DenseTrace>,
+}
+
+impl PyStepsIter {
+    fn get_node<'a>(&'a self, cursor: &[usize]) -> &'a DenseTraceStep {
+        let mut current_stage = &self.trace.stages;
+        for i in cursor.iter().take(cursor.len() - 1) {
+            current_stage = &current_stage[*i].successors;
+        }
+        &current_stage[*cursor.last().unwrap()]
+    }
+}
+
+#[pyproto]
+impl PyIterProtocol for PyStepsIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PyStepsIter> {
+        Ok(PyStepsIter {
+            trace: s.trace.clone(),
+            cursors: s
+                .trace
+                .stages
+                .iter()
+                .enumerate()
+                .map(|(i, _)| vec![i])
+                .collect(),
+        })
+    }
+
+    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<PyApplyInfo>> {
+        Ok(if s.cursors.is_empty() {
+            None
+        } else {
+            let cursor = s.cursors.pop().unwrap();
+            let node = s.get_node(&cursor);
+            let apply_info = PyApplyInfo {
+                inner: node.info.clone(),
+            };
+            let mut new_cursors = Vec::new();
+            for (i, _) in node.successors.iter().enumerate() {
+                let mut cursor = cursor.clone();
+                cursor.push(i);
+                new_cursors.push(cursor);
+            }
+            s.cursors.extend(new_cursors);
+            Some(apply_info)
+        })
+    }
+}
+
 #[pyclass(name=Trace,subclass)]
 pub struct PyTrace {
     inner: Rc<DenseTrace>,
@@ -187,6 +239,19 @@ impl PyTrace {
         Ok(PyTraceIter {
             trace: self.inner.clone(),
             cursor: self.inner.initial_cursor(),
+        })
+    }
+
+    fn all_steps(&self) -> PyResult<PyStepsIter> {
+        Ok(PyStepsIter {
+            trace: self.inner.clone(),
+            cursors: self
+                .inner
+                .stages
+                .iter()
+                .enumerate()
+                .map(|(i, _)| vec![i])
+                .collect(),
         })
     }
 }
