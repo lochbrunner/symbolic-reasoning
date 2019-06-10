@@ -1,5 +1,13 @@
 # Symbolic reasoning
 
+## Definitions
+
+Each term is defined by its nodes `n_{i_1, ..., i_l}` where `l` is the level of the node.
+The term `n` with the content `a+b` is then represented by `n = +`, `n_0 = a` and `n_1 = b`
+
+Further more one has to distinguish if a sub-term `n_{i_1, ..., i_l}` is fixed one.
+Which means can we use it as variable or is a constant or pre-defined operator.
+
 ## Example
 
 Consider the following equation
@@ -61,3 +69,4 @@ D(x^n, x) => n*x^(n-1)
 This project contains.
 
 * [Calculation Generator](./generator)
+* [Machine Learning](./ml)

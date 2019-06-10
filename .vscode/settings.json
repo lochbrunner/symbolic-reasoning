@@ -3,7 +3,8 @@
         "**/.classpath": true,
         "**/.project": true,
         "**/.settings": true,
-        "**/.factorypath": true
+        "**/.factorypath": true,
+        "**/__pycache__": true
     },
     "cSpell.words": [
         "Deque",

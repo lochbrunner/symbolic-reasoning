@@ -79,6 +79,13 @@ impl PySymbol {
     fn latex(&self) -> PyResult<String> {
         Ok(dump_latex(&self.inner, None))
     }
+
+    #[getter]
+    fn childs(&self) -> PyResult<Vec<PySymbol>> {
+        Ok(
+            self.inner.childs.iter().map(|s| PySymbol{inner: Rc::new(s.clone())}).collect()
+        )
+    }
 }
 
 #[pyproto]

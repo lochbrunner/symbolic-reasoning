@@ -1,5 +1,6 @@
 out
 target
+.ropeproject
 **/*.rs.bk
 Cargo.lock
-.ropeproject
+*.pyc
