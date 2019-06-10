@@ -1,4 +1,5 @@
 use crate::context::PyContext;
+use core::dumper::dump_latex;
 use core::Symbol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::IndexError;
@@ -72,6 +73,11 @@ impl PySymbol {
             parent: self.inner.clone(),
             stack: vec![(*self.inner).clone()],
         })
+    }
+
+    #[getter]
+    fn latex(&self) -> PyResult<String> {
+        Ok(dump_latex(&self.inner, None))
     }
 }
 

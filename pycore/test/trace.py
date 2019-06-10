@@ -5,9 +5,10 @@ from pycore import Trace, Symbol, Rule, Context
 
 context = Context.standard()
 
-symbol = Symbol.parse(context, "a+b")
+symbol = Symbol.parse(context, "a/b")
 
 print(f'symbol: {symbol}')
+print(f'symbol.latex: {symbol.latex}')
 print(f'symbol.ident: {symbol.ident}')
 
 print(f'Get arm at [1]: {symbol.get([1])}')
@@ -23,7 +24,7 @@ print(f'rule: {rule}')
 print(f'condition: {rule.condition}')
 print('')
 
-file = '../../out/trace.bin'
+file = '../../out/generator/trace.bin'
 
 try:
     trace = Trace.load(file)

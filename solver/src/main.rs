@@ -9,7 +9,7 @@ extern crate maplit;
 mod bfs_solver;
 
 fn main() {
-    let reader = BufReader::new(File::open("out/trace.bin").expect("Opening trace.bin"));
+    let reader = BufReader::new(File::open("out/generator/trace.bin").expect("Opening trace.bin"));
     let trace_loaded = DenseTrace::read_bincode(reader).expect("Deserialize trace");
 
     let mut context =

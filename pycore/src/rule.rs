@@ -30,6 +30,18 @@ impl PyRule {
         let inner = self.inner.conclusion.clone();
         Ok(PySymbol { inner: Rc::new(inner) })
     }
+
+    #[getter]
+    fn reverse(&self) -> PyResult<PyRule> {
+        Ok(PyRule{
+            inner: {
+                Rule{
+                    conclusion: self.inner.condition.clone(),
+                    condition: self.inner.conclusion.clone(),
+                }
+            }
+        })
+    }
 }
 
 #[pyproto]

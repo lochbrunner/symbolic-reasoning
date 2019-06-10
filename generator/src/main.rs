@@ -128,12 +128,9 @@ fn main() {
 
     let trace = deduce(initial, &rules, vec![1, 1, 1]);
 
-    let writer = BufWriter::new(File::create("out/trace.yaml").unwrap());
-    trace.write_yaml(writer).expect("Writing.yaml file");
-
-    let writer = BufWriter::new(File::create("out/trace.bin").unwrap());
+    let writer = BufWriter::new(File::create("out/generator/trace.bin").unwrap());
     trace.write_bincode(writer).expect("Writing.bin file");
 
-    let mut writer = BufWriter::new(File::create("out/trace.tex").unwrap());
+    let mut writer = BufWriter::new(File::create("out/generator/trace.tex").unwrap());
     trace.write_latex(&mut writer).expect("Writing.bin file");
 }
