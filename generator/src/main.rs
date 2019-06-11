@@ -1,16 +1,19 @@
 use crate::iter_extensions::{PickTraitVec, Strategy};
-use core::io::*;
-use core::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
-use core::{apply_batch, fit, Context, Rule, Symbol};
+use itertools::Itertools;
 use rose::draw_rose;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
+
 mod variable_generator;
 use variable_generator::*;
 mod iter_extensions;
 mod rose;
 mod svg;
+
+use core::io::*;
+use core::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
+use core::{apply_batch, fit, Context, Rule, Symbol};
 
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     fit(initial, &rule.condition)
@@ -82,7 +85,7 @@ fn extract_idents_from_rule(rules: &[Rule]) -> HashSet<String> {
     used_idents
 }
 
-fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
+fn deduce(initial: &Symbol, rules: &[Rule], stages: &[usize]) -> DenseTrace {
     let alphabet = create_alphabet();
 
     // Find all concrete ident of the rules
@@ -108,7 +111,7 @@ fn deduce(initial: &Symbol, rules: &[Rule], stages: Vec<usize>) -> DenseTrace {
             rules: rules.to_vec(),
         },
         initial,
-        stages: deduce_impl(&alphabet, initial, rules, &stages, 0),
+        stages: deduce_impl(&alphabet, initial, rules, stages, 0),
     };
 
     draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
@@ -126,11 +129,17 @@ fn main() {
 
     let initial = &premises[0];
 
-    let trace = deduce(initial, &rules, vec![1, 1, 1]);
+    let stages = vec![8, 8, 8];
 
-    let writer = BufWriter::new(File::create("out/generator/trace.bin").unwrap());
+    let trace = deduce(initial, &rules, &stages);
+
+    let stages = stages.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let postfix = (&stages).join("-");
+
+    let writer =
+        BufWriter::new(File::create(format!("out/generator/trace-{}.bin", postfix)).unwrap());
     trace.write_bincode(writer).expect("Writing.bin file");
 
-    let mut writer = BufWriter::new(File::create("out/generator/trace.tex").unwrap());
-    trace.write_latex(&mut writer).expect("Writing.bin file");
+    // let mut writer = BufWriter::new(File::create("out/generator/trace.tex").unwrap());
+    // trace.write_latex(&mut writer).expect("Writing tex file");
 }

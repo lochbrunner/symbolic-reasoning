@@ -1,9 +1,10 @@
 use crate::context::PyContext;
 use crate::symbol::PySymbol;
-use std::rc::Rc;
+use core::dumper::dump_latex;
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
+use std::rc::Rc;
 
 /// Python Wrapper for core::Rule
 #[pyclass(name=Rule,subclass)]
@@ -22,25 +23,38 @@ impl PyRule {
     #[getter]
     fn get_condition(&self) -> PyResult<PySymbol> {
         let inner = self.inner.condition.clone();
-        Ok(PySymbol { inner: Rc::new(inner) })
+        Ok(PySymbol {
+            inner: Rc::new(inner),
+        })
     }
 
     #[getter]
     fn get_conclusion(&self) -> PyResult<PySymbol> {
         let inner = self.inner.conclusion.clone();
-        Ok(PySymbol { inner: Rc::new(inner) })
+        Ok(PySymbol {
+            inner: Rc::new(inner),
+        })
     }
 
     #[getter]
     fn reverse(&self) -> PyResult<PyRule> {
-        Ok(PyRule{
+        Ok(PyRule {
             inner: {
-                Rule{
+                Rule {
                     conclusion: self.inner.condition.clone(),
                     condition: self.inner.conclusion.clone(),
                 }
-            }
+            },
         })
+    }
+
+    #[getter]
+    fn latex(&self) -> PyResult<String> {
+        Ok(format!(
+            "{} \\Rightarrow {} ",
+            dump_latex(&self.inner.condition, None),
+            dump_latex(&self.inner.conclusion, None)
+        ))
     }
 }
 

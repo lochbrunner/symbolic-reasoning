@@ -1,11 +1,12 @@
 from pycore import Trace, Symbol, Rule
+import sys
 
 
 def load_trace():
     '''
     Loads the standard trace information
     '''
-    file = '../out/generator/trace.bin'
+    file = '../out/generator/trace-1-1-1.bin'
 
     try:
         trace = Trace.load(file)
