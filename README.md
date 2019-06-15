@@ -2,53 +2,43 @@
 
 ## Definitions
 
-Each term is defined by its nodes `n_{i_1, ..., i_l}` where `l` is the level of the node.
-The term `n` with the content `a+b` is then represented by `n = +`, `n_0 = a` and `n_1 = b`
+Each term is defined by its nodes <img style="margin:0 0 -7px 0" src="docs/formulas/symbol.png" /> where <img style="margin:0 0 -2px 0" src="docs/formulas/ell.png" /> is the level of the node.
+The term <img style="margin:0 0 -1x 0" src="docs/formulas/n.png" /> with the content <img style="margin:0 0 -3px 0" src="docs/formulas/a+b.png" /> is then represented by <img style="margin:0 0 -4px 0" src="docs/formulas/parts-of-a+b.png" />
 
-Further more one has to distinguish if a sub-term `n_{i_1, ..., i_l}` is fixed one.
+Further more one has to distinguish if a sub-term <img style="margin:0 0 -7px 0" src="docs/formulas/symbol.png" /> is fixed one.
 Which means can we use it as variable or is a constant or pre-defined operator.
 
 ## Example
 
 Consider the following equation
 
-```latex
-b*(cd-cd)=e
-```
+![b*(cd-cd)=e](docs/formulas/b*(cd-cd)=e.png)
 
 and the following replacement rule
 
-```latex
-a-a => 0
-```
+![a-a => 0](docs/formulas/a-a=>0.png)
 
 which comes directly out of the equation
 
-```latex
-a-a = 0
-```
+![a-a = 0](docs/formulas/a-a=0_300.png)
 
-When trying to apply this rule on the equation above results in the fitting try of the abstract term `a-a` in one of the nodes of the formula `b*(cd-cd)=e`.
+When trying to apply this rule on the equation above results in the fitting try of the abstract term <img style="margin:0 0 -1px 0" src="docs/formulas/a-a_150.png" /> in one of the nodes of the formula <img style="margin:0 0 -5px 0" src="docs/formulas/b*(cd-cd)=e_150.png" />.
 
-The fitting result would be that the rule fits in the node `cd-cd` and the mapping `a -> cd`.
+The fitting result would be that the rule fits in the node <img style="margin:0 0 -1px 0" src="docs/formulas/cd-cd_150.png" /> and the mapping <img style="margin:0 0 -1px 0" src="docs/formulas/a->cd_150.png" />.
 
 Applying this fitting result on the initial equation would transform it to
 
-```latex
-b*(a-a)=e
-```
+![b*(a-a)=e](docs/formulas/b*(a-a)=e_300.png)
 
 where `a = cd`.
 
 with the conclusion this results in
 
-```latex
-b*0=e
-```
+![b*0=e](docs/formulas/b*0=e_300.png)
 
 .
 
-You can find this example as a [e2e test](./libcore/src/apply.rs#L148-L167) from line 149.
+You can find this example as a [e2e test](./libcore/src/apply.rs#L328-L347) from line 149.
 
 ## Abstract
 
