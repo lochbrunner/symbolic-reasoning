@@ -9,14 +9,14 @@ use std::rc::Rc;
 /// Python Wrapper for core::Rule
 #[pyclass(name=Rule,subclass)]
 pub struct PyRule {
-    pub inner: Rule,
+    pub inner: Rc<Rule>,
 }
 
 #[pymethods]
 impl PyRule {
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
-        let inner = Rule::parse(&context.inner, &code);
+        let inner = Rc::new(Rule::parse(&context.inner, &code));
         Ok(PyRule { inner })
     }
 
@@ -39,12 +39,12 @@ impl PyRule {
     #[getter]
     fn reverse(&self) -> PyResult<PyRule> {
         Ok(PyRule {
-            inner: {
+            inner: Rc::new(
                 Rule {
                     conclusion: self.inner.condition.clone(),
                     condition: self.inner.conclusion.clone(),
                 }
-            },
+        ),
         })
     }
 

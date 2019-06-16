@@ -45,7 +45,7 @@ fn fit_abstract<'a>(
     if contradiction || outer.only_root() {
         vec![]
     } else {
-        // Add folking
+        // Add forking
         let fittings: Vec<FitMap<'a>> = vec![FitMap {
             variable: hashmap! {inner => outer},
             location: outer,
@@ -61,7 +61,7 @@ fn add_extension<'a>(target: &mut Vec<FitMap<'a>>, source: Vec<FitMap<'a>>) {
     assert_eq!(
         target.len(),
         1,
-        "Folking of extensions is not supported yet"
+        "Forking of extensions is not supported yet"
     );
     if source.is_empty() {
         target.clear();
@@ -125,13 +125,13 @@ fn folk_childs<'a>(
         let mut path = path.to_vec();
         path.push(i);
         let branches = fit_impl(child, inner, map, &path);
-        // Folk here
+        // Fork here
         fittings.extend(branches);
     }
     fittings
 }
 
-/// When folking give the child only the relevant branches
+/// When forking give the child only the relevant branches
 fn fit_fixed<'a>(
     outer: &'a Symbol,
     inner: &'a Symbol,
@@ -145,7 +145,7 @@ fn fit_fixed<'a>(
         // Wrong number of childs
         vec![]
     } else {
-        // TODO: Dont allocate memory for hypothetical used variable
+        // TODO: Don't allocate memory for hypothetical used variable
         let new_scenario = Some(FitMap {
             variable: HashMap::new(),
             location: outer,

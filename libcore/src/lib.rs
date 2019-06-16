@@ -38,7 +38,7 @@ pub mod fit;
 pub mod parser;
 pub mod rule;
 pub mod symbol;
-pub mod trace;
+pub mod bag;
 pub use apply::*;
 pub use context::*;
 pub use fit::*;

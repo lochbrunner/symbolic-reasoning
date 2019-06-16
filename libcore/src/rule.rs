@@ -17,6 +17,14 @@ impl Rule {
             condition: Symbol::parse(context, parts.pop().expect("Condition")),
         }
     }
+
+    /// Returns a Rule with swapped condition <-> conclusion
+    pub fn reverse(&self) -> Rule {
+        Rule {
+            condition: self.conclusion.clone(),
+            conclusion: self.condition.clone(),
+        }
+    }
 }
 
 impl fmt::Display for Rule {

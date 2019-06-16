@@ -9,11 +9,13 @@
     "cSpell.words": [
         "Deque",
         "LSTM",
+        "bincode",
         "childs",
         "idents",
         "maplit",
         "pyclass",
         "pymethods",
-        "serde"
+        "serde",
+        "staticmethod"
     ]
 }

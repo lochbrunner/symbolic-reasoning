@@ -171,7 +171,7 @@ if __name__ == "__main__":
     shuffle(steps)
 
     steps_size = len(steps)
-    print(f'Working on {steps_size} steps')
+    print(f'Working on {steps_size} steps and {len(rules)} rules')
 
     test_size = steps_size // 10
     test_set = steps[:test_size]
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             rank = validate(model, rule_to_ix, test_set)
             ranks.append(rank)
             error_pc = (1.-rank[0])*100.0
-            print(f'[{epoch}] Error: {error_pc:.3}%  loss: {total_loss}')
+            print(f'[{epoch}] Error: {error_pc:.3}%  loss: {total_loss:.6}')
 
         if total_loss * (1+EARLY_ABORT_FACTOR) > prev_loss:
             print('Early abbort')

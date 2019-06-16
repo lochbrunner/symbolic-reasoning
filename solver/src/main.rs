@@ -1,5 +1,5 @@
 use core::io;
-use core::{Context, trace::DenseTrace};
+use core::{Context, bag::trace::DenseTrace};
 use std::fs::File;
 use std::io::BufReader;
 

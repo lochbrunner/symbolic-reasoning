@@ -1,4 +1,4 @@
-use super::{Rule, Symbol};
+use crate::{Rule, Symbol};
 use crate::dumper::latex::LaTeX;
 use std::collections::HashSet;
 extern crate chrono;

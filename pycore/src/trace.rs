@@ -1,6 +1,6 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
+use core::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
@@ -20,7 +20,7 @@ pub struct PyApplyInfo {
 impl PyApplyInfo {
     #[getter]
     fn get_rule(&self) -> PyResult<PyRule> {
-        let inner = self.inner.rule.clone();
+        let inner = Rc::new(self.inner.rule.clone());
         Ok(PyRule { inner })
     }
 
@@ -47,10 +47,6 @@ impl PyApplyInfo {
     }
 }
 
-impl PyApplyInfo {
-    // inner: DenseApplyInfo
-}
-
 #[pyclass(name=TraceStep,subclass)]
 pub struct PyTraceStep {
     pub inner: DenseTraceStep,
@@ -63,9 +59,6 @@ impl PyTraceStep {}
 #[derive(Clone)]
 pub struct PyCalculation {
     pub steps: Vec<PyApplyInfo>,
-    // cursor: Vec<usize>,
-    // trace: Rc<DenseTrace>,
-    // pub inner: Calculation<'a>,
 }
 
 #[pymethods]
@@ -235,7 +228,7 @@ impl PyMeta {
             .meta
             .rules
             .iter()
-            .map(|r| PyRule { inner: r.clone() })
+            .map(|r| PyRule { inner: Rc::new(r.clone()) })
             .collect())
     }
 }
