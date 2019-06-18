@@ -3,8 +3,8 @@
 import sys
 from random import shuffle
 
-from common import load_trace, Step
-from pycore import Trace, Symbol, Rule
+from common import load_bag, sanitize_path
+from pycore import Symbol, Rule
 
 import torch
 import torch.nn as nn
@@ -12,9 +12,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import matplotlib.pyplot as plt
-
-HIDDEN_DIM = 64
-REMAINDER_DIM = 32
 
 
 class IdentTreeModeler(nn.Module):
@@ -33,7 +30,7 @@ class IdentTreeModeler(nn.Module):
                             remainder_dim, hidden_size=self.hidden_dim)
         self.linear_out = nn.Linear(embedding_dim, rules_size)
 
-    def forward(self, ident, remainder=None, hidden=None, ):
+    def forward(self, ident, remainder=None, hidden=None):
         if remainder is None:
             remainder = torch.zeros([1, self.remainder_dim], dtype=torch.float)
 
@@ -55,19 +52,25 @@ class IdentTreeModeler(nn.Module):
 
         return out, hidden, remainder.view(1, -1)
 
+    def initial_hidden(self):
+        return (torch.zeros([1, 1, self.hidden_dim], dtype=torch.float),
+                torch.zeros([1, 1, self.hidden_dim], dtype=torch.float))
+
+    def initial_remainder(self):
+        return [torch.zeros([1, self.remainder_dim], dtype=torch.float)]
+
 
 def predict(model, term):
     # Get remainders of prev
     remainders = [predict(model, child)[1] for child in term.childs]
 
-    hidden = (torch.zeros([1, 1, HIDDEN_DIM], dtype=torch.float),
-              torch.zeros([1, 1, HIDDEN_DIM], dtype=torch.float))
+    hidden = model.initial_hidden()
 
     ident_tensor = torch.tensor(
         [ident_to_ix[term.ident]], dtype=torch.long)
 
     if len(remainders) == 0:
-        remainders = [torch.zeros([1, REMAINDER_DIM], dtype=torch.float)]
+        remainders = model.initial_remainder()
 
     for incoming_remainder in remainders:
         out, hidden, remainder = model(
@@ -78,20 +81,20 @@ def predict(model, term):
     return out, remainder
 
 
-def validate(model, rule_to_ix, steps):
+def validate(model, rule_to_ix, samples):
     ranks = [0] * len(rule_to_ix)
 
-    for step in steps:
-        log_probs, _ = predict(model, step.initial.get(step.path))
+    for sample in samples:
+        log_probs, _ = predict(model, sample.initial.at(sample.path))
         probs = log_probs.exp().flatten().tolist()
 
         s = sorted([(v, i) for i, v in enumerate(probs)], reverse=True)
         ixs = [i for v, i in s]
-        pos = ixs.index(rule_to_ix[step.rule])
+        pos = ixs.index(rule_to_ix[sample.rule])
         ranks[pos] += 1
 
-    steps_size = len(steps)
-    return [rank / steps_size for rank in ranks]
+    samples_size = len(samples)
+    return [rank / samples_size for rank in ranks]
 
 
 def plot_ranks(ranks):
@@ -105,100 +108,134 @@ def plot_ranks(ranks):
     plt.savefig('../out/ml/lstm-ranks.svg')
 
 
-def plot_prediction(model, rule_to_ix, steps, ix, loss):
-    ranks = validate(model, rule_to_ix, steps)
+def plot_prediction(model, rule_to_ix, samples, ix, loss):
+    ranks = validate(model, rule_to_ix, samples)
     fig = plt.figure(figsize=(8, 6))
     x = list(range(len(ranks[:10])))
     plt.bar(x, height=ranks[:10])
     plt.xticks(x, [f'top {i+1}' for i in x])
-    plt.title(f'top of {len(steps)} (loss: {loss:.2f})')
+    plt.title(f'top of {len(samples)} (loss: {loss:.2f})')
     plt.savefig(f'../out/ml/lstm-hist-{ix:03}.svg')
 
 
-def plot_part_prediction(model, step, ix_to_rule):
-    # TODO: use LaTeX formated rules
-    rules = [r for i, r in ix_to_rule.items()]
+def highlight_cell(cells, ax=None, **kwargs):
+    ax = ax or plt.gca()
+    for (x, y) in cells:
+        rect = plt.Rectangle((x-.5, y-0.5), 1, 1, fill=False, **kwargs)
+        ax.add_patch(rect)
+    return rect
+
+
+def plot_part_prediction(model, sample, ix_to_rule, rule_to_ix):
+    rules = [f'$ {r.latex} $' for i, r in ix_to_rule.items()]
     rules_ix = [i for i, r in ix_to_rule.items()]
 
     with torch.no_grad():
         y_ticks = []
         prob_matrix = []
-        for part in step.initial.parts:
-
+        path_to_ix = {}
+        for i, (path, part) in enumerate(sample.initial.parts_with_path):
+            path_to_ix[str(path)] = i
             log_probs, _ = predict(model, part)
             probs = log_probs.exp().flatten().tolist()
             prob_matrix.append(probs)
-            y_ticks.append(str(part))
+            y_ticks.append(f'$ {part.latex} $')
         plt.figure(figsize=(8, 6))
         plt.imshow(prob_matrix, cmap='Reds', interpolation='nearest')
         plt.colorbar()
         plt.xticks(rules_ix, rules, rotation=45)
         plt.yticks(list(range(len(y_ticks))), y_ticks)
+
+        for fit in sample.fits:
+            rule_ix = rule_to_ix[fit.rule.verbose]
+            ix = path_to_ix[str(fit.path)]
+            highlight_cell([(rule_ix, ix)], color="limegreen", linewidth=3)
+
         plt.savefig(
-            f'../out/ml/lstm-single-prediction-{str(step.initial)}.svg')
+            f'../out/ml/lstm-single-prediction-{sanitize_path(str(sample.initial))}.svg')
         plt.show()
 
 
-if __name__ == "__main__":
-    trace = load_trace()
-    torch.manual_seed(1)
+def plot_used_rules(bag):
+    plt.figure(figsize=(8, 6))
+    rules = bag.meta.rules
+    x = range(len(rules))
+    sum_of_rules = sum([rule.fits for rule in rules])
+    plt.barh(
+        x, width=[rule.fits/sum_of_rules for rule in rules], align='center')
+    plt.yticks(x, [f'$ {stat.rule.latex} $' for stat in rules])
+    plt.tight_layout()
+    plt.savefig(
+        f'../out/ml/lstm-rule-hist.svg')
 
-    idents = list(trace.meta.used_idents)
+
+if __name__ == "__main__":
+    torch.manual_seed(1)
+    bag = load_bag()
+    print('Loaded')
+
+    plot_used_rules(bag)
+
+    # idents = list(bag.meta.used_idents)
+    idents = bag.meta.idents
     ident_to_ix = {ident: i for i, ident in enumerate(idents)}
 
     print(f'idents: {str.join(", ", idents)}')
 
-    rules = [str(rule.reverse) for rule in trace.meta.rules]
-    # Remove duplicates
-    rules = list(set(rules))
-    rule_to_ix = {rule: i for i, rule in enumerate(rules)}
+    rules = [stat.rule for stat in bag.meta.rules]
+    rule_to_ix = {rule.verbose: i for i, rule in enumerate(rules)}
     ix_to_rule = {i: rule for i, rule in enumerate(rules)}
 
     # Model
     model = IdentTreeModeler(ident_size=len(idents),
-                             remainder_dim=REMAINDER_DIM,
-                             hidden_dim=HIDDEN_DIM,
+                             remainder_dim=32,
+                             hidden_dim=64,
                              embedding_dim=32,
                              rules_size=len(rules))
 
     # Data
-    steps = [Step(initial=step.deduced,
-                  deduced=str(step.initial),
-                  rule=str(step.rule.reverse),
-                  path=step.path)
-             for step in trace.all_steps]
+    class Sample:
+        def __init__(self, initial, rule, path):
+            self.initial = initial
+            self.rule = rule
+            self.path = path
 
-    shuffle(steps)
+    samples = [Sample(sample.initial, fit.rule.verbose, fit.path)
+               for sample in bag.samples for fit in sample.fits]
 
-    steps_size = len(steps)
-    print(f'Working on {steps_size} steps and {len(rules)} rules')
+    shuffle(samples)
 
-    test_size = steps_size // 10
-    test_set = steps[:test_size]
-    trainings_set = steps[test_size:]
+    samples_size = len(samples)
+    print(f'Working on {samples_size} samples and {len(bag.meta.rules)} rules')
+
+    test_size = samples_size // 10
+    test_set = samples[:test_size]
+    trainings_set = samples[test_size:]
 
     BATCH_SIZE = 8
     batches = [trainings_set[i:i+BATCH_SIZE]
                for i in range(0, len(trainings_set), BATCH_SIZE)]
 
     # Training
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
-    loss_function = nn.NLLLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.002)
+    MIN_VALUE = 10
+    scales = [max(MIN_VALUE, v.fits)**-1.0 for v in bag.meta.rules]
+    loss_function = nn.NLLLoss(weight=torch.FloatTensor(scales))
     ranks = []
 
     EARLY_ABORT_FACTOR = 0.001
     prev_loss = float("inf")
 
-    for epoch in range(6):
+    for epoch in range(1):
         total_loss = 0
         for batch in batches:
             model.zero_grad()
-            for step in batch:
+            for sample in batch:
 
-                log_probs, _ = predict(model, step.initial.get(step.path))
+                log_probs, _ = predict(model, sample.initial.at(sample.path))
                 log_probs = log_probs.view(1, -1)
                 expected = torch.tensor(
-                    [rule_to_ix[step.rule]], dtype=torch.long)
+                    [rule_to_ix[sample.rule]], dtype=torch.long)
 
                 loss = loss_function(log_probs, expected)
                 loss.backward()
@@ -217,5 +254,5 @@ if __name__ == "__main__":
         prev_loss = total_loss
 
     plot_ranks(ranks)
-    for step in steps[:10]:
-        plot_part_prediction(model, step, ix_to_rule)
+    for sample in bag.samples[:3]:
+        plot_part_prediction(model, sample, ix_to_rule, rule_to_ix)

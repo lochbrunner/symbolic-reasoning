@@ -31,6 +31,34 @@ pub fn dump_simple(symbol: &Symbol) -> String {
     string
 }
 
+pub fn dump_verbose(symbol: &Symbol) -> String {
+    let context = FormatContext {
+        operators: Operators {
+            infix: hashmap! {
+                "+" => Precedence::PSum,
+                "-" => Precedence::PSum,
+                "*" => Precedence::PProduct,
+                "/" => Precedence::PProduct,
+                "^" => Precedence::PPower,
+                "=" => Precedence::PEquals,
+                "==" => Precedence::PEquals,
+                "!=" => Precedence::PEquals,
+            },
+            postfix: hashset! {"!"},
+            prefix: hashset! {"-"},
+            non_associative: hashset! {"-","/", "+", "*", "^"},
+        },
+        formats: SpecialFormatRules {
+            symbols: hashmap! {},
+            functions: hashmap! {},
+        },
+        decoration: None,
+    };
+    let mut string = String::new();
+    dump_base(&context, symbol, FormatingLocation::new(), &mut string);
+    string
+}
+
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", dump_simple(self))

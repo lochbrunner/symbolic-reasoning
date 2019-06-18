@@ -4,13 +4,6 @@ type FlagType = u32;
 
 mod symbol_flags {
     use super::FlagType;
-    /// For now specifies, if a variable of function is a concrete,
-    /// Starting with uppercase means true, else false.
-    /// commonly known constant/function or not.
-    /// Specifies if this symbol should be mapped or not.
-    /// Example function: "+" Example variable constant of gravitation "G"
-    /// Later on it will depend on the context if function is fixed or not.
-    /// For instance "G" could stand for another variable, but not the constant of gravitation.
     pub const FIXED: FlagType = 1;
     pub const ROOT_ONLY: FlagType = 1 << 1;
 }
@@ -43,6 +36,34 @@ impl<'a> Iterator for SymbolIter<'a> {
     }
 }
 
+pub struct SymbolAndPathIter<'a> {
+    stack: Vec<(Vec<usize>, &'a Symbol)>,
+}
+
+impl<'a> SymbolAndPathIter<'a> {
+    pub fn new(parent: &'a Symbol) -> SymbolAndPathIter {
+        SymbolAndPathIter {
+            stack: vec![(vec![], parent)],
+        }
+    }
+}
+
+impl<'a> Iterator for SymbolAndPathIter<'a> {
+    type Item = (Vec<usize>, &'a Symbol);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.stack.pop() {
+            None => None,
+            Some((path, symbol)) => {
+                for (i, child) in symbol.childs.iter().enumerate() {
+                    self.stack.push(([&path[..], &[i]].concat(), child));
+                }
+                Some((path, symbol))
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Symbol {
     pub ident: String,
@@ -60,6 +81,14 @@ impl Symbol {
         self.flags & symbol_flags::ROOT_ONLY != 0
     }
 
+    /// For now specifies, if a variable of function is a concrete,
+    /// Starting with uppercase means true, else false.
+    /// commonly known constant/function or not.
+    /// Specifies if this symbol should be mapped or not.
+    /// Example function: "+" Example variable constant of gravitation "G"
+    /// Later on it will depend on the context if function is fixed or not.
+    /// For instance "G" could stand for another variable, but not the constant of gravitation.
+    /// Remove this later when predicates are implemented
     pub fn fixed(&self) -> bool {
         self.flags & symbol_flags::FIXED != 0
     }
@@ -68,7 +97,11 @@ impl Symbol {
         SymbolIter::new(self)
     }
 
-    pub fn get<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
+    pub fn parts_with_path(&self) -> SymbolAndPathIter {
+        SymbolAndPathIter::new(self)
+    }
+
+    pub fn at<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
         let mut current = self;
         for i in path.iter() {
             match &current.childs.get(*i) {
@@ -175,7 +208,7 @@ mod specs {
     }
 
     #[test]
-    fn iter() {
+    fn parts() {
         let a = Symbol::new_variable("a", false);
         let b = Symbol::new_variable("b", false);
         let c = Symbol::new_variable("c", false);
@@ -192,7 +225,7 @@ mod specs {
     }
 
     #[test]
-    fn get_in_bound() {
+    fn parts_with_path() {
         let a = Symbol::new_variable("a", false);
         let b = Symbol::new_variable("b", false);
         let c = Symbol::new_variable("c", false);
@@ -201,14 +234,31 @@ mod specs {
         let u = Symbol::new_operator("u", true, false, vec![o, b]);
         let v = Symbol::new_operator("v", true, false, vec![u, c]);
 
-        let actual = &v.get(&[0, 1]).expect("retuning value").ident;
+        assert_eq!(v.parts_with_path().count(), 6);
+
+        for (path, symbol) in v.parts_with_path() {
+            assert_eq!(v.at(&path).expect(&format!("Symbol at {:?}", path)), symbol);
+        }
+    }
+
+    #[test]
+    fn at_in_bound() {
+        let a = Symbol::new_variable("a", false);
+        let b = Symbol::new_variable("b", false);
+        let c = Symbol::new_variable("c", false);
+
+        let o = Symbol::new_operator("o", true, false, vec![a]);
+        let u = Symbol::new_operator("u", true, false, vec![o, b]);
+        let v = Symbol::new_operator("v", true, false, vec![u, c]);
+
+        let actual = &v.at(&[0, 1]).expect("retuning value").ident;
         let expected = "b";
 
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn get_out_of_bound() {
+    fn at_out_of_bound() {
         let a = Symbol::new_variable("a", false);
         let b = Symbol::new_variable("b", false);
         let c = Symbol::new_variable("c", false);
@@ -217,7 +267,7 @@ mod specs {
         let u = Symbol::new_operator("u", true, false, vec![o, b]);
         let v = Symbol::new_operator("v", true, false, vec![u, c]);
 
-        let actual = v.get(&[0, 4]);
+        let actual = v.at(&[0, 4]);
         let expected: Option<&Symbol> = None;
 
         assert_eq!(actual, expected);

@@ -1,6 +1,6 @@
 use crate::context::PyContext;
 use crate::symbol::PySymbol;
-use core::dumper::dump_latex;
+use core::dumper::{dump_latex, dump_verbose};
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
@@ -39,13 +39,21 @@ impl PyRule {
     #[getter]
     fn reverse(&self) -> PyResult<PyRule> {
         Ok(PyRule {
-            inner: Rc::new(
-                Rule {
-                    conclusion: self.inner.condition.clone(),
-                    condition: self.inner.conclusion.clone(),
-                }
-        ),
+            inner: Rc::new(Rule {
+                conclusion: self.inner.condition.clone(),
+                condition: self.inner.conclusion.clone(),
+            }),
         })
+    }
+
+    /// Dumps the verbose order of operators with equal precedence
+    #[getter]
+    fn verbose(&self) -> PyResult<String> {
+        Ok(format!(
+            "{} => {} ",
+            dump_verbose(&self.inner.condition),
+            dump_verbose(&self.inner.conclusion)
+        ))
     }
 
     #[getter]

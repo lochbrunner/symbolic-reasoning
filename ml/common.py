@@ -1,19 +1,35 @@
-from pycore import Trace, Symbol, Rule
+from pycore import Trace, Bag
 import sys
 
 
-def load_trace():
+def load_trace(filename='../out/generator/trace-1-1-1.bin'):
     '''
     Loads the standard trace information
     '''
-    file = '../out/generator/trace-1-1-1.bin'
 
     try:
-        trace = Trace.load(file)
+        trace = Trace.load(filename)
     except Exception as e:
-        print(f'Error loading {file}: {e}')
+        print(f'Error loading {filename}: {e}')
         sys.exit(1)
     return trace
+
+
+def load_bag(filename='../out/generator/bag-1-1.bin'):
+    '''
+    Loads the bag file
+    '''
+
+    try:
+        bag = Bag.load(filename)
+    except Exception as e:
+        print(f'Error loading {filename}: {e}')
+        sys.exit(1)
+    return bag
+
+
+def sanitize_path(path):
+    return path.replace('/', '#')
 
 
 class Step:

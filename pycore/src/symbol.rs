@@ -1,5 +1,5 @@
 use crate::context::PyContext;
-use core::dumper::dump_latex;
+use core::dumper::{dump_latex, dump_verbose};
 use core::Symbol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::IndexError;
@@ -43,6 +43,45 @@ impl PyIterProtocol for PySymbolIter {
     }
 }
 
+#[pyclass(name=SymbolAndPathIter)]
+#[derive(Clone)]
+pub struct PySymbolAndPathIter {
+    pub parent: Rc<Symbol>,
+    pub stack: Vec<Vec<usize>>,
+}
+
+#[pyproto]
+impl PyIterProtocol for PySymbolAndPathIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolAndPathIter> {
+        Ok(PySymbolAndPathIter {
+            parent: s.parent.clone(),
+            stack: vec![vec![]],
+        })
+    }
+
+    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<(Vec<usize>, PySymbol)>> {
+        match s.stack.pop() {
+            None => Ok(None),
+            Some(path) => {
+                let symbol = s
+                    .parent
+                    .at(&path)
+                    .expect(&format!("part at path: {:?}", path))
+                    .clone();
+                for (i, _) in symbol.childs.iter().enumerate() {
+                    s.stack.push([&path[..], &[i]].concat());
+                }
+                Ok(Some((
+                    path,
+                    PySymbol {
+                        inner: Rc::new(symbol),
+                    },
+                )))
+            }
+        }
+    }
+}
+
 #[pymethods]
 impl PySymbol {
     #[staticmethod]
@@ -58,8 +97,8 @@ impl PySymbol {
         Ok(self.inner.ident.clone())
     }
 
-    fn get(&self, path: Vec<usize>) -> PyResult<PySymbol> {
-        match self.inner.get(&path) {
+    fn at(&self, path: Vec<usize>) -> PyResult<PySymbol> {
+        match self.inner.at(&path) {
             None => Err(PyErr::new::<IndexError, _>("Index is out of bound")),
             Some(item) => Ok(PySymbol {
                 inner: Rc::new(item.clone()),
@@ -76,15 +115,34 @@ impl PySymbol {
     }
 
     #[getter]
+    fn parts_with_path(&self) -> PyResult<PySymbolAndPathIter> {
+        Ok(PySymbolAndPathIter {
+            parent: self.inner.clone(),
+            stack: vec![vec![]],
+        })
+    }
+
+    /// Dumps the verbose order of operators with equal precedence
+    #[getter]
+    fn verbose(&self) -> PyResult<String> {
+        Ok(dump_verbose(&self.inner))
+    }
+
+    #[getter]
     fn latex(&self) -> PyResult<String> {
         Ok(dump_latex(&self.inner, None))
     }
 
     #[getter]
     fn childs(&self) -> PyResult<Vec<PySymbol>> {
-        Ok(
-            self.inner.childs.iter().map(|s| PySymbol{inner: Rc::new(s.clone())}).collect()
-        )
+        Ok(self
+            .inner
+            .childs
+            .iter()
+            .map(|s| PySymbol {
+                inner: Rc::new(s.clone()),
+            })
+            .collect())
     }
 }
 
