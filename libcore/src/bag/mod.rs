@@ -220,7 +220,7 @@ mod specs {
                 std::cmp::Ordering::Greater
             }
         });
-
+        assert_eq!(actual_rules.len(), expected_rules.len());
         assert_eq!(actual_rules, expected_rules);
 
         let expected_samples = vec![
@@ -252,6 +252,7 @@ mod specs {
             },
         ];
 
+        assert_eq!(actual.samples.len(), expected_samples.len());
         assert_eq!(actual.samples, expected_samples);
     }
 }

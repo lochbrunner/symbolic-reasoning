@@ -4,10 +4,10 @@ a/a => 1
 1+2 => 3
 a+a <=> 2*a
 // Commutative property
-a*b <=> b*a
-a+b <=> b+a
+// a*b <=> b*a
+// a+b <=> b+a
 // Associative property
-a*(b*c) <=> (a*b)*c 
+a*(b*c) => (a*b)*c 
 // Distributive property
 a*(b+c) => a*b+a*c
 a*(b-c) => a*b-a*c
@@ -24,6 +24,6 @@ a^0 => 1
 0*a => 0 
 // equations
 a - b = 0 => a = b
-x + a = 0 <=> x = -a
-a / b = 1 <=> a = b
+x + a = 0 => x = -a
+a / b = 1 => a = b
 // trigonometry

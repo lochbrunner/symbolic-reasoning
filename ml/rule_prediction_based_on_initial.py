@@ -88,7 +88,10 @@ if __name__ == "__main__":
 
     torch.manual_seed(1)
 
-    steps = [Step(initial=str(step.deduced), deduced=str(step.initial), rule=str(step.rule.reverse), path=list(step.path))
+    steps = [Step(initial=str(step.deduced),
+                  deduced=str(step.initial),
+                  rule=str(step.rule.reverse),
+                  path=list(step.path))
              for step in trace.all_steps]
 
     used_symbols = set([step.initial for step in steps])

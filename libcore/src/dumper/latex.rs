@@ -169,6 +169,13 @@ mod e2e {
     }
 
     #[test]
+    fn double_super_script() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "a^b^c");
+        assert_eq!(dump_latex(&term, None), String::from("a^{b^{c}}"));
+    }
+
+    #[test]
     fn bug_16() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "(a+b)^c");

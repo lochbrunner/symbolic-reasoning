@@ -96,7 +96,7 @@ fn deduce<'a>(
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
-    let mut used_idents = extract_idents_from_rules(rules);
+    let mut used_idents = extract_idents_from_rules(&rules.iter().map(|r| r.reverse()).collect::<Vec<_>>());
 
     for part in initial.parts() {
         if !used_idents.contains(&part.ident) {
