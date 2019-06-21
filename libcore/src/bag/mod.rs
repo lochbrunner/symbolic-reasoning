@@ -10,7 +10,7 @@ pub struct RuleStatistics {
     // Number of fit resulting that rule
     pub fits: usize,
     /// How many times it was good to use this rule
-    pub viably: usize,
+    pub purposeful: usize,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -23,6 +23,7 @@ pub struct Meta {
 pub struct FitInfo {
     pub rule: Rule,
     pub path: Vec<usize>,
+    pub purposeful: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -38,6 +39,10 @@ pub struct Bag {
 }
 
 impl Bag {
+    pub fn purposeful_from_traces(_traces: &[trace::Trace]) -> Bag {
+        unimplemented!()
+    }
+
     /// Iterates through all steps of all traces and tries to fit all rules
     pub fn from_traces(traces: &[trace::Trace]) -> Bag {
         let mut idents: HashSet<String> = HashSet::new();
@@ -55,7 +60,7 @@ impl Bag {
                             rule,
                             RuleStatistics {
                                 rule: rule.reverse(),
-                                viably: 0,
+                                purposeful: 0,
                                 fits: 0,
                             },
                         );
@@ -84,9 +89,17 @@ impl Bag {
                                 let rule_fits = fit(&initial, &rule.0.conclusion);
                                 let rule_fits = rule_fits
                                     .into_iter()
-                                    .map(|f| FitInfo {
-                                        rule: (*rule.0).reverse(),
-                                        path: f.path,
+                                    .map(|f| {
+                                        let purposeful =
+                                            stage.info.rule == *rule.0 && stage.info.path == f.path;
+                                        if purposeful {
+                                            rule.1.purposeful += 1;
+                                        }
+                                        FitInfo {
+                                            rule: (*rule.0).reverse(),
+                                            purposeful,
+                                            path: f.path,
+                                        }
                                     })
                                     .collect::<Vec<FitInfo>>();
                                 rule.1.fits += rule_fits.len();
@@ -200,12 +213,12 @@ mod specs {
             RuleStatistics {
                 rule: r1.reverse(),
                 fits: 2,
-                viably: 0,
+                purposeful: 0,
             },
             RuleStatistics {
                 rule: r2.reverse(),
                 fits: 2,
-                viably: 0,
+                purposeful: 0,
             },
         ];
 

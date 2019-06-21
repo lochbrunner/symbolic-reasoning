@@ -119,7 +119,7 @@ def main(model_name):
                for i in range(0, len(trainings_set), BATCH_SIZE)]
 
     # Training
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    optimizer = optim.SGD(model.parameters(), lr=0.0002)
     MIN_VALUE = 10
     scales = [MIN_VALUE*max(MIN_VALUE, v.fits)**-1.0 for v in bag.meta.rules]
     loss_function = nn.NLLLoss(weight=torch.FloatTensor(scales))
@@ -130,7 +130,7 @@ def main(model_name):
 
     progress_bar = ProgressBar(0, len(batches))
 
-    for epoch in range(1):
+    for epoch in range(6):
         total_loss = 0
         progres = 0.0
         for i, batch in enumerate(batches):

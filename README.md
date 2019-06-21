@@ -1,5 +1,23 @@
 # Symbolic reasoning
 
+## Outline
+
+* Motivation
+* Definitions
+* Basics
+  * fit and apply
+  * Brut-force solver
+* Networks for pattern recognition
+  * Bias
+  * FC
+  * LSTM
+  * ...
+* Fits vs best fit and generation of synthetic trainings/test data
+* Using memory
+* Applications to [real world problems](./real_world_problems/README.md)
+* Results
+* Outlook
+
 ## Definitions
 
 Each term is defined by its nodes <img style="margin:0 0 -7px 0" src="docs/formulas/symbol.png" /> where <img style="margin:0 0 -2px 0" src="docs/formulas/ell.png" /> is the level of the node.

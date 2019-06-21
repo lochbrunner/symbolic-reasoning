@@ -16,7 +16,7 @@ def load_trace(filename='../out/generator/trace-1-1-1.bin'):
     return trace
 
 
-def load_bag(filename='../out/generator/bag-1-1.bin'):
+def load_bag(filename='../out/generator/bag-1-1-1.bin'):
     '''
     Loads the bag file
     '''

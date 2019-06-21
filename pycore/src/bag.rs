@@ -14,7 +14,7 @@ use pyo3::prelude::*;
 pub struct PyRuleStatistics {
     rule_ptr: Rc<Rule>,
     fits_inner: usize,
-    viably_inner: usize,
+    purposeful_inner: usize,
 }
 
 #[pymethods]
@@ -32,8 +32,8 @@ impl PyRuleStatistics {
     }
 
     #[getter]
-    fn viably(&self) -> PyResult<usize> {
-        Ok(self.viably_inner)
+    fn purposeful(&self) -> PyResult<usize> {
+        Ok(self.purposeful_inner)
     }
 }
 
@@ -64,6 +64,7 @@ impl PyBagMeta {
 struct FitInfoData {
     rule: Rc<Rule>,
     path: Vec<usize>,
+    pub purposeful: bool,
 }
 
 #[pyclass(name=FitInfo,subclass)]
@@ -83,6 +84,11 @@ impl PyFitInfo {
     #[getter]
     fn path(&self) -> PyResult<Vec<usize>> {
         Ok(self.data.path.clone())
+    }
+
+    #[getter]
+    fn purposeful(&self) -> PyResult<bool> {
+        Ok(self.data.purposeful)
     }
 }
 
@@ -111,6 +117,17 @@ impl PySample {
             .data
             .fits
             .iter()
+            .map(|f| PyFitInfo { data: f.clone() })
+            .collect())
+    }
+
+    #[getter]
+    fn purposeful_fits(&self) -> PyResult<Vec<PyFitInfo>> {
+        Ok(self
+            .data
+            .fits
+            .iter()
+            .filter(|f| f.purposeful)
             .map(|f| PyFitInfo { data: f.clone() })
             .collect())
     }
@@ -145,7 +162,7 @@ impl PyBag {
                 .map(|s| PyRuleStatistics {
                     rule_ptr: Rc::new(s.rule),
                     fits_inner: s.fits,
-                    viably_inner: s.viably,
+                    purposeful_inner: s.purposeful,
                 })
                 .collect(),
         };
@@ -162,6 +179,7 @@ impl PyBag {
                         .map(|f| FitInfoData {
                             rule: Rc::new(f.rule),
                             path: f.path,
+                            purposeful: f.purposeful,
                         })
                         .map(|f| Rc::new(f))
                         .collect(),
