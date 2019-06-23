@@ -151,4 +151,8 @@ impl pyo3::class::basic::PyObjectProtocol for PySymbol {
     fn __str__(&self) -> PyResult<String> {
         Ok(self.inner.to_string())
     }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
+    }
 }

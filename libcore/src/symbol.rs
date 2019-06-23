@@ -64,6 +64,56 @@ impl<'a> Iterator for SymbolAndPathIter<'a> {
     }
 }
 
+pub struct SymbolLevelIterMut<'a> {
+    pub stack: Vec<(u32, &'a mut Symbol)>,
+    pub level: u32,
+}
+
+impl<'a> Iterator for SymbolLevelIterMut<'a> {
+    type Item = &'a mut Symbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.stack.pop() {
+            None => None,
+            Some((level, node)) => {
+                if level == self.level {
+                    Some(node)
+                } else {
+                    for child in node.childs.iter_mut().rev() {
+                        self.stack.push((level + 1, child));
+                    }
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+pub struct SymbolLevelIter<'a> {
+    pub stack: Vec<(u32, &'a Symbol)>,
+    pub level: u32,
+}
+
+impl<'a> Iterator for SymbolLevelIter<'a> {
+    type Item = &'a Symbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.stack.pop() {
+            None => None,
+            Some((level, node)) => {
+                if level == self.level {
+                    Some(node)
+                } else {
+                    for child in node.childs.iter().rev() {
+                        self.stack.push((level + 1, child));
+                    }
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Symbol {
     pub ident: String,
@@ -101,6 +151,36 @@ impl Symbol {
         SymbolAndPathIter::new(self)
     }
 
+    /// Iterates all the childs of a specified level
+    /// # Example
+    /// ```
+    /// use core::Symbol;
+    ///
+    /// let a = Symbol::new_variable("a", false);
+    /// let b = Symbol::new_variable("b", false);
+    /// let root = Symbol::new_operator("c", true, false, vec![a,b]);
+    ///
+    /// let actual = root.iter_level(1)
+    ///     .map(|s| &s.ident)
+    ///     .collect::<Vec<_>>();
+    /// let expected = ["a", "b"];
+    /// assert_eq!(actual, expected);
+    /// ```
+    pub fn iter_level<'a>(&'a self, level: u32) -> SymbolLevelIter<'a> {
+        SymbolLevelIter {
+            stack: vec![(0, self)],
+            level,
+        }
+    }
+
+    /// Same as iter_level but allows to mut the items
+    pub fn iter_level_mut<'a>(&'a mut self, level: u32) -> SymbolLevelIterMut<'a> {
+        SymbolLevelIterMut {
+            stack: vec![(0, self)],
+            level,
+        }
+    }
+
     pub fn at<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
         let mut current = self;
         for i in path.iter() {
@@ -110,6 +190,25 @@ impl Symbol {
             }
         }
         Some(current)
+    }
+
+    pub fn set_ident_at(&mut self, path: &[usize], ident: String) -> Result<(), ()> {
+        let mut current = self;
+        for i in path.iter() {
+            match current.childs.get_mut(*i) {
+                None => return Err(()),
+                Some(next) => current = next,
+            }
+        }
+        current.ident = ident;
+        Ok(())
+    }
+
+    pub fn fix_depth(&mut self) {
+        for child in self.childs.iter_mut() {
+            child.fix_depth();
+        }
+        self.depth = Symbol::calc_depth(&self.childs);
     }
 
     pub fn create_flags(fixed: bool, only_root: bool) -> FlagType {

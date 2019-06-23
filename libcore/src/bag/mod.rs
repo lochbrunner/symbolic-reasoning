@@ -243,10 +243,12 @@ mod specs {
                     FitInfo {
                         rule: r1.reverse(),
                         path: vec![],
+                        purposeful: true,
                     },
                     FitInfo {
                         rule: r2.reverse(),
                         path: vec![],
+                        purposeful: true,
                     },
                 ],
             },
@@ -256,10 +258,12 @@ mod specs {
                     FitInfo {
                         rule: r1.reverse(),
                         path: vec![],
+                        purposeful: true,
                     },
                     FitInfo {
                         rule: r2.reverse(),
                         path: vec![],
+                        purposeful: true,
                     },
                 ],
             },

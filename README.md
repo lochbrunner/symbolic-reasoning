@@ -8,10 +8,8 @@
   * fit and apply
   * Brut-force solver
 * Networks for pattern recognition
-  * Bias
-  * FC
-  * LSTM
-  * ...
+  * Network with deep capacity
+  * Bias, FC, LSTM, ...
 * Fits vs best fit and generation of synthetic trainings/test data
 * Using memory
 * Applications to [real world problems](./real_world_problems/README.md)
