@@ -68,3 +68,52 @@ pub fn read_premises(context: &Context, filename: &str) -> Vec<Symbol> {
     }
     premises
 }
+
+#[derive(Serialize, Deserialize)]
+struct ScenarioStringAsRule {
+    pub declarations: HashMap<String, Declaration>,
+    pub rules: HashMap<String, String>,
+    pub problems: HashMap<String, String>,
+}
+
+pub struct Scenario {
+    pub declarations: Context,
+    pub rules: HashMap<String, Rule>,
+    pub problems: HashMap<String, Rule>,
+}
+
+impl Scenario {
+    pub fn load_from_yaml(filename: &str) -> Result<Scenario, String> {
+        let file = match File::open(filename) {
+            Ok(f) => f,
+            Err(msg) => return Err(msg.to_string()),
+        };
+        let ss: ScenarioStringAsRule =
+        match serde_yaml::from_reader(file) {
+            Ok(r) => r,
+            Err(msg) => return Err(msg.to_string()),
+        };
+
+        let declarations = Context{declarations: ss.declarations};
+
+        let rules: Result<HashMap<String, Rule>, String> = ss.rules.iter()
+            .map(|(k,v)| {
+                let rule = Rule::parse(&declarations, v)?;
+                Ok((k.clone(), rule))
+                })
+            .collect();
+        let rules = rules?;
+        let problems: Result<HashMap<String, Rule>, String> = ss.problems.iter()
+                        .map(|(k,v)| {
+                let rule = Rule::parse(&declarations, v)?;
+                Ok((k.clone(), rule))
+                })
+            .collect();
+        let problems = problems?;
+        Ok(Scenario{
+            declarations,
+            rules,
+            problems
+        })
+    }
+}

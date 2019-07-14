@@ -11,6 +11,7 @@
 
 #### Trigonometric identities
 
+[See here](./trigonometric_identities/README.md)
 
 #### Multiplication of large integers
 

@@ -3,9 +3,10 @@ use pyo3::prelude::*;
 mod bag;
 mod context;
 mod rule;
+mod scenario;
 mod symbol;
-mod trace;
 mod symbol_builder;
+mod trace;
 
 #[pymodule]
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
@@ -22,5 +23,6 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::PyFitInfo>()?;
     m.add_class::<bag::PyRuleStatistics>()?;
     m.add_class::<bag::PySample>()?;
+    m.add_class::<scenario::PyScenario>()?;
     Ok(())
 }

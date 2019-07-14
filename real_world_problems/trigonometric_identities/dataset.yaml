@@ -1,0 +1,61 @@
+declarations:
+  i:
+    is_fixed: true
+    is_function: false
+    only_root: false
+  e:
+    is_fixed: true
+    is_function: false
+    only_root: false
+  Re:
+    is_fixed: true
+    is_function: true
+    only_root: false
+  Im:
+    is_fixed: true
+    is_function: true
+    only_root: false
+  bar:
+    is_fixed: true
+    is_function: true
+    only_root: false
+  cos:
+    is_fixed: true
+    is_function: true
+    only_root: false
+  sin:
+    is_fixed: true
+    is_function: true
+    only_root: false
+rules: 
+  # definition
+  # natural numbers
+  double minus sign: -1*-1 = 1
+  two: 2 := 1+1
+  addition identity: 1*a := a
+  # basic calculation
+  associative property: a*(b*c) = (a*b)*c
+  commutative property: a*b = b*a
+  distributive property: a*(b+c) = a*b+a*c
+  # fraction calculation
+  fraction calculation: a/b*c/d = (a*b)/(c*d)
+  # power calculation
+  potential property: a^0 := 1
+  # complex numbers
+  imaginary unit: i*i := -1
+  real part: Re(a+i*b) := a
+  imaginary part: Im(a+i*b) := b
+  Complex conjugate: bar(a+i*b) := a-i*b
+  # trigonometric
+  cosine: cos(x) := Re(e^(i*x))
+  sine: sin(x) := Im(e^(i*x))
+  # lemmas to be proven with definitions above
+  2*2: 2*2 = 4
+  square: a^2 = a*a
+  calculus of real part: Re(z) = 1/2(z + bar(z))
+  calculus of imaginary part: Im(z) = -i/2(z - bar(z))
+  complex conjugates of power functions: bar(a^z) = a^(bar(z))
+  power distributive property: a^b*a^c = a^(b+c)
+  power of power: (a^b)^c = a^(b*c)
+problems:
+  trigonometric pythagoras: (sin(x))^2 + (cos(x))^2 => 1
