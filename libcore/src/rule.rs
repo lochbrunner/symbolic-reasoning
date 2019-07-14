@@ -10,12 +10,37 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn parse(context: &Context, code: &str) -> Rule {
+    pub fn parse(context: &Context, code: &str) -> Result<Rule, String> {
         let mut parts = code.split("=>").collect::<Vec<&str>>();
-        Rule {
-            conclusion: Symbol::parse(context, parts.pop().expect("Conclusion")),
-            condition: Symbol::parse(context, parts.pop().expect("Condition")),
+        if parts.len() == 2 {
+            let conclusion = Symbol::parse(context, parts.pop().expect("Conclusion"))?;
+            let condition = Symbol::parse(context, parts.pop().expect("Condition"))?;
+            return Ok(Rule {
+                conclusion,
+                condition,
+            });
         }
+        let mut parts = code.split(":=").collect::<Vec<&str>>();
+        if parts.len() == 2 {
+            let conclusion = Symbol::parse(context, parts.pop().expect("Conclusion"))?;
+            let condition = Symbol::parse(context, parts.pop().expect("Condition"))?;
+            return Ok(Rule {
+                conclusion,
+                condition,
+            });
+        }
+
+        let mut parts = code.split('=').collect::<Vec<&str>>();
+        if parts.len() == 2 {
+            let conclusion = Symbol::parse(context, parts.pop().expect("Conclusion"))?;
+            let condition = Symbol::parse(context, parts.pop().expect("Condition"))?;
+            return Ok(Rule {
+                conclusion,
+                condition,
+            });
+        }
+
+        Err(format!("Can not parse {} as rule", code))
     }
 
     /// Returns a Rule with swapped condition <-> conclusion

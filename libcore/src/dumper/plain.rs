@@ -88,13 +88,13 @@ mod e2e {
 
     fn test(code: &str) {
         let context = create_context(&[]);
-        let term = Symbol::parse(&context, code);
+        let term = Symbol::parse(&context, code).unwrap();
         assert_eq!(dump_simple(&term), String::from(code));
     }
 
     fn test_with_function(function_names: &[&str], code: &str) {
         let context = create_context(function_names);
-        let term = Symbol::parse(&context, code);
+        let term = Symbol::parse(&context, code).unwrap();
         assert_eq!(dump_simple(&term), String::from(code));
     }
 

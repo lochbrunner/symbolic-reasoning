@@ -8,14 +8,17 @@ use crate::context::Context;
 pub use astifier::Precedence;
 
 impl Symbol {
-    pub fn parse_from_str(context: &Context, code: String) -> Symbol {
-        let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        astifier::parse(context, &tokens)
-    }
+    // pub fn parse_from_str(context: &Context, code: String) -> Symbol {
+    //     let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
+    //     astifier::parse(context, &tokens)
+    // }
 
-    pub fn parse(context: &Context, code: &str) -> Symbol {
+    pub fn parse(context: &Context, code: &str) -> Result<Symbol, String> {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        astifier::parse(context, &tokens)
+        match astifier::parse(context, &tokens) {
+            Ok(symbol) => Ok(symbol),
+            Err(msg) => Err(format!("{}: {}", msg, code)),
+        }
     }
 }
 
@@ -51,7 +54,7 @@ mod e2e {
     #[test]
     fn operator_simple() {
         let context = create_context(vec![]);
-        let actual = Symbol::parse(&context, "a+b*c");
+        let actual = Symbol::parse(&context, "a+b*c").unwrap();
 
         assert_eq!(
             actual,
@@ -69,7 +72,7 @@ mod e2e {
     fn equation_1() {
         // a - b == 0
         let context = create_context(vec![]);
-        let actual = Symbol::parse(&context, "a - b = 0");
+        let actual = Symbol::parse(&context, "a - b = 0").unwrap();
 
         let expected = new_op(
             "=",
@@ -86,7 +89,7 @@ mod e2e {
     fn equation_2() {
         // a - b == 0
         let context = create_context(vec![]);
-        let actual = Symbol::parse(&context, "a = b");
+        let actual = Symbol::parse(&context, "a = b").unwrap();
 
         let expected = new_op("=", vec![new_variable("a"), new_variable("b")]);
 
@@ -96,7 +99,7 @@ mod e2e {
     fn equation_3() {
         // x == -a
         let context = create_context(vec![]);
-        let actual = Symbol::parse(&context, "x = -a");
+        let actual = Symbol::parse(&context, "x = -a").unwrap();
 
         let expected = new_op(
             "=",

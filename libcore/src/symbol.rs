@@ -166,7 +166,7 @@ impl Symbol {
     /// let expected = ["a", "b"];
     /// assert_eq!(actual, expected);
     /// ```
-    pub fn iter_level<'a>(&'a self, level: u32) -> SymbolLevelIter<'a> {
+    pub fn iter_level(&self, level: u32) -> SymbolLevelIter {
         SymbolLevelIter {
             stack: vec![(0, self)],
             level,
@@ -174,7 +174,7 @@ impl Symbol {
     }
 
     /// Same as iter_level but allows to mut the items
-    pub fn iter_level_mut<'a>(&'a mut self, level: u32) -> SymbolLevelIterMut<'a> {
+    pub fn iter_level_mut(&mut self, level: u32) -> SymbolLevelIterMut {
         SymbolLevelIterMut {
             stack: vec![(0, self)],
             level,

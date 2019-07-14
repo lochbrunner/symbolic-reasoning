@@ -2,7 +2,7 @@ use crate::context::PyContext;
 use core::dumper::{dump_latex, dump_verbose};
 use core::Symbol;
 use pyo3::class::iter::PyIterProtocol;
-use pyo3::exceptions::IndexError;
+use pyo3::exceptions::{IndexError, TypeError};
 use pyo3::prelude::*;
 use std::rc::Rc;
 
@@ -86,10 +86,12 @@ impl PyIterProtocol for PySymbolAndPathIter {
 impl PySymbol {
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
-        let inner = Symbol::parse_from_str(&context.inner, code);
-        Ok(PySymbol {
-            inner: Rc::new(inner),
-        })
+        match Symbol::parse(&context.inner, &code) {
+            Ok(inner) => Ok(PySymbol {
+                inner: Rc::new(inner),
+            }),
+            Err(msg) => Err(PyErr::new::<TypeError, _>(msg)),
+        }
     }
 
     #[getter]

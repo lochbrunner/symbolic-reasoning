@@ -1,7 +1,10 @@
-use super::{Context, Rule, Symbol};
+use super::{Context, Declaration, Rule, Symbol};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+
+extern crate serde_yaml;
 
 pub enum Mode {
     Reversed,
@@ -23,13 +26,13 @@ pub fn read_rules(context: &Context, filename: &str, mode: Mode) -> Vec<Rule> {
                 let second = parts.pop().expect("Second part");
 
                 rules.push(Rule {
-                    conclusion: Symbol::parse(context, first),
-                    condition: Symbol::parse(context, second),
+                    conclusion: Symbol::parse(context, first).expect("Conclusion"),
+                    condition: Symbol::parse(context, second).expect("Condition"),
                 });
 
                 rules.push(Rule {
-                    conclusion: Symbol::parse(context, second),
-                    condition: Symbol::parse(context, first),
+                    conclusion: Symbol::parse(context, second).expect("Conclusion"),
+                    condition: Symbol::parse(context, first).expect("Condition"),
                 });
             } else {
                 let mut parts = code.split("=>").collect::<Vec<&str>>();
@@ -39,12 +42,12 @@ pub fn read_rules(context: &Context, filename: &str, mode: Mode) -> Vec<Rule> {
 
                     rules.push(match mode {
                         Mode::Reversed => Rule {
-                            conclusion: Symbol::parse(context, second),
-                            condition: Symbol::parse(context, first),
+                            conclusion: Symbol::parse(context, second).expect("Conclusion"),
+                            condition: Symbol::parse(context, first).expect("Condition"),
                         },
                         Mode::Normal => Rule {
-                            conclusion: Symbol::parse(context, first),
-                            condition: Symbol::parse(context, second),
+                            conclusion: Symbol::parse(context, first).expect("Conclusion"),
+                            condition: Symbol::parse(context, second).expect("Condition"),
                         },
                     });
                 }
@@ -63,7 +66,7 @@ pub fn read_premises(context: &Context, filename: &str) -> Vec<Symbol> {
         let parts = line.split("//").collect::<Vec<&str>>();
         let code = parts[0];
         if !code.is_empty() {
-            premises.push(Symbol::parse(context, &code));
+            premises.push(Symbol::parse(context, &code).expect("Premise"));
         }
     }
     premises

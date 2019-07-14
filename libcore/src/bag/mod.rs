@@ -155,12 +155,12 @@ mod specs {
     #[test]
     fn from_traces() {
         let context = Context::standard();
-        let a = Symbol::parse(&context, "a");
-        let b = Symbol::parse(&context, "b");
-        let c = Symbol::parse(&context, "c");
-        let d = Symbol::parse(&context, "d");
-        let r1 = Rule::parse(&context, "a => b");
-        let r2 = Rule::parse(&context, "c => d");
+        let a = Symbol::parse(&context, "a").unwrap();
+        let b = Symbol::parse(&context, "b").unwrap();
+        let c = Symbol::parse(&context, "c").unwrap();
+        let d = Symbol::parse(&context, "d").unwrap();
+        let r1 = Rule::parse(&context, "a => b").unwrap();
+        let r2 = Rule::parse(&context, "c => d").unwrap();
 
         let traces = vec![
             Trace {

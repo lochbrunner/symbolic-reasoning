@@ -73,7 +73,7 @@ mod specs {
     #[test]
     fn list_all_nodes_simple() {
         let context = Context::standard();
-        let symbol = Symbol::parse(&context, "a+b=c");
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
 
         let nodes = list_all_nodes(&symbol);
 
@@ -94,12 +94,12 @@ mod specs {
     fn next_variable_simple() {
         let context = Context::standard();
         let alphabet = create_alphabet();
-        let symbol = Symbol::parse(&context, "a+b=c");
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
 
         let nodes = list_all_nodes(&symbol);
 
         let actual = next_variable(&nodes, &alphabet).expect("Some variable");
-        let expected = Symbol::parse(&context, "d");
+        let expected = Symbol::parse(&context, "d").unwrap();
         assert_eq!(actual, &expected);
     }
 
@@ -107,15 +107,15 @@ mod specs {
     fn variables_generator_addition() {
         let context = Context::standard();
         let alphabet = create_alphabet();
-        let symbol = Symbol::parse(&context, "a+b");
+        let symbol = Symbol::parse(&context, "a+b").unwrap();
 
         let actual = variables_generator(&symbol, &alphabet)();
 
         let expected = vec![
-            Symbol::parse(&context, "a+b"),
-            Symbol::parse(&context, "a"),
-            Symbol::parse(&context, "b"),
-            Symbol::parse(&context, "c"),
+            Symbol::parse(&context, "a+b").unwrap(),
+            Symbol::parse(&context, "a").unwrap(),
+            Symbol::parse(&context, "b").unwrap(),
+            Symbol::parse(&context, "c").unwrap(),
         ];
 
         assert_eq!(actual, expected.iter().collect::<Vec<&Symbol>>());
@@ -125,15 +125,15 @@ mod specs {
     fn variables_generator_omit_equation() {
         let context = Context::standard();
         let alphabet = create_alphabet();
-        let symbol = Symbol::parse(&context, "a=b");
+        let symbol = Symbol::parse(&context, "a=b").unwrap();
 
         let actual = variables_generator(&symbol, &alphabet)();
 
         // Expect "=" being omitted
         let expected = vec![
-            Symbol::parse(&context, "a"),
-            Symbol::parse(&context, "b"),
-            Symbol::parse(&context, "c"),
+            Symbol::parse(&context, "a").unwrap(),
+            Symbol::parse(&context, "b").unwrap(),
+            Symbol::parse(&context, "c").unwrap(),
         ];
 
         assert_eq!(actual, expected.iter().collect::<Vec<&Symbol>>());

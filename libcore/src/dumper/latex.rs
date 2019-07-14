@@ -144,14 +144,14 @@ mod e2e {
     #[test]
     fn fraction_simple() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a/b");
+        let term = Symbol::parse(&context, "a/b").unwrap();
         assert_eq!(dump_latex(&term, None), String::from("\\frac{a}{b}"));
     }
 
     #[test]
     fn fraction_double() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a/(b/c)");
+        let term = Symbol::parse(&context, "a/(b/c)").unwrap();
         assert_eq!(
             dump_latex(&term, None),
             String::from("\\frac{a}{\\frac{b}{c}}")
@@ -161,7 +161,7 @@ mod e2e {
     #[test]
     fn brackets() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a*(b+c)");
+        let term = Symbol::parse(&context, "a*(b+c)").unwrap();
         assert_eq!(
             dump_latex(&term, None),
             String::from("a\\cdot \\left( b+c\\right) ")
@@ -171,14 +171,14 @@ mod e2e {
     #[test]
     fn double_super_script() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a^b^c");
+        let term = Symbol::parse(&context, "a^b^c").unwrap();
         assert_eq!(dump_latex(&term, None), String::from("a^{b^{c}}"));
     }
 
     #[test]
     fn bug_16() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "(a+b)^c");
+        let term = Symbol::parse(&context, "(a+b)^c").unwrap();
         assert_eq!(
             dump_latex(&term, None),
             String::from("\\left( a+b\\right) ^{c}")
@@ -188,7 +188,7 @@ mod e2e {
     #[test]
     fn decoration_variable() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a");
+        let term = Symbol::parse(&context, "a").unwrap();
         let path = vec![];
         let deco = Some(Decoration {
             path: &path,
@@ -202,7 +202,7 @@ mod e2e {
     #[test]
     fn decoration_operator() {
         let context = create_context(vec![]);
-        let term = Symbol::parse(&context, "a+b");
+        let term = Symbol::parse(&context, "a+b").unwrap();
         let path = vec![0];
         let deco = Some(Decoration {
             path: &path,

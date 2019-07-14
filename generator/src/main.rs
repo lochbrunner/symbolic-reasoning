@@ -96,7 +96,8 @@ fn deduce<'a>(
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
-    let mut used_idents = extract_idents_from_rules(&rules.iter().map(|r| r.reverse()).collect::<Vec<_>>());
+    let mut used_idents =
+        extract_idents_from_rules(&rules.iter().map(|r| r.reverse()).collect::<Vec<_>>());
 
     for part in initial.parts() {
         if !used_idents.contains(&part.ident) {
@@ -179,10 +180,8 @@ fn main() {
     let out_filename = format!("out/generator/bag-{}.bin", postfix);
 
     let alphabet = create_alphabet();
-    let mut context = Context::load(declaration_filename).expect(&format!(
-        "Loading declarations from {}",
-        declaration_filename
-    ));
+    let mut context = Context::load(declaration_filename)
+        .unwrap_or_else(|_| panic!("Loading declarations from {}", declaration_filename));
     context.register_standard_operators();
 
     let rules = read_rules(&context, rules_filename, Mode::Reversed);

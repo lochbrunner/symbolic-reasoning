@@ -240,13 +240,16 @@ enum IdentOrSymbol {
     Symbol(Symbol),
 }
 
-fn pop_as_symbol(context: &Context, sym_stack: &mut Vec<IdentOrSymbol>) -> Symbol {
-    match sym_stack.pop().expect("Getting symbol") {
-        IdentOrSymbol::Ident(ident) => {
-            let fixed = context.is_fixed(&ident);
-            Symbol::new_variable_from_string(ident, fixed)
-        }
-        IdentOrSymbol::Symbol(symbol) => symbol,
+fn pop_as_symbol(context: &Context, sym_stack: &mut Vec<IdentOrSymbol>) -> Result<Symbol, String> {
+    match sym_stack.pop() {
+        Some(symbol) => match symbol {
+            IdentOrSymbol::Ident(ident) => {
+                let fixed = context.is_fixed(&ident);
+                Ok(Symbol::new_variable_from_string(ident, fixed))
+            }
+            IdentOrSymbol::Symbol(symbol) => Ok(symbol),
+        },
+        None => Err("Expected at least one symbol in sym stack".to_owned()),
     }
 }
 
@@ -255,18 +258,18 @@ struct ParseStack {
     pub infix: Vec<Operation>,
 }
 
-fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) {
+fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) -> Result<(), String> {
     while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
         match stack.infix.pop().unwrap() {
             Operation { ident, r#type, .. } => {
                 let childs = match r#type {
                     OperationType::Infix => {
-                        let b = pop_as_symbol(context, &mut stack.symbol);
-                        let a = pop_as_symbol(context, &mut stack.symbol);
+                        let b = pop_as_symbol(context, &mut stack.symbol)?;
+                        let a = pop_as_symbol(context, &mut stack.symbol)?;
                         vec![a, b] // Order has to be reverted
                     }
-                    OperationType::Prefix => vec![pop_as_symbol(context, &mut stack.symbol)],
-                    _ => panic!("Invalid argument count {:?}", r#type),
+                    OperationType::Prefix => vec![pop_as_symbol(context, &mut stack.symbol)?],
+                    _ => return Err(format!("Invalid argument count {:?}", r#type)),
                 };
                 stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
                     depth: Symbol::calc_depth(&childs),
@@ -278,15 +281,16 @@ fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) {
             }
         }
     }
+    Ok(())
 }
 
-fn apply_function(context: &Context, stack: &mut ParseStack) {
+fn apply_function(context: &Context, stack: &mut ParseStack) -> Result<(), String> {
     // Create function
     // TODO: Merge this with astify later
     let mut childs = vec![];
-    childs.push(pop_as_symbol(context, &mut stack.symbol));
+    childs.push(pop_as_symbol(context, &mut stack.symbol)?);
     while stack.infix.pop().expect("Something").precedence == Precedence::PSeparator {
-        childs.push(pop_as_symbol(context, &mut stack.symbol));
+        childs.push(pop_as_symbol(context, &mut stack.symbol)?);
     }
     childs.reverse();
 
@@ -294,28 +298,39 @@ fn apply_function(context: &Context, stack: &mut ParseStack) {
     if !stack.infix.is_empty()
         && stack.infix.last().expect("Some infix").r#type == OperationType::Function
     {
-        let func = stack.infix.pop().expect("Some infix");
-        stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
-            flags: context.flags(&func.ident),
-            depth: Symbol::calc_depth(&childs),
-            ident: func.ident,
-            childs,
-            value: None,
-        }));
+        match stack.infix.pop() {
+            Some(func) => stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
+                flags: context.flags(&func.ident),
+                depth: Symbol::calc_depth(&childs),
+                ident: func.ident,
+                childs,
+                value: None,
+            })),
+            None => return Err("Some infix".to_owned()),
+        }
     } else {
-        assert_eq!(
-            childs.len(),
-            1,
-            "Expecting group containing one item. Vectors not supported yet!"
-        );
-        stack
-            .symbol
-            .push(IdentOrSymbol::Symbol(childs.pop().unwrap()));
+        match childs.pop() {
+            Some(child) => stack.symbol.push(IdentOrSymbol::Symbol(child)),
+            None => {
+                return Err(
+                    "Expecting group containing one item. Vectors not supported yet!".to_owned(),
+                )
+            }
+        }
+        // assert_eq!(
+        //     childs.len(),
+        //     1,
+        //     "Expecting group containing one item. Vectors not supported yet!"
+        // );
+        // stack
+        //     .symbol
+        //     .push(IdentOrSymbol::Symbol(childs.pop().unwrap()));
     }
+    Ok(())
 }
 
-fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
-    let childs = vec![pop_as_symbol(context, &mut stack.symbol)];
+fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) -> Result<(), String> {
+    let childs = vec![pop_as_symbol(context, &mut stack.symbol)?];
     stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
         flags: context.flags(&ident),
         depth: Symbol::calc_depth(&childs),
@@ -323,9 +338,10 @@ fn apply_postfix(context: &Context, stack: &mut ParseStack, ident: String) {
         childs,
         value: None,
     }));
+    Ok(())
 }
 
-pub fn parse(context: &Context, tokens: &[Token]) -> Symbol {
+pub fn parse(context: &Context, tokens: &[Token]) -> Result<Symbol, String> {
     let mut stack = ParseStack {
         infix: Vec::new(),
         symbol: Vec::new(),
@@ -339,14 +355,14 @@ pub fn parse(context: &Context, tokens: &[Token]) -> Symbol {
                 Classification::Infix(operation) => {
                     if let Some(last) = stack.infix.last() {
                         if last.precedence > operation.precedence {
-                            astify(context, &mut stack, operation.precedence.clone());
+                            astify(context, &mut stack, operation.precedence.clone())?;
                         }
                     }
                     stack.infix.push(operation);
                 }
                 Classification::Prefix(operation) => stack.infix.push(operation),
                 Classification::Postfix(operation) => {
-                    apply_postfix(context, &mut stack, operation.ident)
+                    apply_postfix(context, &mut stack, operation.ident)?
                 }
                 Classification::Ident(ident) => stack.symbol.push(IdentOrSymbol::Ident(ident)),
                 Classification::Literal(value) => stack
@@ -355,8 +371,8 @@ pub fn parse(context: &Context, tokens: &[Token]) -> Symbol {
                 Classification::EOF => break,
                 Classification::Bracket(bracket) => match bracket.direction {
                     BracketDirection::Closing => {
-                        astify(context, &mut stack, Precedence::POpening);
-                        apply_function(context, &mut stack);
+                        astify(context, &mut stack, Precedence::POpening)?;
+                        apply_function(context, &mut stack)?;
                     }
                     BracketDirection::Opening => stack.infix.push(Operation {
                         precedence: Precedence::POpening,
@@ -372,11 +388,11 @@ pub fn parse(context: &Context, tokens: &[Token]) -> Symbol {
                     });
                 }
             },
-            Err(err) => panic!(err),
+            Err(err) => return Err(err),
         };
     }
 
-    astify(context, &mut stack, Precedence::PLowest);
+    astify(context, &mut stack, Precedence::PLowest)?;
     assert!(stack.infix.is_empty());
     assert_eq!(stack.symbol.len(), 1);
     pop_as_symbol(context, &mut stack.symbol)
@@ -449,7 +465,7 @@ mod specs {
             declarations: HashMap::new(),
         };
         let tokens = vec![Token::Ident(String::from("a")), Token::EOF];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(actual, new_variable("a"));
     }
 
@@ -498,7 +514,7 @@ mod specs {
             Token::BracketR,
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(
             actual,
             Symbol::new_operator("f", false, false, vec![new_variable("a")])
@@ -562,7 +578,7 @@ mod specs {
             Token::BracketR,
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         assert_eq!(
             actual,
@@ -589,7 +605,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(
             actual,
             Symbol::new_operator(
@@ -620,7 +636,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(
             actual,
             Symbol::new_operator(
@@ -657,7 +673,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(
             actual,
             new_op(
@@ -673,7 +689,7 @@ mod specs {
         );
 
         b.iter(|| {
-            parse(&context, &tokens);
+            parse(&context, &tokens).unwrap();
         })
     }
 
@@ -717,7 +733,7 @@ mod specs {
             Token::Ident(String::from("b")),
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         assert_eq!(
             actual,
             new_op("+", vec![new_variable("a"), new_variable("b")])
@@ -738,7 +754,7 @@ mod specs {
             Token::Ident(String::from("d")),
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         assert_eq!(
             actual,
@@ -772,7 +788,7 @@ mod specs {
             Token::Ident(String::from("c")),
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "*",
             vec![
@@ -841,7 +857,7 @@ mod specs {
             Token::BracketR,
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "+",
             vec![new_variable("a"), new_op("f", vec![new_variable("b")])],
@@ -881,7 +897,7 @@ mod specs {
         let context = create_context(vec![]);
         let tokens = vec![Token::Minus, Token::Ident(String::from("a")), Token::EOF];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op("-", vec![new_variable("a")]);
         assert_eq!(actual, expected);
     }
@@ -927,7 +943,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op("*", vec![new_variable("a"), new_variable("b")]);
         assert_eq!(actual, expected);
     }
@@ -957,7 +973,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "*",
             vec![
@@ -980,7 +996,7 @@ mod specs {
         assert_eq!(actual, expected);
 
         b.iter(|| {
-            parse(&context, &tokens);
+            parse(&context, &tokens).unwrap();
         })
     }
 
@@ -1010,7 +1026,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         let expected = new_func(
             "f",
@@ -1038,7 +1054,7 @@ mod specs {
         assert_eq!(actual, expected);
 
         b.iter(|| {
-            parse(&context, &tokens);
+            parse(&context, &tokens).unwrap();
         })
     }
 
@@ -1057,7 +1073,7 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op("+", vec![new_variable("a"), new_variable("b")]);
         assert_eq!(actual, expected);
     }
@@ -1075,7 +1091,7 @@ mod specs {
             Token::BracketR,
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_func("f", vec![new_variable("a")]);
         assert_eq!(actual, expected);
     }
@@ -1093,7 +1109,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "*",
             vec![new_variable("a"), new_op("-", vec![new_variable("b")])],
@@ -1108,7 +1124,7 @@ mod specs {
         let tokens = vec![Token::Ident(String::from("a")), Token::Faculty, Token::EOF];
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op("!", vec![new_variable("a")]);
 
         assert_eq!(actual, expected);
@@ -1136,7 +1152,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "+",
             vec![
@@ -1159,7 +1175,7 @@ mod specs {
 
         assert_eq!(actual, expected);
         b.iter(|| {
-            parse(&context, &tokens);
+            parse(&context, &tokens).unwrap();
         })
     }
 
@@ -1183,7 +1199,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "+",
             vec![
@@ -1207,7 +1223,7 @@ mod specs {
         assert_eq!(actual, expected);
 
         b.iter(|| {
-            parse(&context, &tokens);
+            parse(&context, &tokens).unwrap();
         })
     }
 
@@ -1225,7 +1241,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         let expected = new_op(
             "+",
@@ -1254,7 +1270,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         let expected = new_op(
             "=",
@@ -1280,7 +1296,7 @@ mod specs {
 
         let context = create_context(vec![]);
 
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
 
         let expected = new_op(
             "=",
@@ -1304,7 +1320,7 @@ mod specs {
             Token::BracketR,
             Token::EOF,
         ];
-        let actual = parse(&context, &tokens);
+        let actual = parse(&context, &tokens).expect("parse");
         let expected = new_op(
             "-",
             vec![

@@ -1,5 +1,5 @@
-use crate::{Rule, Symbol};
 use crate::dumper::latex::LaTeX;
+use crate::{Rule, Symbol};
 use std::collections::HashSet;
 extern crate chrono;
 extern crate serde_yaml;
@@ -366,7 +366,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages: vec![],
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let lines = trace.unroll().collect::<Vec<Calculation>>();
@@ -378,23 +378,26 @@ mod specs {
     fn rollout_flat_stages() {
         let context = Context::standard();
 
-        let stages = [Symbol::parse(&context, "a"), Symbol::parse(&context, "b")]
-            .into_iter()
-            .map(|deduced| DenseTraceStep {
-                info: DenseApplyInfo {
-                    rule: Rule::parse(&context, "v => c"),
-                    path: vec![],
-                    initial: Symbol::parse(&context, "i"),
-                    deduced: deduced.clone(),
-                },
-                successors: vec![],
-            })
-            .collect();
+        let stages = [
+            Symbol::parse(&context, "a").unwrap(),
+            Symbol::parse(&context, "b").unwrap(),
+        ]
+        .into_iter()
+        .map(|deduced| DenseTraceStep {
+            info: DenseApplyInfo {
+                rule: Rule::parse(&context, "v => c").unwrap(),
+                path: vec![],
+                initial: Symbol::parse(&context, "i").unwrap(),
+                deduced: deduced.clone(),
+            },
+            successors: vec![],
+        })
+        .collect();
 
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let lines = trace.unroll().collect::<Vec<Calculation>>();
@@ -411,10 +414,10 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c"),
+                        rule: Rule::parse(&context, "v => c").unwrap(),
                         path: vec![],
-                        initial: Symbol::parse(&context, "i"),
-                        deduced: Symbol::parse(&context, symbol),
+                        initial: Symbol::parse(&context, "i").unwrap(),
+                        deduced: Symbol::parse(&context, symbol).unwrap(),
                     },
                     successors,
                 })
@@ -429,7 +432,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let lines = trace
@@ -455,10 +458,10 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c"),
+                        rule: Rule::parse(&context, "v => c").unwrap(),
                         path: vec![],
-                        initial: Symbol::parse(&context, "i"),
-                        deduced: Symbol::parse(&context, symbol),
+                        initial: Symbol::parse(&context, "i").unwrap(),
+                        deduced: Symbol::parse(&context, symbol).unwrap(),
                     },
                     successors,
                 })
@@ -478,7 +481,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let lines = trace
@@ -501,7 +504,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages: vec![],
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let lines = trace.all_steps().collect::<Vec<&DenseApplyInfo>>();
@@ -513,23 +516,26 @@ mod specs {
     fn all_steps_flat_stages() {
         let context = Context::standard();
 
-        let stages = [Symbol::parse(&context, "a"), Symbol::parse(&context, "b")]
-            .into_iter()
-            .map(|deduced| DenseTraceStep {
-                info: DenseApplyInfo {
-                    rule: Rule::parse(&context, "v => c"),
-                    path: vec![],
-                    initial: Symbol::parse(&context, "i"),
-                    deduced: deduced.clone(),
-                },
-                successors: vec![],
-            })
-            .collect();
+        let stages = [
+            Symbol::parse(&context, "a").unwrap(),
+            Symbol::parse(&context, "b").unwrap(),
+        ]
+        .into_iter()
+        .map(|deduced| DenseTraceStep {
+            info: DenseApplyInfo {
+                rule: Rule::parse(&context, "v => c").unwrap(),
+                path: vec![],
+                initial: Symbol::parse(&context, "i").unwrap(),
+                deduced: deduced.clone(),
+            },
+            successors: vec![],
+        })
+        .collect();
 
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let steps = trace
@@ -549,10 +555,10 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c"),
+                        rule: Rule::parse(&context, "v => c").unwrap(),
                         path: vec![],
-                        initial: Symbol::parse(&context, "i"),
-                        deduced: Symbol::parse(&context, symbol),
+                        initial: Symbol::parse(&context, "i").unwrap(),
+                        deduced: Symbol::parse(&context, symbol).unwrap(),
                     },
                     successors,
                 })
@@ -567,7 +573,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let steps = trace
@@ -594,10 +600,10 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c"),
+                        rule: Rule::parse(&context, "v => c").unwrap(),
                         path: vec![],
-                        initial: Symbol::parse(&context, "i"),
-                        deduced: Symbol::parse(&context, symbol),
+                        initial: Symbol::parse(&context, "i").unwrap(),
+                        deduced: Symbol::parse(&context, symbol).unwrap(),
                     },
                     successors,
                 })
@@ -617,7 +623,7 @@ mod specs {
         let trace = DenseTrace {
             meta: Meta::default(),
             stages,
-            initial: Symbol::parse(&context, "a"),
+            initial: Symbol::parse(&context, "a").unwrap(),
         };
 
         let steps = trace

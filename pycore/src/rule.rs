@@ -3,6 +3,7 @@ use crate::symbol::PySymbol;
 use core::dumper::{dump_latex, dump_verbose};
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
+use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::rc::Rc;
 
@@ -16,8 +17,12 @@ pub struct PyRule {
 impl PyRule {
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
-        let inner = Rc::new(Rule::parse(&context.inner, &code));
-        Ok(PyRule { inner })
+        match Rule::parse(&context.inner, &code) {
+            Ok(rule) => Ok(PyRule {
+                inner: Rc::new(rule),
+            }),
+            Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
+        }
     }
 
     #[getter]

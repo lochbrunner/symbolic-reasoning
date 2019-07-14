@@ -284,14 +284,14 @@ mod e2e {
     #[test]
     fn operator_flat_single_variable() {
         let context = create_context(vec!["A", "B"], vec![]);
-        let prev = Symbol::parse(&context, "A(a)");
-        let condition = Symbol::parse(&context, "A(b)");
-        let conclusion = Symbol::parse(&context, "B(b)");
+        let prev = Symbol::parse(&context, "A(a)").unwrap();
+        let condition = Symbol::parse(&context, "A(b)").unwrap();
+        let conclusion = Symbol::parse(&context, "B(b)").unwrap();
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         let var = new_variable("a");
         let actual = apply(&mapping, &|| &var, &prev, &conclusion);
-        let expected = Symbol::parse(&context, "B(a)");
+        let expected = Symbol::parse(&context, "B(a)").unwrap();
 
         assert_eq!(actual, expected);
     }
@@ -299,10 +299,10 @@ mod e2e {
     #[test]
     fn inner_hierarchically_variable() {
         let context = create_context(vec!["A", "B", "C"], vec![]);
-        let prev = Symbol::parse(&context, "A(B(a))");
-        let condition = Symbol::parse(&context, "B(b)");
-        let conclusion = Symbol::parse(&context, "C(b)");
-        let expected = Symbol::parse(&context, "A(C(a))");
+        let prev = Symbol::parse(&context, "A(B(a))").unwrap();
+        let condition = Symbol::parse(&context, "B(b)").unwrap();
+        let conclusion = Symbol::parse(&context, "C(b)").unwrap();
+        let expected = Symbol::parse(&context, "A(C(a))").unwrap();
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         let var = new_variable("a");
@@ -313,10 +313,10 @@ mod e2e {
     #[test]
     fn function_hierarchical_function() {
         let context = create_context(vec!["A", "B", "C", "D"], vec!["d"]);
-        let prev = Symbol::parse(&context, "A(B(C(a,b),C(a,b)))");
-        let condition = Symbol::parse(&context, "B(e,e)");
-        let conclusion = Symbol::parse(&context, "D(e)");
-        let expected = Symbol::parse(&context, "A(D(C(a,b)))");
+        let prev = Symbol::parse(&context, "A(B(C(a,b),C(a,b)))").unwrap();
+        let condition = Symbol::parse(&context, "B(e,e)").unwrap();
+        let conclusion = Symbol::parse(&context, "D(e)").unwrap();
+        let expected = Symbol::parse(&context, "A(D(C(a,b)))").unwrap();
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         // Expect e -> C(a,b)
@@ -328,16 +328,16 @@ mod e2e {
     #[test]
     fn readme_example() {
         let context = Context::standard();
-        let initial = Symbol::parse(&context, "b*(c*d-c*d)=e");
+        let initial = Symbol::parse(&context, "b*(c*d-c*d)=e").unwrap();
         let rule = Rule {
-            condition: Symbol::parse(&context, "a-a"),
-            conclusion: Symbol::parse(&context, "0"),
+            condition: Symbol::parse(&context, "a-a").unwrap(),
+            conclusion: Symbol::parse(&context, "0").unwrap(),
         };
 
         let mapping = fit(&initial, &rule.condition).pop().expect("One mapping");
         let var = new_variable("a");
         let actual = apply(&mapping, &|| &var, &initial, &rule.conclusion);
-        let expected = Symbol::parse(&context, "b*0=e");
+        let expected = Symbol::parse(&context, "b*0=e").unwrap();
 
         // println!("Mapping: {}", format_scenario(&mapping));
         // println!("Path: {:?}", mapping.path);
@@ -370,12 +370,12 @@ mod specs {
     #[test]
     fn deep_replace_simple() {
         let context = create_context(vec!["A", "B"], vec![]);
-        let orig = Symbol::parse(&context, "A(b)");
-        let part = Symbol::parse(&context, "c");
+        let orig = Symbol::parse(&context, "A(b)").unwrap();
+        let part = Symbol::parse(&context, "c").unwrap();
         let path = vec![0];
         let actual = deep_replace(&path, &orig, &part);
 
-        let expected = Symbol::parse(&context, "A(c)");
+        let expected = Symbol::parse(&context, "A(c)").unwrap();
 
         println!("Actual:   {}", actual);
         println!("Expected: {}", expected);
@@ -385,8 +385,8 @@ mod specs {
     #[test]
     fn apply_introduce_new_variable() {
         let context = Context::standard();
-        let orig = Symbol::parse(&context, "a");
-        let conclusion = Symbol::parse(&context, "x");
+        let orig = Symbol::parse(&context, "a").unwrap();
+        let conclusion = Symbol::parse(&context, "x").unwrap();
 
         let scenario = FitMap {
             location: &orig,
@@ -398,7 +398,7 @@ mod specs {
 
         let actual = apply(&scenario, || &var, &orig, &conclusion);
 
-        let expected = Symbol::parse(&context, "v");
+        let expected = Symbol::parse(&context, "v").unwrap();
 
         assert_eq!(actual, expected);
     }
@@ -406,7 +406,7 @@ mod specs {
     #[test]
     fn apply_batch_introduce_consistent_variable_simple() {
         let context = Context::standard();
-        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula) };
+        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula).unwrap() };
 
         let orig = parse("a");
         let conclusion = parse("x");
@@ -431,7 +431,7 @@ mod specs {
         // Issue #8
         let context = Context::standard();
 
-        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula) };
+        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula).unwrap() };
 
         let orig = new_variable("a");
         let conclusion = parse("x-x");
@@ -457,7 +457,7 @@ mod specs {
         // Issue #8
         let context = Context::standard();
 
-        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula) };
+        let parse = |formula: &str| -> Symbol { Symbol::parse(&context, formula).unwrap() };
 
         let orig = new_variable("a");
         let conclusion = parse("x*x-x");
