@@ -4,10 +4,12 @@ use core::Symbol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{IndexError, TypeError};
 use pyo3::prelude::*;
+use std::fmt;
 use std::rc::Rc;
 
 /// Python Wrapper for core::Symbol
 #[pyclass(name=Symbol,subclass)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct PySymbol {
     pub inner: Rc<Symbol>,
 }
@@ -156,5 +158,11 @@ impl pyo3::class::basic::PyObjectProtocol for PySymbol {
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self.inner))
+    }
+}
+
+impl fmt::Debug for PySymbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.inner)
     }
 }

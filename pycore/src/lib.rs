@@ -1,12 +1,19 @@
 use pyo3::prelude::*;
+use pyo3::wrap_pyfunction;
 
 mod bag;
 mod context;
+mod fit;
 mod rule;
 mod scenario;
 mod symbol;
 mod symbol_builder;
 mod trace;
+
+#[pyfunction]
+fn fit(outer: &symbol::PySymbol, inner: &symbol::PySymbol) -> PyResult<Vec<fit::PyFitMap>> {
+    fit::pyfit_impl(outer, inner)
+}
 
 #[pymodule]
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
@@ -24,5 +31,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::PyRuleStatistics>()?;
     m.add_class::<bag::PySample>()?;
     m.add_class::<scenario::PyScenario>()?;
+    m.add_class::<fit::PyFitMap>()?;
+    m.add_wrapped(wrap_pyfunction!(fit))?;
     Ok(())
 }

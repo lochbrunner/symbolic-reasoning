@@ -10,7 +10,7 @@ pub struct Declaration {
     pub only_root: bool,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Context {
     pub declarations: HashMap<String, Declaration>,
 }

@@ -1,3 +1,5 @@
+use core::Declaration;
+use pyo3::class::basic::PyObjectProtocol;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;
@@ -5,9 +7,7 @@ use std::collections::HashMap;
 /// Python Wrapper for core::Declaration
 #[pyclass(name=Declaration,subclass)]
 pub struct PyDeclaration {
-    pub is_fixed: bool,
-    pub is_function: bool,
-    pub only_root: bool,
+    pub inner: Declaration,
 }
 
 #[pymethods]
@@ -16,44 +16,53 @@ impl PyDeclaration {
     fn py_new(obj: &PyRawObject) {
         obj.init({
             PyDeclaration {
-                is_fixed: false,
-                is_function: false,
-                only_root: false,
+                inner: Declaration {
+                    is_fixed: false,
+                    is_function: false,
+                    only_root: false,
+                },
             }
         });
     }
 
     #[getter]
     fn get_is_fixed(&self) -> PyResult<bool> {
-        Ok(self.is_fixed)
+        Ok(self.inner.is_fixed)
     }
 
     #[setter]
     fn set_is_fixed(&mut self, is_fixed: bool) -> PyResult<()> {
-        self.is_fixed = is_fixed;
+        self.inner.is_fixed = is_fixed;
         Ok(())
     }
 
     #[getter]
     fn get_is_function(&self) -> PyResult<bool> {
-        Ok(self.is_function)
+        Ok(self.inner.is_function)
     }
 
     #[setter]
     fn set_is_function(&mut self, is_function: bool) -> PyResult<()> {
-        self.is_function = is_function;
+        self.inner.is_function = is_function;
         Ok(())
     }
 
     #[getter]
     fn get_only_root(&self) -> PyResult<bool> {
-        Ok(self.only_root)
+        Ok(self.inner.only_root)
     }
 
     #[setter]
     fn set_only_root(&mut self, only_root: bool) -> PyResult<()> {
-        self.only_root = only_root;
+        self.inner.only_root = only_root;
         Ok(())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyDeclaration {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
     }
 }
 
@@ -91,5 +100,22 @@ impl PyContext {
             Ok(inner) => Ok(PyContext { inner }),
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
         }
+    }
+
+    #[getter]
+    fn declarations(&self) -> PyResult<HashMap<String, PyDeclaration>> {
+        Ok(self
+            .inner
+            .declarations
+            .iter()
+            .map(|(name, dec)| (name.clone(), PyDeclaration { inner: dec.clone() }))
+            .collect())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyContext {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
     }
 }
