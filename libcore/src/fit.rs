@@ -8,9 +8,6 @@ pub struct FitMap<'a> {
     // TODO: Needs to be public?
     /// outer is key, inner is value
     pub variable: HashMap<&'a Symbol, &'a Symbol>,
-    /// Where the inner root is located in the outer
-    /// [Deprecated]
-    pub location: &'a Symbol,
     /// Path to the node
     /// Each item represents the index of the next child
     pub path: Vec<usize>,
@@ -48,7 +45,6 @@ fn fit_abstract<'a>(
         // Add forking
         let fittings: Vec<FitMap<'a>> = vec![FitMap {
             variable: hashmap! {inner => outer},
-            location: outer,
             path: path.to_vec(),
         }];
         folk_childs(outer, inner, map, path, fittings)
@@ -96,7 +92,6 @@ fn merge_mappings<'a>(prev: &FitMap<'a>, extension: &[FitMap<'a>]) -> Vec<FitMap
     for extension_scenario in extension.iter() {
         let mut target_scenario = FitMap {
             variable: HashMap::new(),
-            location: prev.location,
             path: prev.path.clone(),
         };
         for (key, value) in extension_scenario.variable.iter() {
@@ -148,7 +143,6 @@ fn fit_fixed<'a>(
         // TODO: Don't allocate memory for hypothetical used variable
         let new_scenario = Some(FitMap {
             variable: HashMap::new(),
-            location: outer,
             path: path.to_vec(),
         });
         let scenario = match map {
@@ -160,7 +154,6 @@ fn fit_fixed<'a>(
         // Check for variable repetition
         let mut extension: Vec<FitMap> = vec![FitMap {
             variable: HashMap::new(),
-            location: outer, // or use from parent
             path: path.to_vec(),
         }];
 
@@ -300,15 +293,10 @@ mod specs {
         // Necessary to keep the vector in scope
         let all_mappings = fit(&outer, &inner);
         let mapping = all_mappings.iter().nth(0).unwrap();
-        let FitMap {
-            variable,
-            location,
-            path,
-        } = mapping;
+        let FitMap { variable, path } = mapping;
 
         assert_eq!(variable.len(), 1, "Expected one mapping");
 
-        assert_eq!(location, &&outer);
         assert!(path.is_empty());
         assert_eq!(
             format!("{}", variable.keys().nth(0).unwrap()),
@@ -336,7 +324,6 @@ mod specs {
 
         assert_eq!(scenario.variable[&inner.childs[0]], &outer.childs[0]);
         assert_eq!(scenario.variable[&inner.childs[1]], &outer.childs[1]);
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
     }
 
@@ -350,14 +337,11 @@ mod specs {
         let scenarios = fit(&outer, &inner);
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
-        assert_eq!(scenario.location, &outer.childs[0]);
-
         assert_eq!(scenario.variable.len(), 1);
         assert_eq!(
             scenario.variable[&inner.childs[0]],
             &outer.childs[0].childs[0]
         );
-        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
         assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {
@@ -389,7 +373,6 @@ mod specs {
         assert_eq!(actual_value, &&expected_value, "Expect value to be C(b)");
         assert_eq!(format!("{}", actual_value), "C(b)");
 
-        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
         assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {
@@ -423,7 +406,6 @@ mod specs {
         );
         let actual_value = scenario.variable.get(&expected_key).unwrap();
         assert_eq!(format!("{}", actual_value), "b");
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
 
         b.iter(|| {
@@ -457,7 +439,6 @@ mod specs {
         assert_eq!(scenario.variable.len(), 2);
         assert_eq!(scenario.variable[&inner.childs[0]], &outer.childs[0]);
         assert_eq!(scenario.variable[&inner.childs[1]], &outer.childs[1]);
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
     }
 
@@ -475,7 +456,6 @@ mod specs {
 
         assert_eq!(scenario.variable[&inner.childs[0]], &outer.childs[0]);
         assert_eq!(scenario.variable[&inner.childs[1]], &outer.childs[1]);
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
 
         b.iter(|| {
@@ -513,7 +493,6 @@ mod specs {
         let scenario = scenarios.iter().nth(0).unwrap();
         assert_eq!(scenario.variable.len(), 1, "Expected one variable mapping");
         assert_eq!(format_scenario(scenario), "b => a");
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
     }
 
@@ -545,7 +524,6 @@ mod specs {
         assert!(scenario_root.variable.contains_key(&inner));
         assert_eq!(scenario_root.variable[&inner], &outer);
         assert_eq!(format_scenario(scenario_root), "c => A(a, b)");
-        assert_eq!(scenario_root.location, &outer, "Wrong location");
         assert!(scenario_root.path.is_empty(), "Wrong path");
 
         let scenario_ac = scenarios.iter().nth(1).unwrap();
@@ -553,7 +531,6 @@ mod specs {
         assert!(scenario_ac.variable.contains_key(&inner));
         assert_eq!(scenario_ac.variable[&inner], &outer.childs[0]);
         assert_eq!(format_scenario(scenario_ac), "c => a");
-        assert_eq!(scenario_ac.location, &outer.childs[0], "Wrong location");
         assert_eq!(scenario_ac.path, vec![0], "Wrong path");
 
         let scenario_bc = scenarios.iter().nth(2).unwrap();
@@ -561,7 +538,6 @@ mod specs {
         assert!(scenario_bc.variable.contains_key(&inner));
         assert_eq!(scenario_bc.variable[&inner], &outer.childs[1]);
         assert_eq!(format_scenario(scenario_bc), "c => b");
-        assert_eq!(scenario_bc.location, &outer.childs[1], "Wrong location");
         assert_eq!(scenario_bc.path, vec![1], "Wrong path");
     }
 
@@ -586,7 +562,6 @@ mod specs {
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
     }
 
@@ -600,7 +575,6 @@ mod specs {
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
-        assert_eq!(scenario.location, &outer, "Wrong location");
         assert!(scenario.path.is_empty(), "Wrong path");
     }
 
@@ -614,7 +588,6 @@ mod specs {
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         assert!(scenario.variable.is_empty());
-        assert_eq!(scenario.location, &outer.childs[0], "Wrong location");
         assert_eq!(scenario.path, vec![0], "Wrong path");
 
         b.iter(|| {

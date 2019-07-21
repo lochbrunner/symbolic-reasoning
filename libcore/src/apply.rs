@@ -389,7 +389,6 @@ mod specs {
         let conclusion = Symbol::parse(&context, "x").unwrap();
 
         let scenario = FitMap {
-            location: &orig,
             path: vec![],
             variable: hashmap! {},
         };
@@ -412,7 +411,6 @@ mod specs {
         let conclusion = parse("x");
 
         let scenario = FitMap {
-            location: &orig,
             path: vec![],
             variable: hashmap! {},
         };
@@ -437,7 +435,6 @@ mod specs {
         let conclusion = parse("x-x");
 
         let scenario = FitMap {
-            location: &orig,
             path: vec![],
             variable: hashmap! {},
         };
@@ -463,7 +460,6 @@ mod specs {
         let conclusion = parse("x*x-x");
 
         let scenario = FitMap {
-            location: &orig,
             path: vec![],
             variable: hashmap! {},
         };
