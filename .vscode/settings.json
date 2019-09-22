@@ -18,6 +18,7 @@
         "pyproto",
         "repr",
         "serde",
-        "staticmethod"
+        "staticmethod",
+        "optim"
     ]
 }
