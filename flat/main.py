@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 from generate import create_samples
+from utils import printProgressBar
+from reports import plot_train_progess, TrainingProgress
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 
 torch.manual_seed(1)
 
@@ -32,23 +35,8 @@ def ident_to_id(ident):
     return ord(ident) - 97
 
 
-samples, idents, tags = create_samples(size=5)
-
-print(f'samples: {len(samples)}')
-print(f'idents: {idents}')
-print(f'tags: {len(tags)}')
-
-
-EMBEDDING_DIM = 8
-HIDDEN_DIM = 8
-
-model = LSTMTagger(len(idents), len(tags), EMBEDDING_DIM, HIDDEN_DIM)
-loss_function = nn.NLLLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.1)
-
-
 @torch.no_grad()
-def validate(samples):
+def validate(model, samples):
     true = 0
     for tag, feature in samples:
         sequence = [ident_to_id(ident) for ident in feature]
@@ -61,20 +49,45 @@ def validate(samples):
     return float(true) / float(len(samples))
 
 
-for epoch in range(4):
-    epoch_loss = 0
-    for tag, feature in samples:
-        model.zero_grad()
-        sequence = [ident_to_id(ident) for ident in feature]
-        sequence = torch.tensor(sequence, dtype=torch.long)
-        tag_scores = model(sequence).view(1, -1)
+def main():
 
-        tag = torch.tensor([tag], dtype=torch.long)
+    samples, idents, tags = create_samples(size=5)
 
-        loss = loss_function(tag_scores, tag)
-        epoch_loss += loss.item() / len(samples)
-        loss.backward()
-        optimizer.step()
-    if epoch % 10 == 0:
-        error = 1.-validate(samples)
-        print(f'[{epoch}] error: {error} loss: {epoch_loss}')
+    print(f'samples: {len(samples)}')
+    print(f'idents: {idents}')
+    print(f'tags: {len(tags)}')
+
+    EMBEDDING_DIM = 8
+    HIDDEN_DIM = 8
+
+    model = LSTMTagger(len(idents), len(tags), EMBEDDING_DIM, HIDDEN_DIM)
+    loss_function = nn.NLLLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+    progress = []
+    NUM_EPOCHS = 500
+    for epoch in range(NUM_EPOCHS):
+        epoch_loss = 0
+        for tag, feature in samples:
+            model.zero_grad()
+            sequence = [ident_to_id(ident) for ident in feature]
+            sequence = torch.tensor(sequence, dtype=torch.long)
+            tag_scores = model(sequence).view(1, -1)
+
+            tag = torch.tensor([tag], dtype=torch.long)
+
+            loss = loss_function(tag_scores, tag)
+            epoch_loss += loss.item() / len(samples)
+            loss.backward()
+            optimizer.step()
+        if epoch % 10 == 0:
+            error = 1.-validate(model, samples)
+            progress.append(TrainingProgress(epoch, epoch_loss, error))
+        printProgressBar(epoch, NUM_EPOCHS)
+
+    plot_train_progess(progress)
+    # print(f'[{epoch}] error: {error} loss: {epoch_loss}')
+
+
+if __name__ == '__main__':
+    main()
