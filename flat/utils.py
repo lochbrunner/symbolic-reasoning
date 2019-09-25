@@ -19,3 +19,7 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
     # Print New Line on Complete
     if iteration == total:
         print()
+
+
+def create_batches(samples, batch_size):
+    return [samples[i:i+batch_size] for i in range(0, len(samples), batch_size)]
