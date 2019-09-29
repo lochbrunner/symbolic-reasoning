@@ -46,7 +46,13 @@
             "name": "main",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/flat/main.py",
+            "args": [
+                "--use",
+                "builtin-cell",
+                "-n",
+                "10"
+            ],
             "console": "integratedTerminal"
         }
     ]

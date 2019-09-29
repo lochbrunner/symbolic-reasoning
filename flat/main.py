@@ -3,34 +3,16 @@
 from generate import create_samples
 from utils import printProgressBar, create_batches
 from reports import plot_train_progess, TrainingProgress
+from model import LSTMTagger, LSTMTaggerOwn, LSTTaggerBuiltinCell
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
 import argparse
 
 
 torch.manual_seed(1)
-
-
-class LSTMTagger(nn.Module):
-    '''From https://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch'''
-
-    def __init__(self, vocab_size, tagset_size, embedding_dim, hidden_dim):
-        super(LSTMTagger, self).__init__()
-        self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
-
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim)
-
-        self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
-
-    def forward(self, sequence):
-        embeds = self.word_embeddings(sequence)
-        lstm_out, _ = self.lstm(embeds.view(len(sequence), 1, -1))
-        tag_space = self.hidden2tag(lstm_out.view(len(sequence), -1))
-        tag_scores = F.log_softmax(tag_space, dim=1)
-        return tag_scores[-1, :]
 
 
 def ident_to_id(ident):
@@ -51,7 +33,7 @@ def validate(model, samples):
     return float(true) / float(len(samples))
 
 
-def main(strategy, num_epochs, length, batch_size=10):
+def main(strategy, num_epochs, length, batch_size=10, use=None):
 
     samples, idents, tags = create_samples(strategy=strategy, length=length)
 
@@ -62,7 +44,15 @@ def main(strategy, num_epochs, length, batch_size=10):
     EMBEDDING_DIM = 8
     HIDDEN_DIM = 8
 
-    model = LSTMTagger(len(idents), len(tags), EMBEDDING_DIM, HIDDEN_DIM)
+    if use == None:
+        model = LSTMTagger(len(idents), len(tags), EMBEDDING_DIM, HIDDEN_DIM)
+    elif use == 'own' or use == 'customized':
+        model = LSTMTaggerOwn(len(idents), len(
+            tags), EMBEDDING_DIM, HIDDEN_DIM, use_customized=use == 'customized')
+    elif use == 'builtin-cell':
+        model = LSTTaggerBuiltinCell(len(idents), len(
+            tags), EMBEDDING_DIM, HIDDEN_DIM)
+
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
@@ -75,6 +65,7 @@ def main(strategy, num_epochs, length, batch_size=10):
             for tag, feature in batch:
                 sequence = [ident_to_id(ident) for ident in feature]
                 sequence = torch.tensor(sequence, dtype=torch.long)
+                # print(f'input: {model(sequence).view(1, -1).size()}')
                 tag_scores = model(sequence).view(1, -1)
 
                 tag = torch.tensor([tag], dtype=torch.long)
@@ -89,16 +80,17 @@ def main(strategy, num_epochs, length, batch_size=10):
         printProgressBar(epoch, num_epochs)
 
     plot_train_progess(progress)
-    print('Finish')
-    # print(f'[{epoch}] error: {error} loss: {epoch_loss}')
+    print('\nFinish')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('flat training')
     parser.add_argument('-s', '--strategy', type=str, default='permutation')
-    parser.add_argument('-n', '--num-epochs', type=int, default=500)
+    parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-l', '--length', type=int, default=5)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
+    parser.add_argument('--use', choices=['own', 'builtin-cell', 'customized'])
 
     args = parser.parse_args()
-    main(args.strategy, args.num_epochs, args.length)
+    main(args.strategy, args.num_epochs, args.length,
+         use=args.use)
