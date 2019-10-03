@@ -44,12 +44,12 @@ def main(strategy, num_epochs, length, batch_size=10, use=None):
     EMBEDDING_DIM = 8
     HIDDEN_DIM = 8
 
-    if use == None:
+    if use == None or use == 'torch':
         model = LSTMTagger(len(idents), len(tags), EMBEDDING_DIM, HIDDEN_DIM)
-    elif use == 'own' or use == 'customized':
+    elif LSTMTaggerOwn.contains_implementation(use):
         model = LSTMTaggerOwn(len(idents), len(
-            tags), EMBEDDING_DIM, HIDDEN_DIM, use_customized=use == 'customized')
-    elif use == 'builtin-cell':
+            tags), EMBEDDING_DIM, HIDDEN_DIM, use)
+    elif use == 'torch-cell':
         model = LSTTaggerBuiltinCell(len(idents), len(
             tags), EMBEDDING_DIM, HIDDEN_DIM)
 
@@ -79,8 +79,8 @@ def main(strategy, num_epochs, length, batch_size=10, use=None):
             progress.append(TrainingProgress(epoch, epoch_loss, error))
         printProgressBar(epoch, num_epochs)
 
-    plot_train_progess(progress)
-    print('\nFinish')
+    print('')  # Linefeed after progress bar
+    plot_train_progess(progress, strategy, use)
 
 
 if __name__ == '__main__':
@@ -89,8 +89,9 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-l', '--length', type=int, default=5)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
-    parser.add_argument('--use', choices=['own', 'builtin-cell', 'customized'])
+    parser.add_argument(
+        '--use', choices=['own', 'torch-cell', 'customized', 'rebuilt', 'torch'])
 
     args = parser.parse_args()
     main(args.strategy, args.num_epochs, args.length,
-         use=args.use)
+         use=args.use or 'torch')

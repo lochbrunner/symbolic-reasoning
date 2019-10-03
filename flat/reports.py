@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from os import path, makedirs
+import pickle
 
 
 class TrainingProgress:
@@ -8,39 +10,76 @@ class TrainingProgress:
         self.error = error
 
 
-def plot_train_progess_dep(progress, filename='../reports/flat-training.svg'):
-    fig = plt.figure(figsize=(8, 6))
-
-    plt.plot([step.iteration for step in progress],
-             [step.error for step in progress], label='Error')
-    plt.plot([step.iteration for step in progress],
-             [step.loss for step in progress], label='Loss')
-
-    plt.legend()
-    plt.savefig(filename)
+def plot_error(ax, progress, color, label='Error'):
+    ax.set_xlabel('epoche')
+    ax.set_ylabel(f'{label} [%]', color=color)
+    ax.set_ylim(ymin=0, ymax=100)
+    ax.plot([step.iteration for step in progress],
+            [step.error*100.0 for step in progress], label=label, color=color)
+    ax.tick_params(axis='y', labelcolor=color)
 
 
-def plot_train_progess(progress, filename='../reports/flat-training.svg'):
+def plot_loss(ax, progress, color, label='Loss'):
+    ax.set_ylabel(label, color=color)
+    ax.plot([step.iteration for step in progress],
+            [step.loss for step in progress], label=label, color=color)
+    ax.tick_params(axis='y', labelcolor=color)
+    ax.set_ylim(ymin=0)
+
+
+def plot_train_progess(progress, strategy, use, plot_filename='../reports/flat-training.{}.{}.svg', dump_filename='../reports/dump.p'):
     fig, ax1 = plt.subplots(figsize=(8, 6))
-
-    color = 'tab:red'
-    ax1.set_xlabel('epoche')
-    ax1.set_ylabel('error [%]', color=color)
-    ax1.set_ylim(ymin=0, ymax=100)
-    ax1.plot([step.iteration for step in progress],
-             [step.error*100.0 for step in progress], label='Error', color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-    # plt.legend()
+    plot_error(ax1, progress, 'tab:red')
 
     ax2 = ax1.twinx()
+    plot_loss(ax2, progress, 'tab:blue')
 
-    color = 'tab:blue'
-    ax2.set_ylabel('loss', color=color)
-    ax2.plot([step.iteration for step in progress],
-             [step.loss for step in progress], label='Loss', color=color)
-    ax2.tick_params(axis='y', labelcolor=color)
-    ax2.set_ylim(ymin=0)
     plt.legend()
 
     fig.tight_layout()
-    plt.savefig(filename)
+    concret_plot_filename = plot_filename.format(strategy, use)
+    print(f'Saving plot to {concret_plot_filename}...')
+    plt.savefig(concret_plot_filename)
+    if path.isfile(dump_filename):
+        with open(dump_filename, 'rb') as pickle_file:
+            dump = pickle.load(pickle_file)
+    else:
+        dump = {}
+    if strategy not in dump:
+        dump[strategy] = {}
+    dump[strategy][use] = progress
+    pickle.dump(dump, open(dump_filename, 'wb'))
+
+
+def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../reports/dump.p'):
+    with open(dump_filename, 'rb') as pickle_file:
+        dump = pickle.load(pickle_file)
+
+    # From https://matplotlib.org/3.1.0/gallery/color/named_colors.html
+    color_table = {
+        'own': 'tab:blue',
+        'torch-cell': 'tab:orange',
+        'customized': 'tab:green',
+        'rebuilt': 'tab:red',
+        'torch': 'tab:purple',
+        'None': 'tab:purple',
+    }
+
+    for strategy in dump:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for use in dump[strategy]:
+            progress = dump[strategy][use]
+            plot_error(ax, progress, color_table[use], label=use)
+        plt.legend()
+        filename = plot_filename.format(strategy, 'error')
+        makedirs(path.dirname(filename), exist_ok=True)
+        plt.savefig(filename)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for use in dump[strategy]:
+            progress = dump[strategy][use]
+            plot_loss(ax, progress, color_table[use], label=use)
+        plt.legend()
+        filename = plot_filename.format(strategy, 'loss')
+        makedirs(path.dirname(filename), exist_ok=True)
+        plt.savefig(filename)
