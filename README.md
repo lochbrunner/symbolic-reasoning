@@ -75,3 +75,11 @@ This project contains.
 
 * [Calculation Generator](./generator)
 * [Machine Learning](./ml)
+# LSTM Evaluation
+
+Run
+
+```bash
+cd flat
+./main.py -n 60 -s all --use own torch rebuilt optimized torch-cell && ./summary
+```

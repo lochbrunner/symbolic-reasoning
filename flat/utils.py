@@ -26,5 +26,11 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, fill='â
         print()
 
 
+def clearProgressBar():
+    _, available_columns = os.popen('stty size', 'r').read().split()
+    available_columns = int(available_columns)
+    print('\r' + ' ' * available_columns, end='\r')
+
+
 def create_batches(samples, batch_size):
     return [samples[i:i+batch_size] for i in range(0, len(samples), batch_size)]
