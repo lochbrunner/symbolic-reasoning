@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from lstm import LSTMCell, LSTMCellOptimized
+from lstm import LSTMCell, LSTMCellOptimized, LSTMCellRebuilt
 
 
 class LSTMTagger(nn.Module):
@@ -26,14 +26,22 @@ class LSTMTagger(nn.Module):
 class LSTMTaggerOwn(nn.Module):
     '''Using Own LSTM implementations'''
 
-    def __init__(self, vocab_size, tagset_size, embedding_dim, hidden_dim, use_customized=False):
+    @staticmethod
+    def contains_implementation(name):
+        return name == 'optimized' or name == 'rebuilt' or name == 'own'
+
+    def __init__(self, vocab_size, tagset_size, embedding_dim, hidden_dim, implementation='torch'):
         super(LSTMTaggerOwn, self).__init__()
 
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
-        if use_customized:
+        if implementation == 'optimized':
             self.lstm_cell = LSTMCellOptimized(embedding_dim, hidden_dim)
-        else:
+        elif implementation == 'rebuilt':
+            self.lstm_cell = LSTMCellRebuilt(embedding_dim, hidden_dim)
+        elif implementation == 'own':
             self.lstm_cell = LSTMCell(embedding_dim, hidden_dim)
+        else:
+            raise Exception(f'Unknown implementation: \'{implementation}\'')
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
         self.embedding_dim = embedding_dim
 

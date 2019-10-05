@@ -12,18 +12,18 @@ class TrainingProgress:
 
 def plot_error(ax, progress, color, label='Error'):
     ax.set_xlabel('epoche')
-    ax.set_ylabel(f'{label} [%]', color=color)
+    ax.set_ylabel(f'error [%]')
     ax.set_ylim(ymin=0, ymax=100)
     ax.plot([step.iteration for step in progress],
             [step.error*100.0 for step in progress], label=label, color=color)
-    ax.tick_params(axis='y', labelcolor=color)
+    ax.tick_params(axis='y')
 
 
 def plot_loss(ax, progress, color, label='Loss'):
-    ax.set_ylabel(label, color=color)
+    ax.set_ylabel('loss')
     ax.plot([step.iteration for step in progress],
             [step.loss for step in progress], label=label, color=color)
-    ax.tick_params(axis='y', labelcolor=color)
+    ax.tick_params(axis='y')
     ax.set_ylim(ymin=0)
 
 
@@ -59,7 +59,7 @@ def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../re
     color_table = {
         'own': 'tab:blue',
         'torch-cell': 'tab:orange',
-        'customized': 'tab:green',
+        'optimized': 'tab:green',
         'rebuilt': 'tab:red',
         'torch': 'tab:purple',
         'None': 'tab:purple',

@@ -15,7 +15,7 @@ def _create_permutation_samples(length=5):
     return samples, list(idents), classes
 
 
-def _create_haystack_needle(length=5, noise=2):
+def _create_haystack_needle(length=8, noise=2):
     idents = alphabet[1:length]
 
     classes = []
@@ -34,7 +34,7 @@ def _create_haystack_needle(length=5, noise=2):
     return samples, ['a'] + list(idents), classes
 
 
-def _create_void_needle(length=5):
+def _create_void_needle(length=20):
     idents = ['a', 'b']
 
     classes = []
@@ -52,6 +52,42 @@ def _create_void_needle(length=5):
     return samples, idents, classes
 
 
+def count_pattern(sequence, pattern):
+    findings = 0
+    plen = len(pattern)
+    for i in range(len(sequence) - plen+1):
+        if sequence[i:i+plen] == pattern:
+            findings += 1
+    return findings
+
+
+def _create_complex_pattern_in_noise(length=14, size=50, pattern_length=4):
+    '''Embeds a unique and fixed pattern (beginning of the alphabet) into noise'''
+    length += pattern_length
+    pattern = list(alphabet[:pattern_length])
+    idents = list(alphabet[:length])
+
+    classes = list(range(0, length-pattern_length))
+    samples = []
+    while size > 0:
+        index = size % len(classes)
+        shuffle(idents)
+        # Embed the pattern
+        hypo = idents[:index] + pattern + idents[index+pattern_length:]
+        # count patterns
+        if count_pattern(hypo, pattern) > 1:
+            continue
+        else:
+            samples.append((index, hypo))
+            size -= 1
+
+    return samples, list(alphabet[:length]), classes
+
+
+def choices():
+    return ['permutation', 'haystack_needle', 'void_needle', 'pattern']
+
+
 def create_samples(strategy='permutation', **kwargs):
     if strategy == 'permutation':
         return _create_permutation_samples(**kwargs)
@@ -59,3 +95,5 @@ def create_samples(strategy='permutation', **kwargs):
         return _create_haystack_needle(**kwargs)
     elif strategy == 'void_needle':
         return _create_void_needle(**kwargs)
+    elif strategy == 'pattern':
+        return _create_complex_pattern_in_noise(**kwargs)

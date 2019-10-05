@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 
-from generate import create_samples
-from utils import printProgressBar, create_batches
+from generate import create_samples, choices as strategy_choices
+from utils import printProgressBar, clearProgressBar, create_batches
 from reports import plot_train_progess, TrainingProgress
 from model import LSTMTagger, LSTMTaggerOwn, LSTTaggerBuiltinCell
 
@@ -10,6 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import argparse
+import argcomplete
 
 
 torch.manual_seed(1)
@@ -33,9 +35,9 @@ def validate(model, samples):
     return float(true) / float(len(samples))
 
 
-def main(strategy, num_epochs, length, batch_size=10, use=None):
+def main(strategy, num_epochs, batch_size=10, use=None):
 
-    samples, idents, tags = create_samples(strategy=strategy, length=length)
+    samples, idents, tags = create_samples(strategy=strategy)
 
     print(f'samples: {len(samples)}')
     print(f'idents: {idents}')
@@ -79,19 +81,27 @@ def main(strategy, num_epochs, length, batch_size=10, use=None):
             progress.append(TrainingProgress(epoch, epoch_loss, error))
         printProgressBar(epoch, num_epochs)
 
-    print('')  # Linefeed after progress bar
+    clearProgressBar()
     plot_train_progess(progress, strategy, use)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('flat training')
-    parser.add_argument('-s', '--strategy', type=str, default='permutation')
+    parser.add_argument('-s', '--strategy', type=str,
+                        default='permutation', choices=strategy_choices() + ['all'])
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
-    parser.add_argument('-l', '--length', type=int, default=5)
+    # parser.add_argument('-l', '--length', type=int, default=6)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
     parser.add_argument(
-        '--use', choices=['own', 'torch-cell', 'customized', 'rebuilt', 'torch'])
+        '--use', choices=['own', 'torch-cell', 'optimized', 'rebuilt', 'torch'], nargs='*', default=['torch'])
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    main(args.strategy, args.num_epochs, args.length,
-         use=args.use or 'torch')
+    if args.strategy == 'all':
+        for strategy in strategy_choices():
+            print(f'Processing: {strategy} ...')
+            for use in args.use:
+                main(strategy, args.num_epochs, use=use)
+    else:
+        for use in args.use:
+            main(strategy, args.num_epochs, use=use)
