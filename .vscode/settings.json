@@ -20,5 +20,9 @@
         "serde",
         "staticmethod",
         "optim"
-    ]
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.ropeproject": true
+    }
 }
