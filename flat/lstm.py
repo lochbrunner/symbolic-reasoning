@@ -3,13 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class LSTMCell(nn.Module):
+class LSTMCellOwn(nn.Module):
     '''
     Own implementation of LSTM Cell
     '''
 
     def __init__(self, input_size, hidden_size):
-        super(LSTMCell, self).__init__()
+        super(LSTMCellOwn, self).__init__()
         # Input gate
         self.W_ii = nn.Parameter(torch.Tensor(input_size, input_size))
         self.b_ii = nn.Parameter(torch.Tensor(input_size))
@@ -96,32 +96,32 @@ class LSTMCellOptimized(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(LSTMCellOptimized, self).__init__()
         # Input gate
-        self.i = Bilinear(input_size, input_size)
+        self.i = Bilinear(input_size, hidden_size)
 
         # Forget gate
-        self.f = Bilinear(input_size, input_size)
+        self.f = Bilinear(input_size, hidden_size)
 
         # Output gate
-        self.o = Bilinear(input_size, input_size)
+        self.o = Bilinear(input_size, hidden_size)
 
         # G gate
-        self.g = Bilinear(input_size, input_size)
+        self.g = Bilinear(input_size, hidden_size)
 
-    def forward(self, x, h, c):
+    def forward(self, x, hx, cx):
         # i = W_ii*x+b_ii + W_hi*h_(t-1) +
-        i = torch.sigmoid(self.i(x, h))
+        i = torch.sigmoid(self.i(x, hx))
 
-        f = torch.sigmoid(self.f(x, h))
+        f = torch.sigmoid(self.f(x, hx))
 
-        o = torch.sigmoid(self.o(x, h))
+        o = torch.sigmoid(self.o(x, hx))
         # Helping term
-        g = torch.tanh(self.g(x, h))
+        g = torch.tanh(self.g(x, hx))
 
         # Cell
-        c_next = f*c + i*g
-        h = o*torch.tanh(c_next)
+        cy = f*cx + i*g
+        hy = o*torch.tanh(cy)
 
-        return h, c_next
+        return hy, cy
 
 
 class LSTMCellOptimizedTwo(nn.Module):

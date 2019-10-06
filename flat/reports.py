@@ -20,6 +20,7 @@ def plot_error(ax, progress, color, label='Error'):
 
 
 def plot_loss(ax, progress, color, label='Loss'):
+    ax.set_xlabel('epoche')
     ax.set_ylabel('loss')
     ax.plot([step.iteration for step in progress],
             [step.loss for step in progress], label=label, color=color)
@@ -28,7 +29,7 @@ def plot_loss(ax, progress, color, label='Loss'):
 
 
 def plot_train_progess(progress, strategy, use, plot_filename='../reports/flat-training.{}.{}.svg', dump_filename='../reports/dump.p'):
-    fig, ax1 = plt.subplots(figsize=(8, 6))
+    fig, ax1 = plt.subplots(figsize=(12, 9))
     plot_error(ax1, progress, 'tab:red')
 
     ax2 = ax1.twinx()
@@ -63,10 +64,11 @@ def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../re
         'rebuilt': 'tab:red',
         'torch': 'tab:purple',
         'None': 'tab:purple',
+        'optimized-two': 'tab:cyan'
     }
 
     for strategy in dump:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(12, 9))
         for use in dump[strategy]:
             progress = dump[strategy][use]
             plot_error(ax, progress, color_table[use], label=use)
@@ -75,7 +77,7 @@ def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../re
         makedirs(path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
 
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(12, 9))
         for use in dump[strategy]:
             progress = dump[strategy][use]
             plot_loss(ax, progress, color_table[use], label=use)

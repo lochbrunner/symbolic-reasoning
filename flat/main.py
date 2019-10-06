@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from functools import reduce
+import operator
 import argparse
 import argcomplete
 
@@ -39,9 +41,8 @@ def main(strategy, num_epochs, batch_size=10, use=None):
 
     samples, idents, tags = create_samples(strategy=strategy)
 
-    print(f'samples: {len(samples)}')
+    print(f'samples: {len(samples)}  tags: {len(tags)}')
     print(f'idents: {idents}')
-    print(f'tags: {len(tags)}')
 
     EMBEDDING_DIM = 8
     HIDDEN_DIM = 8
@@ -54,6 +55,10 @@ def main(strategy, num_epochs, batch_size=10, use=None):
     elif use == 'torch-cell':
         model = LSTTaggerBuiltinCell(len(idents), len(
             tags), EMBEDDING_DIM, HIDDEN_DIM)
+
+    num_parameters = sum([reduce(
+        operator.mul, p.size()) for p in model.parameters()])
+    print(f'Number of parameters: {num_parameters}')
 
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
@@ -93,7 +98,7 @@ if __name__ == '__main__':
     # parser.add_argument('-l', '--length', type=int, default=6)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
     parser.add_argument(
-        '--use', choices=['own', 'torch-cell', 'optimized', 'rebuilt', 'torch'], nargs='*', default=['torch'])
+        '--use', choices=['torch', 'torch-cell'] + LSTMTaggerOwn.choices(), nargs='*', default=['torch'])
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -104,4 +109,4 @@ if __name__ == '__main__':
                 main(strategy, args.num_epochs, use=use)
     else:
         for use in args.use:
-            main(strategy, args.num_epochs, use=use)
+            main(args.strategy, args.num_epochs, use=use)
