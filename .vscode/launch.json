@@ -43,15 +43,32 @@
             ]
         },
         {
-            "name": "main",
+            "name": "flat",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/flat/main.py",
+            "program": "${workspaceFolder}/flat_main.py",
             "args": [
                 "--use",
-                "builtin-cell",
+                "torch",
                 "-n",
+                "10",
+                "-s",
+                "pattern",
+                "-l",
                 "10"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "deep",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/deep_main.py",
+            "args": [
+                "--depth",
+                "2",
+                "--spread",
+                "1"
             ],
             "console": "integratedTerminal"
         }

@@ -77,9 +77,19 @@ This project contains.
 * [Machine Learning](./ml)
 # LSTM Evaluation
 
-Run
+## Standard Sequence
 
 ```bash
 cd flat
-./main.py -n 60 -s all --use own torch rebuilt optimized torch-cell && ./summary
+./flat_main.py -n 60 -s all --use own torch rebuilt optimized torch-cell && ./summary
+```
+
+## Tree Data
+
+Requirements:
+
+* Self-similarity
+
+```bash
+./deep_main.py
 ```

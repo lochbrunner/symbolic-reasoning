@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
-from generate import create_samples, choices as strategy_choices
-from utils import printProgressBar, clearProgressBar, create_batches
-from reports import plot_train_progess, TrainingProgress
-from model import LSTMTagger, LSTMTaggerOwn, LSTTaggerBuiltinCell
+from common.utils import printProgressBar, clearProgressBar, create_batches
+from common.reports import plot_train_progess, TrainingProgress
+from flat.generate import create_samples, choices as strategy_choices
+from flat.model import LSTMTagger, LSTMTaggerOwn, LSTTaggerBuiltinCell
 
 import torch
 import torch.nn as nn
@@ -72,7 +72,6 @@ def main(strategy, num_epochs, batch_size=10, use=None):
             for tag, feature in batch:
                 sequence = [ident_to_id(ident) for ident in feature]
                 sequence = torch.tensor(sequence, dtype=torch.long)
-                # print(f'input: {model(sequence).view(1, -1).size()}')
                 tag_scores = model(sequence).view(1, -1)
 
                 tag = torch.tensor([tag], dtype=torch.long)
@@ -95,7 +94,6 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--strategy', type=str,
                         default='permutation', choices=strategy_choices() + ['all'])
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
-    # parser.add_argument('-l', '--length', type=int, default=6)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
     parser.add_argument(
         '--use', choices=['torch', 'torch-cell'] + LSTMTaggerOwn.choices(), nargs='*', default=['torch'])

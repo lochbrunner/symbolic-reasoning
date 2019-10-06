@@ -19,6 +19,7 @@
         "repr",
         "serde",
         "staticmethod",
+        "itertools",
         "optim"
     ],
     "files.exclude": {
