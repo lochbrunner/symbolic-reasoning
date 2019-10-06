@@ -28,7 +28,7 @@ def plot_loss(ax, progress, color, label='Loss'):
     ax.set_ylim(ymin=0)
 
 
-def plot_train_progess(progress, strategy, use, plot_filename='../reports/flat-training.{}.{}.svg', dump_filename='../reports/dump.p'):
+def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/training.{}.{}.svg', dump_filename='./reports/flat_dump.p'):
     fig, ax1 = plt.subplots(figsize=(12, 9))
     plot_error(ax1, progress, 'tab:red')
 
@@ -39,7 +39,8 @@ def plot_train_progess(progress, strategy, use, plot_filename='../reports/flat-t
 
     fig.tight_layout()
     concret_plot_filename = plot_filename.format(strategy, use)
-    print(f'Saving plot to {concret_plot_filename}...')
+    print(f'Saving plot to {concret_plot_filename} ...')
+    makedirs(path.dirname(concret_plot_filename), exist_ok=True)
     plt.savefig(concret_plot_filename)
     if path.isfile(dump_filename):
         with open(dump_filename, 'rb') as pickle_file:

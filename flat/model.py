@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from lstm import LSTMCellOwn, LSTMCellOptimized, LSTMCellOptimizedTwo, LSTMCellRebuilt
+from .lstm import LSTMCellOwn, LSTMCellOptimized, LSTMCellOptimizedTwo, LSTMCellRebuilt
 
 
 class LSTMTagger(nn.Module):
