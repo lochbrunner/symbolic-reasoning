@@ -28,7 +28,7 @@ def plot_loss(ax, progress, color, label='Loss'):
     ax.set_ylim(ymin=0)
 
 
-def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/training.{}.{}.svg', dump_filename='./reports/flat_dump.p'):
+def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/training.{}.{}.svg', dump_filename='./reports/flat/dump.p'):
     fig, ax1 = plt.subplots(figsize=(12, 9))
     plot_error(ax1, progress, 'tab:red')
 
@@ -53,7 +53,7 @@ def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/tr
     pickle.dump(dump, open(dump_filename, 'wb'))
 
 
-def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../reports/dump.p'):
+def draw_dump(plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='../reports/dump.p'):
     with open(dump_filename, 'rb') as pickle_file:
         dump = pickle.load(pickle_file)
 
@@ -77,6 +77,7 @@ def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../re
         filename = plot_filename.format(strategy, 'error')
         makedirs(path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
+        print(f'Writing file {filename}')
 
         fig, ax = plt.subplots(figsize=(12, 9))
         for use in dump[strategy]:
@@ -85,4 +86,5 @@ def draw_dump(plot_filename='../reports/summary/{}.{}.svg', dump_filename='../re
         plt.legend()
         filename = plot_filename.format(strategy, 'loss')
         makedirs(path.dirname(filename), exist_ok=True)
+        print(f'Writing file {filename}')
         plt.savefig(filename)
