@@ -2,8 +2,9 @@ from itertools import permutations, islice
 from string import ascii_lowercase as alphabet
 from random import choices, shuffle
 
+from typing import List, Set, Dict, Tuple, Optional
 
-from .node import Node
+from node import Node
 
 from copy import deepcopy
 
@@ -43,6 +44,12 @@ class SymbolBuilder:
             idents_index += 1
             queue += node.childs
 
+    def set_node(self, node: Node, path: List[int]):
+        c_node = self.childs[0]
+        for i in path[:-1]:
+            c_node = c_node.childs[i]
+        c_node[path[-1]] = node
+
     def add_level_uniform(self, child_per_arm):
         for leave in self._leaves(self.depth):
             leave.childs = [Node() for _ in range(0, child_per_arm)]
@@ -53,14 +60,14 @@ class SymbolBuilder:
         return deepcopy(self.childs[0])
 
 
-def create_samples(depth=2, spread=1, max_size=120):
+def create_samples_permutation(depth=2, spread=1, max_size=120):
     '''
     Samples are of the form (class_id, symbol)
     Using a permutation where of unique idents
     '''
     samples = []
 
-    size = sum([spread**l for l in range(1, depth+2)])
+    size = sum([spread**l for l in range(0, depth+1)])
 
     builder = SymbolBuilder()
     for _ in range(depth):
