@@ -71,6 +71,14 @@
                 "1"
             ],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/deep/generate.specs.py",
+            "args": [],
+            "console": "integratedTerminal"
         }
     ]
 }

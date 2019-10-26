@@ -68,5 +68,78 @@ class TestPermutation(unittest.TestCase):
         self.assertEqual(classes, [0, 1, 2, 3, 4, 5])
 
 
+class TestFindPattern(unittest.TestCase):
+    pass
+
+
+class TestStringBuilder(unittest.TestCase):
+    def test_traverse_bfs(self):
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        actual = list([node.ident for node in builder.traverse_bfs()])
+        expected = ['a', 'b', 'e', 'c', 'd']
+
+        self.assertEqual(actual, expected)
+
+    def test_traverse_bfs_path(self):
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        actual = list([path for path, node in builder.traverse_bfs_path()])
+        expected = [[], [0], [1], [0, 0], [0, 1]]
+        self.assertEqual(actual, expected)
+
+    def test_traverse_bfs_at(self):
+        # Using tree:
+        # a
+        #  b
+        #   c
+        #   d
+        #  e
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        actual = list([node.ident for node in builder.traverse_bfs_at([0])])
+        expected = ['b', 'c', 'd']
+
+        self.assertEqual(actual, expected)
+
+    def test_set_idents_bfs_at(self):
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        builder.set_idents_bfs_at(['r', 's', 't'], [0])
+
+        actual = list([node.ident for node in builder.traverse_bfs()])
+        expected = ['a', 'r', 'e', 's', 't']
+
+        self.assertEqual(actual, expected)
+
+    def test_has_pattern_negative(self):
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder.childs = [node]
+
+        pattern = ['b', 'd', 'c']
+        self.assertFalse(builder.has_pattern(pattern))
+
+    def test_has_pattern_positive(self):
+        builder = generate.SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder.childs = [node]
+
+        pattern = ['b', 'c', 'd']
+        self.assertTrue(builder.has_pattern(pattern))
+
+
 if __name__ == '__main__':
     unittest.main()
