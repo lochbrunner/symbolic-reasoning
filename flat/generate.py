@@ -52,7 +52,7 @@ def _create_void_needle(length=20):
     return samples, idents, classes
 
 
-def count_pattern(sequence, pattern):
+def _count_pattern(sequence, pattern):
     findings = 0
     plen = len(pattern)
     for i in range(len(sequence) - plen+1):
@@ -75,7 +75,7 @@ def _create_complex_pattern_in_noise(length=14, size=50, pattern_length=4):
         # Embed the pattern
         hypo = idents[:index] + pattern + idents[index+pattern_length:]
         # count patterns
-        if count_pattern(hypo, pattern) > 1:
+        if _count_pattern(hypo, pattern) > 1:
             continue
         else:
             samples.append((index, hypo))

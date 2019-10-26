@@ -4,6 +4,7 @@
         "**/.project": true,
         "**/.settings": true,
         "**/.factorypath": true,
+        "**/.ropeproject": true,
         "**/__pycache__": true
     },
     "cSpell.words": [
@@ -19,11 +20,10 @@
         "repr",
         "serde",
         "staticmethod",
+        "childs",
+        "idents",
+        "isnan",
         "itertools",
         "optim"
-    ],
-    "files.exclude": {
-        "**/__pycache__": true,
-        "**/.ropeproject": true
-    }
+    ]
 }

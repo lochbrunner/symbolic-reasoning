@@ -42,8 +42,9 @@ def main(strategy, num_epochs, batch_size=10, use=None, verbose=False):
 
     samples, idents, tags = create_samples(strategy=strategy)
 
-    print(f'samples: {len(samples)}  tags: {len(tags)}')
-    print(f'idents: {idents}')
+    if verbose:
+        print(f'samples: {len(samples)}  tags: {len(tags)}')
+        print(f'idents: {idents}')
 
     EMBEDDING_DIM = 8
     HIDDEN_DIM = 8
