@@ -21,6 +21,7 @@
         "serde",
         "staticmethod",
         "childs",
+        "deque",
         "idents",
         "isnan",
         "itertools",

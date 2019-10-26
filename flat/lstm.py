@@ -78,14 +78,36 @@ class LSTMCellRebuilt(nn.Module):
 
 
 class Bilinear(nn.Module):
+    '''
+    See: torch/csrc/api/src/nn/modules/linear.cpp
+    '''
+
     def __init__(self, input_size, hidden_size):
         super(Bilinear, self).__init__()
-        self.W_a = nn.Parameter(torch.Tensor(input_size, input_size))
-        self.W_b = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.b = nn.Parameter(torch.Tensor(input_size))
+        stdv = input_size**-0.5
+
+        W_a = torch.empty(input_size, input_size)
+        nn.init.uniform_(W_a, -stdv, stdv)
+        self.W_a = nn.Parameter(W_a)
+
+        W_b = torch.empty(hidden_size, input_size)
+        nn.init.uniform_(W_b, -stdv, stdv)
+        self.W_b = nn.Parameter(W_b)
+        self.b = nn.Parameter(torch.empty(input_size))
 
     def forward(self, x, h):
         return self.W_a.t().matmul(x) + self.b.t() + self.W_b.t().matmul(h)
+
+
+# class Bilinear(nn.Module):
+
+#     def __init__(self, input_size, hidden_size):
+#         super(Bilinear, self).__init__()
+#         self.linear_i = nn.Linear(input_size, input_size)
+#         self.linear_h = nn.Linear(input_size, hidden_size, bias=False)
+
+#     def forward(self, x, h):
+#         return self.linear_i(x) + self.linear_h(h)
 
 
 class LSTMCellOptimized(nn.Module):
