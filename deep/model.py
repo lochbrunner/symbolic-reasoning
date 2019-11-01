@@ -42,33 +42,36 @@ class TrivialTreeTagger(nn.Module):
     def __init__(self, vocab_size, tagset_size, embedding_size, hidden_size):
         super(TrivialTreeTagger, self).__init__()
         self.word_embeddings = nn.Embedding(vocab_size, embedding_size)
-        print(f'tagset_size: {tagset_size}')
-        print(f'embedding_size: {embedding_size}')
+        # print(f'tagset_size: {tagset_size}')
+        # print(f'embedding_size: {embedding_size}')
 
         assert tagset_size == hidden_size, 'For now hidden and tagsize must be equal'
 
         # Inputs are the outputs of the children
         self.lstm = nn.LSTM(hidden_size, hidden_size)
-        # Combinges the accumulated lstm output of the child and the ident of it self
+        # Combines the accumulated lstm output of the child and the ident of it self
         self.combine = nn.Linear(hidden_size+embedding_size, hidden_size)
         self.hidden2tag = nn.Linear(hidden_size, tagset_size)
         # Before the first lstm input come (needed to thread leaf nodes)
-        self.lstm_init = nn.Parameter(torch.Tensor(1, tagset_size))
+        lstm_init = torch.empty(1, tagset_size)
+        nn.init.uniform_(lstm_init, -1, 1)
+        self.lstm_init = nn.Parameter(lstm_init)
         self.tagset_size = tagset_size
 
     def forward(self, node: Node):
         ident = torch.tensor(ident_to_id(node), dtype=torch.long)
         embeds = self.word_embeddings(ident)
 
-        childs_out = [self(child) for child in node.childs]
+        # childs_out = [self(child) for child in node.childs]
         # print(childs_out)
-        # childs_out = torch.Tensor([self(child) for child in node.childs])
         if len(node.childs) > 0:
             childs_out = torch.stack([self(child) for child in node.childs])
             # print(childs_out.size())
             # print(self.lstm_init.size())
             lstm_seq = torch.cat((self.lstm_init, childs_out), 0)
+            # print('childs')
         else:
+            # print('no childs')
             lstm_seq = self.lstm_init
         lstm_out, _ = self.lstm(lstm_seq.view(-1, 1, self.tagset_size))
         lstm_out = torch.index_select(
@@ -77,8 +80,38 @@ class TrivialTreeTagger(nn.Module):
         # print(f'lstm_out: {lstm_out.size()}')
         # print(f'embeds: {embeds.size()}')
         # print(embeds.size())
-        # print(torch.cat((lstm_out.view(-1), embeds), 0).size())
+        # print(f'cat: {torch.cat((lstm_out, embeds), 0).size()}')
         combined = self.combine(torch.cat((lstm_out, embeds), 0))
         tag_space = self.hidden2tag(combined)
         tag_scores = F.log_softmax(tag_space, dim=0)
         return tag_scores[:]
+
+    def introspect(self, node: Node):
+        '''
+        Infers the node and returns 'all' intermediate results
+        '''
+        ident = torch.tensor(ident_to_id(node), dtype=torch.long)
+        embeds = self.word_embeddings(ident)
+
+        if len(node.childs) > 0:
+            childs_out = torch.stack([self(child) for child in node.childs])
+            lstm_seq = torch.cat((self.lstm_init, childs_out), 0)
+        else:
+            lstm_seq = self.lstm_init
+
+        lstm_out, _ = self.lstm(lstm_seq.view(-1, 1, self.tagset_size))
+        lstm_out = torch.index_select(
+            lstm_out, 0, torch.tensor([lstm_out.size()[0]-1])).view(-1)
+
+        combined = self.combine(torch.cat((lstm_out, embeds), 0))
+        tag_space = self.hidden2tag(combined)
+        tag_scores = F.log_softmax(tag_space, dim=0)
+
+        return {
+            'lstm_seq': lstm_seq.view(-1).detach().numpy(),
+            'lstm_out': lstm_out.detach().numpy(),
+            'scores': tag_scores.detach().numpy()
+        }
+
+    def activation_names(self):
+        return ['lstm_out', 'scores', 'lstm_seq']
