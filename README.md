@@ -93,3 +93,10 @@ Requirements:
 ```bash
 ./deep_main.py
 ```
+
+## Unit Tests
+
+
+```zsh
+PYTHONPATH=`pwd` deep/generate.specs.py
+```
