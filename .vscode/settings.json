@@ -20,9 +20,8 @@
         "repr",
         "serde",
         "staticmethod",
-        "childs",
+        "PYTHONPATH",
         "deque",
-        "idents",
         "isnan",
         "itertools",
         "optim"

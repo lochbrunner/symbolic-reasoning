@@ -18,6 +18,7 @@ import torch
 from deep.node import Node
 from deep.model import TreeTagger, TrivialTreeTagger
 from deep.generate import create_samples_permutation
+from deep.generate import SymbolBuilder
 
 
 depth = 2
@@ -35,6 +36,23 @@ def load_model(path: str):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     return model
+
+
+def traverse_for_scores(model, node: Node):
+    builder = SymbolBuilder(node)
+
+    all_scores = []
+    all_paths = []
+
+    for path, node in builder.traverse_bfs_path():
+        scores = model(node)
+        _, prediction = scores.max(0)
+        scores = scores.tolist()
+        all_scores.insert(0, scores)
+        path = '/'.join([str(d) for d in path])
+        all_paths.insert(0, f'{node.ident} @ {path} #{prediction}')
+
+    return all_scores, all_paths
 
 
 model = load_model('models/deep.tar')
@@ -82,12 +100,12 @@ def next(next_clicked, prev_clicked, value):
 )
 def update_selection(input_value):
     tag, sample = samples[input_value]
-    tag_scores = model(sample)
-    _, max_index = tag_scores.max(0)
+    tag_scores, paths = traverse_for_scores(model, sample)
+    _, max_index = model(sample).max(0)
     prediction = f'Prediction {max_index}'
 
-    trace = go.Heatmap(z=[tag_scores.tolist()], colorscale='Electric', colorbar={
-                       "title": "Activation"}, showscale=True)
+    trace = go.Heatmap(y=paths, z=tag_scores, colorscale='Electric', colorbar={
+                       'title': 'Score'}, showscale=True)
 
     return sample.as_dict(), f'Tag: {tag}', prediction, {'data': [trace]}
 

@@ -77,10 +77,18 @@ This project contains.
 * [Machine Learning](./ml)
 # LSTM Evaluation
 
+## Setup
+
+```zsh
+python3 -m venv <venv name>
+. <venv name>/bin/activate
+
+pip install -r requirements.txt
+```
+
 ## Standard Sequence
 
-```bash
-cd flat
+```zsh
 ./flat_main.py -n 60 -s all --use own torch rebuilt optimized torch-cell && ./summary
 ```
 
@@ -90,7 +98,7 @@ Requirements:
 
 * Self-similarity
 
-```bash
+```zsh
 ./deep_main.py
 ```
 

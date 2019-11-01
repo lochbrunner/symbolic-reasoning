@@ -21,8 +21,8 @@ def generate_idents():
 
 
 class SymbolBuilder:
-    def __init__(self):
-        self.childs = [Node()]
+    def __init__(self, root=Node()):
+        self.childs = [root]
         self.depth = 1
 
     def _leaves(self, level: int):
