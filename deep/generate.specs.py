@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import unittest
-
-import generate
 from node import Node
+import generate
+import unittest
 
 
 def calc_depth(node: Node):

@@ -31,3 +31,6 @@ class Node:
 
     def __hash__(self):
         return hash(str(self))
+
+    def as_dict(self):
+        return {'ident': self.ident, 'childs': [child.as_dict() for child in self.childs]}

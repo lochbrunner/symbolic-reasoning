@@ -4,7 +4,7 @@ from random import choices, shuffle, randint
 
 from typing import List, Set, Dict, Tuple, Optional
 
-from node import Node
+from deep.node import Node
 
 from copy import deepcopy
 from collections import deque
@@ -105,6 +105,10 @@ class SymbolBuilder:
     @property
     def symbol(self):
         return deepcopy(self.childs[0])
+
+
+def scenarios_choices():
+    return ['permutation', 'pattern']
 
 
 def create_samples_permutation(depth=2, spread=1, max_size=120):

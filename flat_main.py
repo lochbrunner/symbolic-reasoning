@@ -64,6 +64,10 @@ def main(strategy, num_epochs, batch_size=10, use=None, verbose=False):
         print(f'Number of parameters: {num_parameters}')
         print(f'Scenario: {strategy} using {use}')
 
+    print("Model's state_dict:")
+    for param_tensor in model.state_dict():
+        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1, )
 
@@ -105,7 +109,7 @@ def main(strategy, num_epochs, batch_size=10, use=None, verbose=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('flat training')
-    parser.add_argument('-s', '--strategy', type=str,
+    parser.add_argument('-s', '--scenario', type=str,
                         default='permutation', choices=strategy_choices() + ['all'])
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-b', '--batch-size', type=int, default=5)
@@ -115,11 +119,11 @@ if __name__ == '__main__':
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    if args.strategy == 'all':
-        for strategy in strategy_choices():
-            print(f'Processing: {strategy} ...')
+    if args.scenario == 'all':
+        for scenario in strategy_choices():
+            print(f'Processing: {scenario} ...')
             for use in args.use:
-                main(strategy, args.num_epochs, use=use, verbose=args.verbose)
+                main(scenario, args.num_epochs, use=use, verbose=args.verbose)
     else:
         for use in args.use:
-            main(args.strategy, args.num_epochs, use=use, verbose=args.verbose)
+            main(args.scenario, args.num_epochs, use=use, verbose=args.verbose)

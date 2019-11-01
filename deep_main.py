@@ -11,7 +11,7 @@ import argcomplete
 from math import isnan
 from typing import List, Set, Dict, Tuple, Optional
 
-from deep.generate import create_samples_permutation
+from deep.generate import create_samples_permutation, scenarios_choices
 from deep.node import Node
 from common.utils import printProgressBar, clearProgressBar, create_batches
 from common.reports import plot_train_progess, TrainingProgress
@@ -35,9 +35,10 @@ def validate(model: torch.nn.Module, samples: List[Tuple[int, Node]]):
     return float(true) / float(len(samples))
 
 
-def main(depth: int, spread: int, num_epochs: int,
+def main(scenario: str, depth: int, spread: int, num_epochs: int,
          batch_size: int = 10, report_rate: int = 10, verbose: bool = True,
-         gradient_clipping: float = 0.1):
+         gradient_clipping: float = 0.1,
+         load_model: str = None, save_model: str = None):
 
     samples, idents, tags = create_samples_permutation(
         depth=depth, spread=spread)
@@ -54,11 +55,22 @@ def main(depth: int, spread: int, num_epochs: int,
     num_parameters = sum([reduce(
         operator.mul, p.size()) for p in model.parameters()])
     if verbose:
-        # print(f'Scenario: {strategy} using {use}')
         print(f'Number of parameters: {num_parameters}')
 
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+    if load_model is not None:
+        print(f'Loading model from {load_model} ...')
+        checkpoint = torch.load(load_model)
+        file_use = checkpoint['use']
+        current_use = 'default'
+        if file_use != current_use:
+            raise Exception(
+                f'Loaded model contains {file_use} but {current_use} is specified for this training.')
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        model.train()
 
     progress: List[TrainingProgress] = []
     batches = create_batches(samples, batch_size)
@@ -93,26 +105,56 @@ def main(depth: int, spread: int, num_epochs: int,
                        plot_filename='./reports/deep/training.{}.{}.svg',
                        dump_filename='./reports/deep_dump.p')
 
+    if save_model is not None:
+        print(f'Saving model to {save_model} ...')
+        torch.save({
+            'epoch': num_epochs,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            'use': 'default'
+        }, save_model)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('deep training')
 
-    parser.add_argument('-d', '--depth', type=int, default=2,
+    parser.add_argument('-s', '--scenario', type=str,
+                        default='permutation', choices=scenarios_choices() + ['all'])
+    parser.add_argument('--depth', type=int, default=2,
                         help='The depth of the used nodes.')
-    parser.add_argument('-s', '--spread', type=int, default=2)
+    parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-b', '--batch-size', type=int, default=10)
     parser.add_argument('-r', '--report-rate', type=int, default=10)
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
+    parser.add_argument('-i', '--load-model', type=str,
+                        default=None, help='Path to the model')
+    parser.add_argument('-o', '--save-model', type=str,
+                        default=None, help='Path to the model')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
-    main(depth=args.depth,
-         spread=args.spread,
-         num_epochs=args.num_epochs,
-         batch_size=args.batch_size,
-         report_rate=args.report_rate,
-         verbose=args.verbose
-         )
+    if args.scenario == 'all':
+        for scenario in scenarios_choices():
+            print(f'Processing: {scenario} ...')
+            main(scenario=scenario,
+                 depth=args.depth,
+                 spread=args.spread,
+                 num_epochs=args.num_epochs,
+                 batch_size=args.batch_size,
+                 report_rate=args.report_rate,
+                 verbose=args.verbose
+                 )
+    else:
+        main(scenario=args.scenario, depth=args.depth,
+             spread=args.spread,
+             num_epochs=args.num_epochs,
+             batch_size=args.batch_size,
+             report_rate=args.report_rate,
+             verbose=args.verbose,
+             load_model=args.load_model,
+             save_model=args.save_model
+             )
