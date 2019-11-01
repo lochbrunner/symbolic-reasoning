@@ -64,10 +64,6 @@ def main(strategy, num_epochs, batch_size=10, use=None, verbose=False):
         print(f'Number of parameters: {num_parameters}')
         print(f'Scenario: {strategy} using {use}')
 
-    print("Model's state_dict:")
-    for param_tensor in model.state_dict():
-        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
-
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1, )
 
