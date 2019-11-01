@@ -36,7 +36,7 @@ def validate(model: torch.nn.Module, samples: List[Tuple[int, Node]]):
 
 
 def main(scenario: str, depth: int, spread: int, num_epochs: int,
-         batch_size: int = 10, report_rate: int = 10, verbose: bool = True,
+         batch_size: int = 10, learning_rate: float = 0.1, report_rate: int = 10, verbose: bool = True,
          gradient_clipping: float = 0.1,
          load_model: str = None, save_model: str = None):
 
@@ -127,6 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-b', '--batch-size', type=int, default=10)
     parser.add_argument('-r', '--report-rate', type=int, default=10)
+    parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
     parser.add_argument('-i', '--load-model', type=str,
@@ -145,6 +146,7 @@ if __name__ == '__main__':
                  spread=args.spread,
                  num_epochs=args.num_epochs,
                  batch_size=args.batch_size,
+                 learning_rate=args.learning_rate,
                  report_rate=args.report_rate,
                  verbose=args.verbose
                  )
@@ -153,6 +155,7 @@ if __name__ == '__main__':
              spread=args.spread,
              num_epochs=args.num_epochs,
              batch_size=args.batch_size,
+             learning_rate=args.learning_rate,
              report_rate=args.report_rate,
              verbose=args.verbose,
              load_model=args.load_model,

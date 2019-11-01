@@ -38,19 +38,18 @@ def load_model(path: str):
     return model
 
 
-def traverse_for_scores(model, node: Node):
+def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     builder = SymbolBuilder(node)
 
     all_scores = []
     all_paths = []
 
     for path, node in builder.traverse_bfs_path():
-        scores = model(node)
-        _, prediction = scores.max(0)
-        scores = scores.tolist()
+        vars = model.introspect(node)
+        scores = vars[activation_name]
         all_scores.insert(0, scores)
         path = '/'.join([str(d) for d in path])
-        all_paths.insert(0, f'{node.ident} @ {path} #{prediction}')
+        all_paths.insert(0, f'{node.ident} @ {path}')
 
     return all_scores, all_paths
 
@@ -58,6 +57,7 @@ def traverse_for_scores(model, node: Node):
 model = load_model('models/deep.tar')
 
 app = dash.Dash(__name__)
+app.title = 'TreeLstm Visu'
 
 
 app.layout = html.Div([
@@ -66,11 +66,14 @@ app.layout = html.Div([
         symbol=samples[0][1].as_dict()
     ),
     dcc.Slider(id='selector', min=0, max=len(samples)-1, value=3, step=1),
-    html.Button('Prev', id='prev'),
+    html.Button('Prev', id='prev', style={'marginRight': '10px'}),
     html.Button('Next', id='next'),
+    html.Span(samples[0][0], id='tag', style={'paddingLeft': 10}),
     html.Div([
-        html.P(samples[0][0], id='tag'),
         html.P('-', id='tag_prediction'),
+        dcc.Dropdown(id='activation-selector', options=[
+                     {'label': name, 'value': name} for name in model.activation_names()],
+                     value='scores'),
         dcc.Graph(id='prediction-heat')
     ])
 ])
@@ -80,7 +83,7 @@ app.layout = html.Div([
     Output('selector', 'value'),
     [Input('next', 'n_clicks_timestamp'), Input('prev', 'n_clicks_timestamp')],
     [dash.dependencies.State('selector', 'value')])
-def next(next_clicked, prev_clicked, value):
+def pagination(next_clicked, prev_clicked, value):
     next_clicked = 0 if next_clicked is None else next_clicked
     prev_clicked = 0 if prev_clicked is None else prev_clicked
     forward = next_clicked > prev_clicked
@@ -96,11 +99,12 @@ def next(next_clicked, prev_clicked, value):
      Output(component_id='tag_prediction', component_property='children'),
      Output(component_id='prediction-heat',  component_property='figure')
      ],
-    [Input(component_id='selector', component_property='value')]
+    [Input(component_id='selector', component_property='value'),
+     Input(component_id='activation-selector', component_property='value')]
 )
-def update_selection(input_value):
-    tag, sample = samples[input_value]
-    tag_scores, paths = traverse_for_scores(model, sample)
+def update_selection(sample_id, activation_name):
+    tag, sample = samples[sample_id]
+    tag_scores, paths = traverse_for_scores(model, sample, activation_name)
     _, max_index = model(sample).max(0)
     prediction = f'Prediction {max_index}'
 
