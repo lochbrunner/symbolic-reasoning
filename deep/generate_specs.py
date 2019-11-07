@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from node import Node
-import generate
+from deep.node import Node
+from deep import generate
 import unittest
 
 
@@ -18,7 +18,6 @@ def calc_depth(node: Node):
     return depth
 
 
-# @unittest.skip('Debugging')
 class TestPermutation(unittest.TestCase):
     def test_flat(self):
         samples, idents, classes = generate.create_samples_permutation(
@@ -120,7 +119,6 @@ class TestPattern(unittest.TestCase):
         self.assertGreaterEqual(len(classes), 1)
 
 
-# @unittest.skip('Debugging')
 class TestStringBuilder(unittest.TestCase):
     def test_traverse_bfs(self):
         builder = generate.SymbolBuilder()

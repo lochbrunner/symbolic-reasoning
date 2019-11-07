@@ -29,10 +29,11 @@ samples, idents, tags = create_samples_permutation(
 
 
 def load_model(path: str):
-    model = TrivialTreeTagger(len(idents), len(tags),
-                              embedding_size=32, hidden_size=len(tags))
-    print(f'Loading model from {path} ...')
     checkpoint = torch.load(path)
+    model_hyper_parameter = checkpoint['hyper_parameter']
+    model = TrivialTreeTagger(len(idents), len(tags),
+                              model_hyper_parameter)
+    print(f'Loading model from {path} ...')
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     return model
