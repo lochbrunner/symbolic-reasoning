@@ -39,13 +39,18 @@ class TrivialTreeTagger(nn.Module):
     ''' Children are feeding its parent
     '''
 
-    def __init__(self, vocab_size, tagset_size, embedding_size, hidden_size):
-        super(TrivialTreeTagger, self).__init__()
-        self.word_embeddings = nn.Embedding(vocab_size, embedding_size)
-        # print(f'tagset_size: {tagset_size}')
-        # print(f'embedding_size: {embedding_size}')
+    @staticmethod
+    def hyper_parameter_names():
+        return ['embedding_size']
 
-        assert tagset_size == hidden_size, 'For now hidden and tagsize must be equal'
+    def __init__(self, vocab_size, tagset_size, hyper_parameter):
+        super(TrivialTreeTagger, self).__init__()
+        embedding_size = hyper_parameter['embedding_size']
+
+        self.word_embeddings = nn.Embedding(vocab_size, embedding_size)
+
+        # For now hidden and tagsize must be equal
+        hidden_size = tagset_size
 
         # Inputs are the outputs of the children
         self.lstm = nn.LSTM(hidden_size, hidden_size)
@@ -62,25 +67,15 @@ class TrivialTreeTagger(nn.Module):
         ident = torch.tensor(ident_to_id(node), dtype=torch.long)
         embeds = self.word_embeddings(ident)
 
-        # childs_out = [self(child) for child in node.childs]
-        # print(childs_out)
         if len(node.childs) > 0:
             childs_out = torch.stack([self(child) for child in node.childs])
-            # print(childs_out.size())
-            # print(self.lstm_init.size())
             lstm_seq = torch.cat((self.lstm_init, childs_out), 0)
-            # print('childs')
         else:
-            # print('no childs')
             lstm_seq = self.lstm_init
         lstm_out, _ = self.lstm(lstm_seq.view(-1, 1, self.tagset_size))
         lstm_out = torch.index_select(
             lstm_out, 0, torch.tensor([lstm_out.size()[0]-1])).view(-1)
 
-        # print(f'lstm_out: {lstm_out.size()}')
-        # print(f'embeds: {embeds.size()}')
-        # print(embeds.size())
-        # print(f'cat: {torch.cat((lstm_out, embeds), 0).size()}')
         combined = self.combine(torch.cat((lstm_out, embeds), 0))
         tag_space = self.hidden2tag(combined)
         tag_scores = F.log_softmax(tag_space, dim=0)

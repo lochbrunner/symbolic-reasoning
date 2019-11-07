@@ -79,6 +79,17 @@
             "program": "${workspaceFolder}/deep/generate.specs.py",
             "args": [],
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "test common",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/common/parameter_search_specs.py",
+            "args": [],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal"
+        },
     ]
 }
