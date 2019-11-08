@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from deep.generate_specs import TestPermutation, TestPattern, TestStringBuilder
-from common.parameter_search_specs import TestParameterSearch
+from deep.generate_specs import *
+from common.parameter_search_specs import *
 
 import common.parameter_search_specs
 import unittest
