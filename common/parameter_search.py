@@ -1,3 +1,7 @@
+from typing import List
+from copy import deepcopy
+
+
 class LearningParmeter:
     def __init__(self, num_epochs: int = 10, learning_rate: float = 0.1,
                  batch_size: int = 10, gradient_clipping: float = 0.1,
@@ -9,7 +13,7 @@ class LearningParmeter:
         self.model_hyper_parameter = model_hyper_parameter
 
 
-class Independent:
+class MarchSearch:
     '''
     Assumes that the parameter are roughly independent.
 
@@ -88,3 +92,68 @@ class Independent:
                 self.current_param_index = -1
         else:
             raise Exception(f'Unknown state {self.state}')
+
+
+class ParameterConstraint:
+    def __init__(self, path, min, max, step_size):
+        self.path = path
+        self.min = min
+        self.max = max
+        self.step_size = step_size
+
+
+class GridSearch:
+    def __init__(self, constraints: List[ParameterConstraint], init: LearningParmeter = LearningParmeter()):
+        self.param = {
+            'common': init.__dict__,
+            'model': init.model_hyper_parameter
+        }
+        self.constraints = constraints
+        self.current_param_index = 0
+
+        self.best_combination = self._get_current()
+        self.best_loss = None
+
+    def _get_current(self):
+        param = LearningParmeter()
+        param.__dict__ = self.param['common']
+        param.model_hyper_parameter = self.param['model']
+        return param
+
+    def _increase(self, index) -> bool:
+        '''
+        Increase the param with the specified index if possible
+        or reset it and increase the next on recursive.
+        '''
+        if index >= len(self.constraints):
+            return False
+
+        param_info = self.constraints[index]
+        prev = self.param[param_info.path[0]][param_info.path[1]]
+        if prev >= param_info.max:
+            self.param[param_info.path[0]][param_info.path[1]] = param_info.min
+            return self._increase(index+1)
+        else:
+            self.param[param_info.path[0]
+                       ][param_info.path[1]] += param_info.step_size
+            return True
+
+    def suggest(self) -> LearningParmeter:
+
+        if not self._increase(0):
+            print(f'Finish')
+            return None
+
+        return self._get_current()
+
+    def feedback(self, loss: float):
+        if self.best_loss is None:
+            self.best_loss = loss
+            self.best_combination = deepcopy(self._get_current())
+        elif self.best_loss > loss:
+            self.best_loss = loss
+            self.best_combination = deepcopy(self._get_current())
+
+    @property
+    def best(self):
+        return self.best_combination
