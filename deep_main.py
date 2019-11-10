@@ -10,12 +10,14 @@ import argparse
 import argcomplete
 from math import isnan
 from typing import List, Set, Dict, Tuple, Optional
+import logging
 
 from deep.generate import create_samples_permutation, scenarios_choices
 from deep.node import Node
 from common.utils import printProgressBar, clearProgressBar, create_batches
 from common.reports import plot_train_progess, TrainingProgress
 from common.parameter_search import LearningParmeter
+from common.timer import Timer
 
 
 from deep.model import TreeTagger, TrivialTreeTagger
@@ -37,10 +39,8 @@ def validate(model: torch.nn.Module, samples: List[Tuple[int, Node]]):
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int = 10, verbose: bool = True,
-                 load_model: str = None, save_model: str = None):
+    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None):
         self.report_rate = report_rate
-        self.verbose = verbose
         self.load_model = load_model
         self.save_model = save_model
 
@@ -55,28 +55,29 @@ class ScenarioParameter:
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
          scenario_params: ScenarioParameter):
 
+    timer = Timer('Loading samples')
     samples, idents, tags = create_samples_permutation(
         depth=scenario_params.depth, spread=scenario_params.spread)
+    timer.stop_and_log()
 
-    if exe_params.verbose:
-        print(
-            f'samples: {len(samples)}  tags: {len(tags)} idents: {len(idents)}')
-        print('First sample looks')
-        print(samples[0][1])
+    logging.info(
+        f'samples: {len(samples)}  tags: {len(tags)} idents: {len(idents)}')
+    logging.debug('First sample looks')
+    logging.debug(samples[0][1])
 
+    timer = Timer('Loading model')
     model = TrivialTreeTagger(vocab_size=len(idents), tagset_size=len(tags),
                               hyper_parameter=learn_params.model_hyper_parameter)
 
     num_parameters = sum([reduce(
         operator.mul, p.size()) for p in model.parameters()])
-    if exe_params.verbose:
-        print(f'Number of parameters: {num_parameters}')
+    logging.info(f'Number of parameters: {num_parameters}')
 
     loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
     if exe_params.load_model is not None:
-        print(f'Loading model from {exe_params.load_model} ...')
+        logging.info(f'Loading model from {exe_params.load_model} ...')
         checkpoint = torch.load(exe_params.load_model)
         file_use = checkpoint['use']
         current_use = 'default'
@@ -86,9 +87,11 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         model.train()
+    timer.stop_and_log()
 
     progress: List[TrainingProgress] = []
     batches = create_batches(samples, learn_params.batch_size)
+    timer = Timer('Training per interation')
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         for batch in batches:
@@ -110,18 +113,19 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         if epoch % exe_params.report_rate == 0:
             error = 1.-validate(model, samples)
             progress.append(TrainingProgress(epoch, epoch_loss, error))
-            if exe_params.verbose:
+            if logging.getLogger().level <= logging.INFO:
                 clearProgressBar()
                 print(f'#{epoch} Loss: {epoch_loss}  Error: {error}')
         printProgressBar(epoch, learn_params.num_epochs)
 
     clearProgressBar()
+    timer.stop_and_log_average(learn_params.num_epochs)
     plot_train_progess(progress, strategy='permutation', use='simple',
                        plot_filename='./reports/deep/training.{}.{}.svg',
                        dump_filename='./reports/deep_dump.p')
 
     if exe_params.save_model is not None:
-        print(f'Saving model to {exe_params.save_model} ...')
+        logging.info(f'Saving model to {exe_params.save_model} ...')
         torch.save({
             'epoch': learn_params.num_epochs,
             'model_state_dict': model.state_dict(),
@@ -149,12 +153,18 @@ if __name__ == '__main__':
                         default=None, help='Path to the model')
     parser.add_argument('-o', '--save-model', type=str,
                         default=None, help='Path to the model')
+    parser.add_argument('--log', help='Set the log level', default='warning')
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
+    loglevel = 'DEBUG' if args.verbose else args.log.upper()
+    logging.basicConfig(
+        level=logging._nameToLevel[loglevel],
+        format='%(message)s'
+    )
 
     exec_params = ExecutionParameter(
-        report_rate=args.report_rate, verbose=args.verbose, load_model=args.load_model,
+        report_rate=args.report_rate, load_model=args.load_model,
         save_model=args.save_model)
 
     learn_params = LearningParmeter(
