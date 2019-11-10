@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from os import path, makedirs
 import pickle
+import logging
 
 
 class TrainingProgress:
@@ -39,7 +40,7 @@ def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/tr
 
     fig.tight_layout()
     concret_plot_filename = plot_filename.format(strategy, use)
-    print(f'Saving plot to {concret_plot_filename} ...')
+    logging.info(f'Saving plot to {concret_plot_filename} ...')
     makedirs(path.dirname(concret_plot_filename), exist_ok=True)
     plt.savefig(concret_plot_filename)
     if path.isfile(dump_filename):
@@ -77,7 +78,7 @@ def draw_dump(plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='.
         filename = plot_filename.format(strategy, 'error')
         makedirs(path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
-        print(f'Writing file {filename}')
+        logging.info(f'Writing file {filename}')
 
         fig, ax = plt.subplots(figsize=(12, 9))
         for use in dump[strategy]:
@@ -86,5 +87,5 @@ def draw_dump(plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='.
         plt.legend()
         filename = plot_filename.format(strategy, 'loss')
         makedirs(path.dirname(filename), exist_ok=True)
-        print(f'Writing file {filename}')
+        logging.info(f'Writing file {filename}')
         plt.savefig(filename)
