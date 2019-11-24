@@ -17,7 +17,7 @@ class Timer:
         if delta.total_seconds() < 1.:
             return f'{delta.microseconds/1000.} ms'
         elif delta.total_seconds() < 60.:
-            return f'{delta.total_seconds()} s'
+            return f'{delta.total_seconds():.3} s'
         else:
             return str(delta)
 

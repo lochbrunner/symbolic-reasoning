@@ -43,6 +43,15 @@
             ]
         },
         {
+            "name": "deep cuda",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/deep_main_cuda.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "flat",
             "type": "python",
             "request": "launch",

@@ -12,6 +12,7 @@
         "LSTM",
         "bincode",
         "childs",
+        "dtype",
         "idents",
         "maplit",
         "pyclass",

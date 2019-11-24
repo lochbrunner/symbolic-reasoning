@@ -108,3 +108,12 @@ Requirements:
 ```zsh
 PYTHONPATH=`pwd` deep/generate.specs.py
 ```
+
+## Roadmap
+
+1. Use [DataSets](https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel)
+1. Use packed data
+1. Evaluate performance on pattern in the noise
+1. Evaluate published Tree LSTM networks
+1. Try to find better networks
+1. Integrate into main repo

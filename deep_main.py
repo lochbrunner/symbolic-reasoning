@@ -65,9 +65,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
     logging.debug('First sample looks')
     logging.debug(samples[0][1])
 
+    device = torch.device('cpu')
     timer = Timer('Loading model')
     model = TrivialTreeTagger(vocab_size=len(idents), tagset_size=len(tags),
-                              hyper_parameter=learn_params.model_hyper_parameter)
+                              hyper_parameter=learn_params.model_hyper_parameter, device=device)
 
     num_parameters = sum([reduce(
         operator.mul, p.size()) for p in model.parameters()])
@@ -91,7 +92,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
 
     progress: List[TrainingProgress] = []
     batches = create_batches(samples, learn_params.batch_size)
-    timer = Timer('Training per interation')
+    timer = Timer(f'Training per sample:')
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         for batch in batches:
@@ -115,11 +116,11 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
             progress.append(TrainingProgress(epoch, epoch_loss, error))
             if logging.getLogger().level <= logging.INFO:
                 clearProgressBar()
-                print(f'#{epoch} Loss: {epoch_loss}  Error: {error}')
+                print(f'#{epoch} Loss: {epoch_loss:.3f}  Error: {error:.2f}')
         printProgressBar(epoch, learn_params.num_epochs)
 
     clearProgressBar()
-    timer.stop_and_log_average(learn_params.num_epochs)
+    timer.stop_and_log_average(learn_params.num_epochs*len(samples))
     plot_train_progess(progress, strategy='permutation', use='simple',
                        plot_filename='./reports/deep/training.{}.{}.svg',
                        dump_filename='./reports/deep_dump.p')

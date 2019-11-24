@@ -30,8 +30,9 @@ samples, idents, tags = create_samples_permutation(
 
 def load_model(path: str):
     checkpoint = torch.load(path)
+    device = torch.device('cpu')
     model_hyper_parameter = checkpoint['hyper_parameter']
-    model = TrivialTreeTagger(len(idents), len(tags),
+    model = TrivialTreeTagger(len(idents), len(tags), device,
                               model_hyper_parameter)
     print(f'Loading model from {path} ...')
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -58,7 +59,7 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
 model = load_model('models/deep.tar')
 
 app = dash.Dash(__name__)
-app.title = 'TreeLstm Visu'
+app.title = 'TreeLstm Visualization'
 
 
 app.layout = html.Div([
