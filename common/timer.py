@@ -7,9 +7,21 @@ class Timer:
     def __init__(self, label):
         self.label = label
         self.begin = time()
+        self.paused_seconds = 0.0
+        self.pause_time = None
 
     def start(self):
         self.begin = time()
+
+    def pause(self):
+        if self.pause_time is not None:
+            logging.error('Timer already paused')
+            return
+        self.pause_time = time()
+
+    def resume(self):
+        self.paused_seconds += (time() - self.pause_time)
+        self.pause_time = None
 
     @staticmethod
     def _format_time(seconds):
@@ -23,12 +35,12 @@ class Timer:
 
     def stop_and_log(self):
         end = time()
-        delta_str = Timer._format_time(end-self.begin)
+        delta_str = Timer._format_time(end-self.begin-self.paused_seconds)
         logging.info(f'{self.label} took {delta_str}')
 
     def stop_and_log_average(self, iterations):
         end = time()
-        seconds = (end-self.begin)/iterations
+        seconds = (end-self.begin-self.paused_seconds)/iterations
 
         delta_str = Timer._format_time(seconds)
 
