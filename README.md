@@ -109,11 +109,11 @@ Requirements:
 PYTHONPATH=`pwd` deep/generate.specs.py
 ```
 
-## Roadmap
+## Road-Map
 
-1. Use [DataSets](https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel)
-1. Use packed data
-1. Evaluate performance on pattern in the noise
+1. Use [DataSets](https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel) :heavy_check_mark:
+1. Use packed data (boost of factor 25) :heavy_check_mark:
+1. Evaluate performance on pattern in the noise (needs output at each node)
 1. Evaluate published Tree LSTM networks
-1. Try to find better networks
+1. Try to find better networks (needs hyper parameter search (using [scikit-optimize](https://scikit-optimize.github.io/notebooks/bayesian-optimization.html)))
 1. Integrate into main repo

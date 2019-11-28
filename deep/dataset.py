@@ -6,7 +6,17 @@ import torch
 from deep.generate import create_samples_permutation
 from common.utils import memoize
 from deep.node import Node
-# from deep.model import TrivialTreeTaggerUnrolled
+
+
+def scenarios_choices():
+    return ['permutation']
+
+
+class ScenarioParameter:
+    def __init__(self, scenario: str, depth: int, spread: int):
+        self.scenario = scenario
+        self.depth = depth
+        self.spread = spread
 
 
 def ident_to_id(node: Node):
@@ -21,12 +31,19 @@ class PermutationDataset(Dataset):
         self.samples, self.idents, self.classes = create_samples_permutation(
             depth=2, spread=2)
 
+        # Preprocess
+        self.samples = [self._process_sample(sample) for sample in self.samples]
+
     def __len__(self):
         return len(self.samples)
 
     @memoize
     def __getitem__(self, index):
-        [y, x] = self.samples[index]
+        return self.samples[index]
+        # return _process_sample(index)
+
+    def _process_sample(self, sample):
+        [y, x] = sample
         s = 2  # spread
         if self.transform is not None:
             return self.transform(x, y, s)
@@ -48,17 +65,29 @@ class Embedder:
     '''
 
     def __call__(self, x: Node, y, s):
-        x = [
-            ident_to_id(x.childs[0]),
-            ident_to_id(x.childs[1]),
-            ident_to_id(x)
-        ]
+        stack = [x]
+        x = []
+        seen = set()
+        while len(stack) > 0:
+            n = stack[-1]
+            if len(n.childs) > 0 and n not in seen:
+                stack.extend(n.childs[::-1])
+                seen.add(n)
+            else:
+                stack.pop()
+                x.append(ident_to_id(n))
+
         return x, y, s
+
+    @staticmethod
+    def blueprint(node: Node):
+        pass
 
 
 class Padder:
-    def __init__(self, max_length=3, pad_token=0):
-        self.max_length = max_length
+    def __init__(self, depth=2, spread=2, pad_token=0):
+        self.max_length = sum(
+            [spread**l for l in range(0, depth+1)])
         self.pad_token = pad_token
 
     def __call__(self, x, y, s):

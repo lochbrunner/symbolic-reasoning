@@ -146,8 +146,8 @@ if __name__ == '__main__':
     parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-b', '--batch-size', type=int, default=10)
-    parser.add_argument('-r', '--report-rate', type=int, default=10)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
+    parser.add_argument('-r', '--report-rate', type=int, default=10)
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
     parser.add_argument('-i', '--load-model', type=str,
