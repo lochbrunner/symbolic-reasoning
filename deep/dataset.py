@@ -26,10 +26,10 @@ def ident_to_id(node: Node):
 
 class PermutationDataset(Dataset):
 
-    def __init__(self, transform=None):
+    def __init__(self, params, transform=None):
         self.transform = transform
         self.samples, self.idents, self.classes = create_samples_permutation(
-            depth=2, spread=2)
+            depth=params.depth, spread=params.spread)
 
         # Preprocess
         self.samples = [self._process_sample(sample) for sample in self.samples]
@@ -58,6 +58,41 @@ class PermutationDataset(Dataset):
         return len(self.classes)
 
 
+class TraverseInstructionSet:
+    def __init__(self, input=None, hidden=None):
+        self.input = input
+        self.hidden = hidden
+
+    def get(self, input, hidden):
+        if self.input is not None:
+            return input[self.input]
+        if self.hidden is not None:
+            return hidden[self.hidden]
+        raise Exception('Missing index!')
+
+    def __repr__(self):
+        if self.input is not None:
+            return f'i{self.input}'
+        if self.hidden is not None:
+            return f'h{self.hidden}'
+        raise Exception('Missing index!')
+
+
+class TraverseInstruction:
+    def __init__(self, root, childs):
+        self.root = root
+        self.childs = childs
+
+    def get(self, input, hidden):
+        root = self.root.get(input, hidden)
+        childs = [child.get(input, hidden) for child in self.childs]
+        return root, childs
+
+    def __repr__(self):
+        childs = ', '.join([repr(child) for child in self.childs])
+        return f'{repr(self.root)} - {childs}'
+
+
 class Embedder:
     '''Traversing post order
 
@@ -80,8 +115,27 @@ class Embedder:
         return x, y, s
 
     @staticmethod
-    def blueprint(node: Node):
-        pass
+    def blueprint(params):
+        depth = params.depth
+        spread = params.spread
+        # One line for each node (not leaf)
+        lines = [l for l in range(depth)[::-1] for i in range(spread**l)]
+        i = 0
+        h = 0
+        instructions = []
+        for l in lines:
+            if l == depth-1:
+                instructions.append(TraverseInstruction(
+                    TraverseInstructionSet(input=i + spread),
+                    [TraverseInstructionSet(input=i+s) for s in range(spread)]))
+                i += spread + 1
+            else:
+                instructions.append(TraverseInstruction(
+                    TraverseInstructionSet(input=i),
+                    [TraverseInstructionSet(hidden=h+s) for s in range(spread)]))
+                i += 1
+                h += spread
+        return instructions
 
 
 class Padder:

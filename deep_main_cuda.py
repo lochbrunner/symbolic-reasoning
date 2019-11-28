@@ -59,7 +59,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                               'num_workers': 0}
 
     timer = Timer('Loading samples')
-    dataset = PermutationDataset(transform=Compose([
+    dataset = PermutationDataset(params=scenario_params, transform=Compose([
         Embedder(),
         Padder(),
         Uploader(device)
@@ -74,6 +74,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         vocab_size=dataset.vocab_size,
         tagset_size=dataset.tag_size,
         pad_token=padding_index,
+        blueprint=Embedder.blueprint(scenario_params),
         hyper_parameter=learn_params.model_hyper_parameter)
 
     loss_function = nn.NLLLoss(reduction='mean')
