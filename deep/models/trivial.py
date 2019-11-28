@@ -5,9 +5,10 @@ import torch.nn.utils.rnn as rnn
 
 
 class TrivialTreeTagger(nn.Module):
-    def __init__(self, vocab_size, tagset_size, pad_token, hyper_parameter):
+    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
         # print(f'tagset_size: {tagset_size}')
         super(TrivialTreeTagger, self).__init__()
+        self.blueprint = blueprint
         self.config = {
             'embedding_size': 32,
             'lstm_hidden_size': 64,
@@ -48,8 +49,8 @@ class TrivialTreeTagger(nn.Module):
         # To tag
         self.hidden_to_tag = nn.Linear(self.config['embedding_size'], tagset_size)
 
-    def _cell(self, r, c0, c1, s):
-        c = torch.stack((c0, c1), dim=1)  # pylint: disable=no-member
+    def _cell(self, r, cs, s):
+        c = torch.stack(cs, dim=1)  # pylint: disable=no-member
         batch_size = r.size(0)
         # batch x sequence x embedding
         c = rnn.pack_padded_sequence(c, s, batch_first=True, enforce_sorted=False)
@@ -61,30 +62,28 @@ class TrivialTreeTagger(nn.Module):
         # Combine root with label
         c = F.relu(c)
         c = torch.split(c, 1, dim=1)[-1].view(-1, self.config['lstm_hidden_size'])
-        r = self.embedding(r)
         x = torch.cat((r, c), dim=1)
         x = self.combine(x)
         x = F.relu(x)
 
         return x
 
-    def _leaf(self, r, c0, c1, s):
-        c0 = self.embedding(c0)
-        c1 = self.embedding(c1)
-        return self._cell(r, c0, c1, s)
-
     def forward(self, x, s):
-        # For now only support spread 2 depth 1
+        # Expect for s:2 and d=2:
+        #  i2, (i0, i1)
+        #  i5, (i3, i4)
+        #  i6, (h0, h1)
 
         # x: batch x sequence
-        i = [p.view(-1) for p in torch.split(x, 1, dim=1)]
-        c00, c01, c0r, c10, c11, c1r, r = i
-        # First ast
-        c0 = self._leaf(c0r, c00, c01, s)
-        # Second ast
-        c1 = self._leaf(c1r, c10, c11, s)
-        # Root
-        x = self._cell(r, c0, c1, s)
+        input = [p.view(-1) for p in torch.split(x, 1, dim=1)]
+        input = [self.embedding(c) for c in input]
+
+        hidden = []
+        for inst in self.blueprint:
+            r, c = inst.get(input, hidden)
+            hidden.append(self._cell(r, c, s))
+
+        x = hidden[-1]
         x = self.hidden_to_tag(x)
         x = F.log_softmax(x, dim=1)
         return x
