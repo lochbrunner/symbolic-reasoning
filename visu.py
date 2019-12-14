@@ -29,7 +29,7 @@ def load(path: str):
 
     dataset = PermutationDataset(params=scenario_params)
 
-    learn_params = LearningParmeter(model_name='LstmTreeTagger', num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
+    learn_params = LearningParmeter(model_name=None, num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
                                     model_hyper_parameter={})
     scenario_params = ScenarioParameter(
         scenario='permutation', depth=2, spread=2)
@@ -67,6 +67,7 @@ app.title = 'TreeLstm Visualization'
 
 
 app.layout = html.Div([
+    html.H2(id='title', children=model.__class__.__name__),
     tree_dash_component.TreeDashComponent(
         id='symbol',
         symbol=dataset[0][0].as_dict()
