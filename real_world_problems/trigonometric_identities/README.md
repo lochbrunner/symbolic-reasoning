@@ -41,3 +41,13 @@
   * sin(x+/-y) = sin x cos y+/- cos x sin y
   * cos(x+/-y) = cos x cos y-/+ sin x sin y
  
+### Manual calculation
+
+Claim: sin x = sqrt(1-cos²x)
+
+* sin²x+cos²x = (Im(e^ix))²+(Re(e^ix))²
+* ...
+* = -¼(e^ix-e^-ix)²+¼(e^îx+e^-ix)²
+* = -¼(e^ix e^ix-e^ix e^-ix-e^-ix e^ix+e^-i xe^-ix) + ¼(..)
+* = -¼(e^2ix - 1 - 1 + e^-2ix)+¼(e^2ix+1+1+e^-2ix)
+* = -¼e^2ix+1/2-¼e^-2ix+¼e^2ix+1/2+¼e^-2ix = 1

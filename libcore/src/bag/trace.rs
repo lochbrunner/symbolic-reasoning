@@ -382,7 +382,7 @@ mod specs {
             Symbol::parse(&context, "a").unwrap(),
             Symbol::parse(&context, "b").unwrap(),
         ]
-        .into_iter()
+        .iter()
         .map(|deduced| DenseTraceStep {
             info: DenseApplyInfo {
                 rule: Rule::parse(&context, "v => c").unwrap(),
@@ -541,7 +541,7 @@ mod specs {
         let steps = trace
             .all_steps()
             .map(|l| l.deduced.ident.clone())
-            .collect::<Vec<String>>();;
+            .collect::<Vec<String>>();
 
         assert_eq!(steps.len(), 2);
     }

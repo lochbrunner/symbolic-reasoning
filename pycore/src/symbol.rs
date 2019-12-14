@@ -88,12 +88,11 @@ impl PyIterProtocol for PySymbolAndPathIter {
 impl PySymbol {
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
-        match Symbol::parse(&context.inner, &code) {
-            Ok(inner) => Ok(PySymbol {
-                inner: Rc::new(inner),
-            }),
-            Err(msg) => Err(PyErr::new::<TypeError, _>(msg)),
-        }
+        let inner =
+            Symbol::parse(&context.inner, &code).map_err(|msg| PyErr::new::<TypeError, _>(msg))?;
+        Ok(PySymbol {
+            inner: Rc::new(inner),
+        })
     }
 
     #[getter]

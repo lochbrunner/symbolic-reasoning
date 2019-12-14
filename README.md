@@ -18,39 +18,39 @@
 
 ## Definitions
 
-Each term is defined by its nodes <img style="margin:0 0 -7px 0" src="docs/formulas/symbol.png" /> where <img style="margin:0 0 -2px 0" src="docs/formulas/ell.png" /> is the level of the node.
-The term <img style="margin:0 0 -1x 0" src="docs/formulas/n.png" /> with the content <img style="margin:0 0 -3px 0" src="docs/formulas/a+b.png" /> is then represented by <img style="margin:0 0 -4px 0" src="docs/formulas/parts-of-a+b.png" />
+Each term is defined by its nodes $n_{i_1},\cdots,n_{i_\ell}$  where $\ell$ is the level of the node.
+The term $n$ with the content $a+b$ is then represented by $n=+; n_0=a; n_1=b$
 
-Further more one has to distinguish if a sub-term <img style="margin:0 0 -7px 0" src="docs/formulas/symbol.png" /> is fixed one.
+Further more one has to distinguish if a sub-term $n_{i_1,\cdots,i_\ell}$  is fixed one.
 Which means can we use it as variable or is a constant or pre-defined operator.
 
 ## Example
 
 Consider the following equation
 
-![b*(cd-cd)=e](docs/formulas/b*(cd-cd)=e.png)
+$$b\cdot\left(cd-cd\right)=e$$
 
 and the following replacement rule
 
-![a-a => 0](docs/formulas/a-a=>0.png)
+$$a-a \Rightarrow 0$$
 
 which comes directly out of the equation
 
-![a-a = 0](docs/formulas/a-a=0_300.png)
+$$a-a = 0$$
 
-When trying to apply this rule on the equation above results in the fitting try of the abstract term <img style="margin:0 0 -1px 0" src="docs/formulas/a-a_150.png" /> in one of the nodes of the formula <img style="margin:0 0 -5px 0" src="docs/formulas/b*(cd-cd)=e_150.png" />.
+When trying to apply this rule on the equation above results in the fitting try of the abstract term $a-a$ in one of the nodes of the formula $b\cdot\left(cd-cd\right)=e$.
 
-The fitting result would be that the rule fits in the node <img style="margin:0 0 -1px 0" src="docs/formulas/cd-cd_150.png" /> and the mapping <img style="margin:0 0 -1px 0" src="docs/formulas/a->cd_150.png" />.
+The fitting result would be that the rule fits in the node $cd-cd$ and the mapping $a\rightarrow cd$.
 
 Applying this fitting result on the initial equation would transform it to
 
-![b*(a-a)=e](docs/formulas/b*(a-a)=e_300.png)
+$$b\cdot\left(a-a\right)=e$$
 
-where `a = cd`.
+where $a = cd$.
 
 with the conclusion this results in
 
-![b*0=e](docs/formulas/b*0=e_300.png)
+$$b\cdot0=e$$
 
 .
 
@@ -60,15 +60,14 @@ You can find this example as a [e2e test](./libcore/src/apply.rs#L328-L347) from
 
 Rule
 
-F(a,b) -> G(a)
+$$F(a,b) \rightarrow G(a)$$
 
 ## Minimal examples with Derivations
 
 ### Polynomial
 
-```math
-D(x^n, x) => n*x^(n-1)
-```
+$$D\left( x^n\right), x) \Rightarrow n\cdot x^{n-1} $$
+
 
 ## Implementation
 

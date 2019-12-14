@@ -258,17 +258,32 @@ struct ParseStack {
     pub infix: Vec<Operation>,
 }
 
+impl ParseStack {
+    pub fn pop_as_symbol(&mut self, context: &Context) -> Result<Symbol, String> {
+        match self.symbol.pop() {
+            Some(symbol) => match symbol {
+                IdentOrSymbol::Ident(ident) => {
+                    let fixed = context.is_fixed(&ident);
+                    Ok(Symbol::new_variable_from_string(ident, fixed))
+                }
+                IdentOrSymbol::Symbol(symbol) => Ok(symbol),
+            },
+            None => Err("Expected at least one symbol in sym stack".to_owned()),
+        }
+    }
+}
+
 fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) -> Result<(), String> {
     while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
         match stack.infix.pop().unwrap() {
             Operation { ident, r#type, .. } => {
                 let childs = match r#type {
                     OperationType::Infix => {
-                        let b = pop_as_symbol(context, &mut stack.symbol)?;
-                        let a = pop_as_symbol(context, &mut stack.symbol)?;
+                        let b = stack.pop_as_symbol(context)?;
+                        let a = stack.pop_as_symbol(context)?;
                         vec![a, b] // Order has to be reverted
                     }
-                    OperationType::Prefix => vec![pop_as_symbol(context, &mut stack.symbol)?],
+                    OperationType::Prefix => vec![stack.pop_as_symbol(context)?],
                     _ => return Err(format!("Invalid argument count {:?}", r#type)),
                 };
                 stack.symbol.push(IdentOrSymbol::Symbol(Symbol {

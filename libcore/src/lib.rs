@@ -18,7 +18,6 @@
 //! r*(s+t)
 //! ```
 
-#![feature(map_get_key_value)]
 #![feature(test)]
 #[macro_use]
 extern crate serde_derive;
@@ -31,6 +30,7 @@ extern crate nom;
 extern crate test;
 
 pub mod apply;
+pub mod bag;
 pub mod common;
 pub mod context;
 pub mod dumper;
@@ -38,10 +38,10 @@ pub mod fit;
 pub mod parser;
 pub mod rule;
 pub mod symbol;
-pub mod bag;
 pub use apply::*;
 pub use context::*;
 pub use fit::*;
 pub use rule::*;
 pub use symbol::*;
 pub mod io;
+pub mod solver;
