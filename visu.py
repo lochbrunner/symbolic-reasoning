@@ -16,28 +16,27 @@ import torch
 
 # local
 from deep.node import Node
-from deep.model import TreeTagger, TrivialTreeTagger
-from deep.generate import create_samples_permutation
+from common.parameter_search import LearningParmeter
+from deep.models.trivial import TrivialTreeTagger
+from deep.dataset import PermutationDataset, Embedder, scenarios_choices, ScenarioParameter, ident_to_id
+
 from deep.generate import SymbolBuilder
+from deep_main_cuda import load_model
 
 
-depth = 2
-spread = 2
+def load(path: str):
+    scenario_params = ScenarioParameter('permutation', 2, 2)
+    padding_index = 0
 
-samples, idents, tags = create_samples_permutation(
-    depth=depth, spread=spread)
+    dataset = PermutationDataset(params=scenario_params)
 
-
-def load_model(path: str):
-    checkpoint = torch.load(path)
-    device = torch.device('cpu')
-    model_hyper_parameter = checkpoint['hyper_parameter']
-    model = TrivialTreeTagger(len(idents), len(tags), device,
-                              model_hyper_parameter)
-    print(f'Loading model from {path} ...')
-    model.load_state_dict(checkpoint['model_state_dict'])
+    learn_params = LearningParmeter(num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
+                                    model_hyper_parameter={})
+    scenario_params = ScenarioParameter(
+        scenario='permutation', depth=2, spread=2)
+    model, _ = load_model(path, dataset, learn_params, scenario_params, padding_index)
     model.eval()
-    return model
+    return model, dataset
 
 
 def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
@@ -47,8 +46,8 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     all_paths = []
 
     for path, node in builder.traverse_bfs_path():
-        vars = model.introspect(node)
-        scores = vars[activation_name]
+        vars = model.introspect(node, ident_to_id)
+        scores = vars[activation_name].detach().numpy()
         all_scores.insert(0, scores)
         path = '/'.join([str(d) for d in path])
         all_paths.insert(0, f'{node.ident} @ {path}')
@@ -56,7 +55,13 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     return all_scores, all_paths
 
 
-model = load_model('models/deep.tar')
+def predict(model, node):
+    scores = model.introspect(node, ident_to_id)['scores']
+    _, i = scores.max(0)
+    return i.item()
+
+
+model, dataset = load('models/batch.mod')
 
 app = dash.Dash(__name__)
 app.title = 'TreeLstm Visualization'
@@ -65,12 +70,12 @@ app.title = 'TreeLstm Visualization'
 app.layout = html.Div([
     tree_dash_component.TreeDashComponent(
         id='symbol',
-        symbol=samples[0][1].as_dict()
+        symbol=dataset[0][0].as_dict()
     ),
-    dcc.Slider(id='selector', min=0, max=len(samples)-1, value=3, step=1),
+    dcc.Slider(id='selector', min=0, max=len(dataset)-1, value=3, step=1),
     html.Button('Prev', id='prev', style={'marginRight': '10px'}),
     html.Button('Next', id='next'),
-    html.Span(samples[0][0], id='tag', style={'paddingLeft': 10}),
+    html.Span(dataset[0][1], id='tag', style={'paddingLeft': 10}),
     html.Div([
         html.P('-', id='tag_prediction'),
         dcc.Dropdown(id='activation-selector', options=[
@@ -90,7 +95,7 @@ def pagination(next_clicked, prev_clicked, value):
     prev_clicked = 0 if prev_clicked is None else prev_clicked
     forward = next_clicked > prev_clicked
     if forward:
-        return min(value + 1, len(samples) - 1)
+        return min(value + 1, len(dataset) - 1)
     else:
         return max(0, value - 1)
 
@@ -105,9 +110,9 @@ def pagination(next_clicked, prev_clicked, value):
      Input(component_id='activation-selector', component_property='value')]
 )
 def update_selection(sample_id, activation_name):
-    tag, sample = samples[sample_id]
+    sample, tag, _ = dataset[sample_id]
     tag_scores, paths = traverse_for_scores(model, sample, activation_name)
-    _, max_index = model(sample).max(0)
+    max_index = predict(model, sample)
     prediction = f'Prediction {max_index}'
 
     trace = go.Heatmap(y=paths, z=tag_scores, colorscale='Electric', colorbar={

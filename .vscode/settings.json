@@ -26,5 +26,6 @@
         "isnan",
         "itertools",
         "optim"
-    ]
+    ],
+    "python.pythonPath": "/bin/python3"
 }

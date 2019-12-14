@@ -75,7 +75,10 @@ This project contains.
 
 * [Calculation Generator](./generator)
 * [Machine Learning](./ml)
+
+
 # LSTM Evaluation
+# Evaluation of Tree Capability Models 
 
 ## Setup
 
@@ -116,4 +119,5 @@ PYTHONPATH=`pwd` deep/generate.specs.py
 1. Evaluate performance on pattern in the noise (needs output at each node)
 1. Evaluate published Tree LSTM networks
 1. Try to find better networks (needs hyper parameter search (using [scikit-optimize](https://scikit-optimize.github.io/notebooks/bayesian-optimization.html)))
+1. Padding smaller trees
 1. Integrate into main repo

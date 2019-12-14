@@ -43,10 +43,24 @@
             ]
         },
         {
+            "name": "visu",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/visu.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "deep cuda",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/deep_main_cuda.py",
+            "args": [
+                "-b",
+                "36"
+            ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false

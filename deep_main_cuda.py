@@ -2,6 +2,10 @@
 
 import logging
 import argparse
+from functools import reduce
+import operator
+import signal
+import sys
 
 import torch
 import torch.optim as optim
@@ -43,46 +47,24 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     return float(true) / float(true + false)
 
 
-def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
-    # use_cuda = torch.cuda.is_available()
-    # device = torch.device('cuda:0' if use_cuda else 'cpu')
-    device = torch.device('cpu')  # pylint: disable=no-member
-
-    logging.info(f'Using device: {device}')
-
-    train_loader_params = {'batch_size': learn_params.batch_size,
-                           'shuffle': True,
-                           'num_workers': 0}
-
-    validate_loader_params = {'batch_size': 1,
-                              'shuffle': False,
-                              'num_workers': 0}
-
-    timer = Timer('Loading samples')
-    dataset = PermutationDataset(params=scenario_params, transform=Compose([
-        Embedder(),
-        Padder(),
-        Uploader(device)
-    ]))
-    training_dataloader = data.DataLoader(dataset, **train_loader_params)
-    validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
-    timer.stop_and_log()
-
-    padding_index = 0
-
+def load_model(filename, dataset, learn_params: LearningParmeter, scenario_params: ScenarioParameter, pad_token):
     model = TrivialTreeTagger(
         vocab_size=dataset.vocab_size,
         tagset_size=dataset.tag_size,
-        pad_token=padding_index,
+        pad_token=pad_token,
         blueprint=Embedder.blueprint(scenario_params),
         hyper_parameter=learn_params.model_hyper_parameter)
 
-    loss_function = nn.NLLLoss(reduction='mean')
+    num_parameters = sum([reduce(
+        operator.mul, p.size()) for p in model.parameters()])
+    logging.info(f'Number of parameters: {num_parameters}')
+
     optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
 
-    if exe_params.load_model is not None:
-        timer = Timer('Loading model from {exe_params.load_model}')
-        checkpoint = torch.load(exe_params.load_model)
+    if filename is not None:
+        # TODO: Find suitable model with the given hyper parameters
+        timer = Timer(f'Loading model from {filename}')
+        checkpoint = torch.load(filename)
         file_use = checkpoint['use']
         current_use = 'default'
         if file_use != current_use:
@@ -93,9 +75,68 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         model.train()
         timer.stop_and_log()
 
+    return model, optimizer
+
+
+def save_model(filename, model, optimizer, iteration):
+    if filename is None:
+        return
+    logging.info(f'Saving model to {filename} ...')
+    torch.save({
+        'epoch': learn_params.num_epochs,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'iteration': iteration,
+        'use': 'default',
+        'hyper_parameter': learn_params.model_hyper_parameter}, filename)
+
+
+def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
+    # use_cuda = torch.cuda.is_available()
+    # device = torch.device('cuda:0' if use_cuda else 'cpu')
+    device = torch.device('cpu')  # pylint: disable=no-member
+
+    logging.info(f'Using device: {device}')
+
+    # Loading data
+    train_loader_params = {'batch_size': learn_params.batch_size,
+                           'shuffle': True,
+                           'num_workers': 0}
+
+    validate_loader_params = {'batch_size': 1,
+                              'shuffle': False,
+                              'num_workers': 0}
+
+    timer = Timer('Loading samples')
+    pad_token = 0
+    dataset = PermutationDataset(params=scenario_params, transform=Compose([
+        Embedder(),
+        Padder(pad_token=pad_token),
+        Uploader(device)
+    ]))
+    training_dataloader = data.DataLoader(dataset, **train_loader_params)
+    validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
+    timer.stop_and_log()
+
+    # Loading model
+
+    loss_function = nn.NLLLoss(reduction='mean')
+    model, optimizer = load_model(exe_params.load_model, dataset, learn_params,
+                                  scenario_params, pad_token=0)
+
     timer = Timer('Sending model to device')
     model.to(device)
     timer.stop_and_log()
+
+    # Training
+    original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+    def early_abort(signal, frame):
+        clearProgressBar()
+        print('Early abort')
+        save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs)
+        sys.exit(1)
+    signal.signal(signal.SIGINT, early_abort)
 
     timer = Timer(f'Training per sample:')
     for epoch in range(learn_params.num_epochs):
@@ -107,6 +148,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             # batch x tags
             loss = loss_function(x, y)
             loss.backward()
+            torch.nn.utils.clip_grad_value_(
+                model.parameters(), learn_params.gradient_clipping)
             optimizer.step()
             epoch_loss += loss
         if epoch % exe_params.report_rate == 0:
@@ -121,15 +164,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     clearProgressBar()
     timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
 
-    if exe_params.save_model is not None:
-        logging.info(f'Saving model to {exe_params.save_model} ...')
-        torch.save({
-            'epoch': learn_params.num_epochs,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
-            'use': 'default',
-            'hyper_parameter': learn_params.model_hyper_parameter}, exe_params.save_model)
+    signal.signal(signal.SIGINT, original_sigint_handler)
+
+    save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs)
 
 
 if __name__ == '__main__':
