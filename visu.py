@@ -17,11 +17,10 @@ import torch
 # local
 from deep.node import Node
 from common.parameter_search import LearningParmeter
-from deep.models.trivial import TrivialTreeTagger
 from deep.dataset import PermutationDataset, Embedder, scenarios_choices, ScenarioParameter, ident_to_id
 
 from deep.generate import SymbolBuilder
-from deep_main_cuda import load_model
+from deep.models import load_model
 
 
 def load(path: str):
@@ -30,7 +29,7 @@ def load(path: str):
 
     dataset = PermutationDataset(params=scenario_params)
 
-    learn_params = LearningParmeter(num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
+    learn_params = LearningParmeter(model_name='LstmTreeTagger', num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
                                     model_hyper_parameter={})
     scenario_params = ScenarioParameter(
         scenario='permutation', depth=2, spread=2)
@@ -61,7 +60,7 @@ def predict(model, node):
     return i.item()
 
 
-model, dataset = load('models/batch.mod')
+model, dataset = load('snapshots/model.sp')
 
 app = dash.Dash(__name__)
 app.title = 'TreeLstm Visualization'

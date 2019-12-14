@@ -3,9 +3,10 @@ from copy import deepcopy
 
 
 class LearningParmeter:
-    def __init__(self, num_epochs: int = 10, learning_rate: float = 0.1,
+    def __init__(self, model_name, num_epochs: int = 10, learning_rate: float = 0.1,
                  batch_size: int = 10, gradient_clipping: float = 0.1,
                  model_hyper_parameter: dict = {}):
+        self.model_name = model_name
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -24,7 +25,7 @@ class MarchSearch:
     * b) when things went worse
     '''
 
-    def __init__(self, init: LearningParmeter = LearningParmeter()):
+    def __init__(self, init: LearningParmeter = LearningParmeter('LstmTreeTagger')):
         self.param = {
             'common': init.__dict__,
             'model': init.model_hyper_parameter
@@ -41,7 +42,7 @@ class MarchSearch:
         self.velocity = 1.
 
     def _get_current(self):
-        param = LearningParmeter()
+        param = LearningParmeter('LstmTreeTagger')
         param.__dict__ = self.param['common']
         param.model_hyper_parameter = self.param['model']
         return param
@@ -103,7 +104,7 @@ class ParameterConstraint:
 
 
 class GridSearch:
-    def __init__(self, constraints: List[ParameterConstraint], init: LearningParmeter = LearningParmeter()):
+    def __init__(self, constraints: List[ParameterConstraint], init: LearningParmeter = LearningParmeter('LstmTreeTagger')):
         self.param = {
             'common': init.__dict__,
             'model': init.model_hyper_parameter
@@ -115,7 +116,7 @@ class GridSearch:
         self.best_loss = None
 
     def _get_current(self):
-        param = LearningParmeter()
+        param = LearningParmeter('LstmTreeTagger')
         param.__dict__ = self.param['common']
         param.model_hyper_parameter = self.param['model']
         return param
