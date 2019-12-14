@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn
 
 
-class TrivialTreeTagger(nn.Module):
-    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
-        super(TrivialTreeTagger, self).__init__()
+class RnnTreeTagger(nn.Module):
+    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter, Rnn):
+        super(RnnTreeTagger, self).__init__()
         self.blueprint = blueprint
         self.config = {
             'embedding_size': 32,
@@ -22,8 +22,8 @@ class TrivialTreeTagger(nn.Module):
             padding_idx=pad_token
         )
 
-        # LSTM
-        self.lstm = nn.LSTM(
+        # Rnn
+        self.lstm = Rnn(
             input_size=self.config['embedding_size'],
             hidden_size=self.config['lstm_hidden_size'],
             num_layers=self.config['lstm_layers'],
@@ -126,3 +126,15 @@ class TrivialTreeTagger(nn.Module):
 
     def activation_names(self):
         return ['scores']
+
+
+class LstmTreeTagger(RnnTreeTagger):
+    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
+        super(LstmTreeTagger, self).__init__(vocab_size, tagset_size,
+                                             pad_token, blueprint, hyper_parameter, nn.LSTM)
+
+
+class GruTreeTagger(RnnTreeTagger):
+    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
+        super(GruTreeTagger, self).__init__(vocab_size, tagset_size,
+                                            pad_token, blueprint, hyper_parameter, nn.GRU)

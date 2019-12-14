@@ -13,7 +13,7 @@ from torch.utils import data
 from torch import nn
 
 from deep.dataset import PermutationDataset, Embedder, Padder, Uploader, scenarios_choices, ScenarioParameter
-from deep.models.trivial import TrivialTreeTagger
+from deep.models import create_model, save_model, load_model, all_models
 
 from common.timer import Timer
 from common.utils import printProgressBar, clearProgressBar, Compose
@@ -47,50 +47,6 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     return float(true) / float(true + false)
 
 
-def load_model(filename, dataset, learn_params: LearningParmeter, scenario_params: ScenarioParameter, pad_token):
-    model = TrivialTreeTagger(
-        vocab_size=dataset.vocab_size,
-        tagset_size=dataset.tag_size,
-        pad_token=pad_token,
-        blueprint=Embedder.blueprint(scenario_params),
-        hyper_parameter=learn_params.model_hyper_parameter)
-
-    num_parameters = sum([reduce(
-        operator.mul, p.size()) for p in model.parameters()])
-    logging.info(f'Number of parameters: {num_parameters}')
-
-    optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
-
-    if filename is not None:
-        # TODO: Find suitable model with the given hyper parameters
-        timer = Timer(f'Loading model from {filename}')
-        checkpoint = torch.load(filename)
-        file_use = checkpoint['use']
-        current_use = 'default'
-        if file_use != current_use:
-            raise Exception(
-                f'Loaded model contains {file_use} but {current_use} is specified for this training.')
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        model.train()
-        timer.stop_and_log()
-
-    return model, optimizer
-
-
-def save_model(filename, model, optimizer, iteration):
-    if filename is None:
-        return
-    logging.info(f'Saving model to {filename} ...')
-    torch.save({
-        'epoch': learn_params.num_epochs,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'iteration': iteration,
-        'use': 'default',
-        'hyper_parameter': learn_params.model_hyper_parameter}, filename)
-
-
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
     # use_cuda = torch.cuda.is_available()
     # device = torch.device('cuda:0' if use_cuda else 'cpu')
@@ -119,10 +75,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     timer.stop_and_log()
 
     # Loading model
-
     loss_function = nn.NLLLoss(reduction='mean')
-    model, optimizer = load_model(exe_params.load_model, dataset, learn_params,
-                                  scenario_params, pad_token=0)
+    model, optimizer = load_model(exe_params.load_model, dataset,
+                                  learn_params, scenario_params, pad_token=0)
 
     timer = Timer('Sending model to device')
     model.to(device)
@@ -134,7 +89,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     def early_abort(signal, frame):
         clearProgressBar()
         print('Early abort')
-        save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs)
+        save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs, learn_params)
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
 
@@ -166,7 +121,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     signal.signal(signal.SIGINT, original_sigint_handler)
 
-    save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs)
+    save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs, learn_params)
 
 
 if __name__ == '__main__':
@@ -179,6 +134,8 @@ if __name__ == '__main__':
                         default=None, help='Path to the model')
     parser.add_argument('-o', '--save-model', type=str,
                         default=None, help='Path to the model')
+    parser.add_argument('-u', '--update-model', type=str,
+                        default=None, help='Path to the model')
     parser.add_argument('-r', '--report-rate', type=int, default=20)
 
     # Learning parameter
@@ -186,6 +143,8 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
+    parser.add_argument('-m', '--model', choices=[m for m in all_models], default='LstmTreeTagger')
+
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
                         default='permutation', choices=scenarios_choices() + ['all'])
@@ -202,10 +161,11 @@ if __name__ == '__main__':
     )
 
     exec_params = ExecutionParameter(
-        report_rate=args.report_rate, load_model=args.load_model,
-        save_model=args.save_model)
+        report_rate=args.report_rate, load_model=args.load_model or args.update_model,
+        save_model=args.save_model or args.update_model)
 
     learn_params = LearningParmeter(
+        model_name=args.model,
         num_epochs=args.num_epochs, learning_rate=args.learning_rate,
         batch_size=args.batch_size, gradient_clipping=args.gradient_clipping,
         model_hyper_parameter={})
