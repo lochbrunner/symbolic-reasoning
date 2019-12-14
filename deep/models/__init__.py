@@ -25,7 +25,11 @@ def create_model(model_name, vocab_size, tagset_size, pad_token, blueprint, hype
 
 
 def load_model(filename, dataset, learn_params: LearningParmeter, scenario_params: ScenarioParameter, pad_token):
-    model = create_model(learn_params.model_name,
+    if learn_params.model_name is None and filename is not None:
+        model_name = checkpoint = torch.load(filename)['model_name']
+    else:
+        model_name = learn_params.model_name
+    model = create_model(model_name,
                          vocab_size=dataset.vocab_size,
                          tagset_size=dataset.tag_size,
                          pad_token=pad_token,

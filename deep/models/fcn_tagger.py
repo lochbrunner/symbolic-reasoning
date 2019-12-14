@@ -39,12 +39,8 @@ class FullyConnectedTagger(nn.Module):
         cs = F.relu(cs)
         r = F.relu(r)
         attn = self.attn(r)
-        # print(f'cs: {cs.size()}')
-        # print(f'attn: {attn.size()}')
         applied_attn = attn[:, None, :]*cs
         applied_attn = F.relu(applied_attn).view(-1, self.config['embedding_size']*2)
-        # print(f'applied_attn: {applied_attn.size()}')
-        # print(f'r: {r.size()}')
         return F.relu(self.out(torch.cat((r, applied_attn), dim=1)))
 
     def forward(self, x, s):
@@ -61,3 +57,31 @@ class FullyConnectedTagger(nn.Module):
         x = self.hidden_to_tag(x)
         x = F.log_softmax(x, dim=1)
         return x
+
+    def _cell_introspect(self, x, embedder):
+        r = torch.as_tensor(embedder(x))
+        r = self.embedding(r)
+
+        if len(x.childs) == 0:
+            return r
+        cs = [self._cell_introspect(child, embedder) for child in x.childs]
+
+        cs = torch.stack(cs, dim=0)
+        cs = F.relu(cs)
+        r = F.relu(r)
+        attn = self.attn(r)
+        applied_attn = attn[None, :]*cs
+        applied_attn = F.relu(applied_attn).view(self.config['embedding_size']*2)
+        return F.relu(self.out(torch.cat((r, applied_attn), dim=0)))
+
+    def introspect(self, x, embedder):
+        introspection = {}
+        x = self._cell_introspect(x, embedder)
+
+        x = self.hidden_to_tag(x)
+        x = F.log_softmax(x, dim=0)
+        introspection['scores'] = x
+        return introspection
+
+    def activation_names(self):
+        return ['scores']
