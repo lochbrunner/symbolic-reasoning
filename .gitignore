@@ -5,6 +5,7 @@ target
 Cargo.lock
 *.pyc
 reports
-/models
-/lstm
-/.vscode/tags
+models
+snapshots
+lstm
+.vscode/tags

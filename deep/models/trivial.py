@@ -6,7 +6,6 @@ import torch.nn.utils.rnn as rnn
 
 class TrivialTreeTagger(nn.Module):
     def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
-        # print(f'tagset_size: {tagset_size}')
         super(TrivialTreeTagger, self).__init__()
         self.blueprint = blueprint
         self.config = {
@@ -15,7 +14,6 @@ class TrivialTreeTagger(nn.Module):
             'lstm_layers': 1
         }
         self.config.update(hyper_parameter)
-        # print(f'embedding_size:  {self.config['embedding_size']}')
 
         # Embedding
         self.embedding = nn.Embedding(
@@ -49,7 +47,7 @@ class TrivialTreeTagger(nn.Module):
         # To tag
         self.hidden_to_tag = nn.Linear(self.config['embedding_size'], tagset_size)
 
-    def _cell(self, r, cs, s):
+    def _cell(self, r, cs, s, introspection):
         c = torch.stack(cs, dim=1)  # pylint: disable=no-member
         batch_size = r.size(0)
         # batch x sequence x embedding
@@ -68,8 +66,8 @@ class TrivialTreeTagger(nn.Module):
 
         return x
 
-    def forward(self, x, s):
-        # Expect for s:2 and d=2:
+    def forward(self, x, s, introspection=None):
+        # Expect for spread=2 and depth=2:
         #  i2, (i0, i1)
         #  i5, (i3, i4)
         #  i6, (h0, h1)
@@ -81,9 +79,50 @@ class TrivialTreeTagger(nn.Module):
         hidden = []
         for inst in self.blueprint:
             r, c = inst.get(input, hidden)
-            hidden.append(self._cell(r, c, s))
+            hidden.append(self._cell(r, c, s, introspection))
 
         x = hidden[-1]
         x = self.hidden_to_tag(x)
         x = F.log_softmax(x, dim=1)
+        if introspection is not None:
+            introspection['scores'] = x.detach()
         return x
+
+    def _cell_introspect(self, x, embedder):
+        r = torch.as_tensor(embedder(x))
+        r = self.embedding(r)
+        if len(x.childs) == 0:
+            return r
+        childs = [self._cell_introspect(child, embedder) for child in x.childs]
+        childs = torch.stack(childs, dim=0)[None, :]
+
+        lstm_h = self.lstm_h[None, :]
+        lstm_c = self.lstm_c[None, :]
+        c, _ = self.lstm(childs, (lstm_h, lstm_c))
+
+        # Combine root with label
+        c = F.relu(c)
+        c = torch.split(c, 1, dim=1)[-1].view(self.config['lstm_hidden_size'])
+        x = torch.cat((r, c), dim=0)
+        x = self.combine(x)
+        x = F.relu(x)
+
+        return x
+
+    # Should this be moved into sub class?
+
+    def introspect(self, x, embedder):
+        '''
+        Infers the node and returns 'all' intermediate results
+        '''
+        introspection = {}
+        x = self._cell_introspect(x, embedder)
+
+        x = self.hidden_to_tag(x)
+        x = F.log_softmax(x, dim=0)
+        introspection['scores'] = x
+
+        return introspection
+
+    def activation_names(self):
+        return ['scores']
