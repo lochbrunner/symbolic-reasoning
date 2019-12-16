@@ -41,6 +41,9 @@ class TraverseInstruction:
         childs = [child.get(input, hidden) for child in self.childs]
         return root, childs
 
+    def get_index(self):
+        return self.root.input
+
     def __repr__(self):
         childs = ', '.join([repr(child) for child in self.childs])
         return f'{repr(self.root)} - {childs}'
@@ -101,8 +104,8 @@ class SegEmbedder(Embedder):
     '''Each sub node in a sample is associated to one tag'''
 
     def __call__(self, x: Node, s):
-        x = [ident_to_id(n) for n in self.unroll(x)]
         y = [n.label or 0 for n in self.unroll(x)]
+        x = [ident_to_id(n) for n in self.unroll(x)]
         return x, y, s
 
 

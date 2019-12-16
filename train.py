@@ -7,17 +7,18 @@ import operator
 import signal
 import sys
 
+import numpy as np
+
 import torch
 import torch.optim as optim
 from torch.utils import data
 from torch import nn
 
-from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
-from deep.dataset.transformers import TagEmbedder, Padder, Uploader
+from deep.dataset import create_scenario, scenarios_choices, ScenarioParameter
 from deep.models import create_model, save_model, load_model, all_models
 
 from common.timer import Timer
-from common.utils import printProgressBar, clearProgressBar, Compose
+from common.utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
 
 # See
@@ -26,10 +27,11 @@ from common.parameter_search import LearningParmeter
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None):
+    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None, device: str = 'auto'):
         self.report_rate = report_rate
         self.load_model = load_model
         self.save_model = save_model
+        self.device = device
 
 
 @torch.no_grad()
@@ -39,20 +41,20 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     # We assume batchsize of 1
     assert dataloader.batch_size == 1
     for x, y, s in dataloader:
-        x = model(x, s).view(-1)
+        x = model(x, s)
+        x = x.squeeze()
+        y = y.squeeze()
         _, arg_max = x.max(0)
-        if arg_max == y:
-            true += 1
-        else:
-            false += 1
+
+        x = arg_max.cpu().numpy()
+        y = y.cpu().numpy()
+        true += np.sum(x == y)
+        false += np.sum(x != y)
     return float(true) / float(true + false)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
-    use_cuda = torch.cuda.is_available()
-    device = torch.device('cuda:0' if use_cuda else 'cpu')
-    device = torch.device('cpu')  # pylint: disable=no-member
-
+    device = torch.device(exe_params.device)
     logging.info(f'Using device: {device}')
 
     # Loading data
@@ -66,11 +68,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     timer = Timer('Loading samples')
     pad_token = 0
-    dataset = PermutationDataset(params=scenario_params, transform=Compose([
-        TagEmbedder(),
-        Padder(pad_token=pad_token),
-        Uploader(device)
-    ]))
+    dataset = create_scenario(params=scenario_params, device=device, pad_token=pad_token)
     training_dataloader = data.DataLoader(dataset, **train_loader_params)
     validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
     timer.stop_and_log()
@@ -138,6 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--update-model', type=str,
                         default=None, help='Path to the model')
     parser.add_argument('-r', '--report-rate', type=int, default=20)
+    parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
 
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
@@ -152,6 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('--depth', type=int, default=2,
                         help='The depth of the used nodes.')
     parser.add_argument('--spread', type=int, default=2)
+    parser.add_argument('--max-size', type=int, default=120)
 
     args = parser.parse_args()
     loglevel = 'INFO' if args.verbose else args.log.upper()
@@ -161,9 +161,16 @@ if __name__ == '__main__':
         format='%(message)s'
     )
 
+    def get_device(device):
+        if device == 'auto':
+            return 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            return device
+
     exec_params = ExecutionParameter(
         report_rate=args.report_rate, load_model=args.load_model or args.update_model,
-        save_model=args.save_model or args.update_model)
+        save_model=args.save_model or args.update_model,
+        device=get_device(args.device))
 
     learn_params = LearningParmeter(
         model_name=args.model,
@@ -172,6 +179,7 @@ if __name__ == '__main__':
         model_hyper_parameter={})
 
     scenario_params = ScenarioParameter(
-        scenario=args.scenario, depth=args.depth, spread=args.spread)
+        scenario=args.scenario, depth=args.depth, spread=args.spread,
+        max_size=args.max_size)
 
     main(exec_params, learn_params, scenario_params=scenario_params)
