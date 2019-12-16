@@ -38,4 +38,5 @@ class EmbPatternDataset(Dataset):
 
     @property
     def tag_size(self):
-        return len(self.patterns)
+        # One additional for no tag
+        return len(self.patterns) + 1

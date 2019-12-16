@@ -12,10 +12,13 @@ from common.parameter_search import LearningParmeter
 
 from .lstm_tree_tagger import LstmTreeTagger, GruTreeTagger
 from .fcn_tagger import FullyConnectedTagger
+from .fcn_segmenter import FullyConnectedSegmenter
 
 all_models = {'LstmTreeTagger': LstmTreeTagger,
               'GruTreeTagger': GruTreeTagger,
-              'FullyConnectedTagger': FullyConnectedTagger}
+              'FullyConnectedTagger': FullyConnectedTagger,
+              'FullyConnectedSegmenter': FullyConnectedSegmenter,
+              }
 
 
 def create_model(model_name, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
