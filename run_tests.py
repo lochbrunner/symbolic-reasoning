@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from deep.generate_specs import *
-from common.parameter_search_specs import *
+from deep.dataset.generate_specs import *
+# from common.parameter_search_specs import *
 
 import common.parameter_search_specs
 import unittest

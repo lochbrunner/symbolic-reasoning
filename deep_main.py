@@ -12,7 +12,8 @@ import torch.optim as optim
 from torch.utils import data
 from torch import nn
 
-from deep.dataset import PermutationDataset, Embedder, Padder, Uploader, scenarios_choices, ScenarioParameter
+from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
+from deep.dataset.transformers import TagEmbedder, Padder, Uploader
 from deep.models import create_model, save_model, load_model, all_models
 
 from common.timer import Timer
@@ -48,8 +49,8 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
-    # use_cuda = torch.cuda.is_available()
-    # device = torch.device('cuda:0' if use_cuda else 'cpu')
+    use_cuda = torch.cuda.is_available()
+    device = torch.device('cuda:0' if use_cuda else 'cpu')
     device = torch.device('cpu')  # pylint: disable=no-member
 
     logging.info(f'Using device: {device}')
@@ -66,7 +67,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     timer = Timer('Loading samples')
     pad_token = 0
     dataset = PermutationDataset(params=scenario_params, transform=Compose([
-        Embedder(),
+        TagEmbedder(),
         Padder(pad_token=pad_token),
         Uploader(device)
     ]))
