@@ -1,6 +1,6 @@
 from itertools import permutations, islice
 from string import ascii_lowercase as alphabet
-from random import choices, shuffle, randint
+from random import choices, choice, shuffle, randint
 
 from typing import List, Set, Dict, Tuple, Optional
 
@@ -37,14 +37,18 @@ class SymbolBuilder:
             node = node.childs[dir]
         return node
 
-    def set_idents_bfs(self, idents: List):
-        queue = deque(self.childs)
-        idents_index = 0
+    def _traverse_bfs(self, begin):
+        queue = deque([begin])
         while len(queue) > 0:
             node = queue.popleft()
-            node.ident = idents[idents_index]
-            idents_index += 1
             queue += node.childs
+            yield node
+
+    def traverse_bfs(self):
+        return self._traverse_bfs(self.childs[0])
+
+    def traverse_bfs_at(self, path: List[int]):
+        return self._traverse_bfs(self._node_at(path))
 
     def set_node(self, node: Node, path: List[int]):
         c_node = self.childs[0]
@@ -52,28 +56,13 @@ class SymbolBuilder:
             c_node = c_node.childs[i]
         c_node[path[-1]] = node
 
-    def set_idents_bfs_at(self, idents: List, path: List[int]):
-        queue = deque([self._node_at(path)])
-        for ident in idents:
-            if len(queue) == 0:
-                raise 'Not leaf not big enough'
-            node = queue.popleft()
+    def set_idents_bfs(self, idents: List):
+        for ident, node in zip(idents, self.traverse_bfs()):
             node.ident = ident
-            queue += node.childs
 
-    def traverse_bfs_at(self, path: List[int]):
-        queue = deque([self._node_at(path)])
-        while len(queue) > 0:
-            node = queue.popleft()
-            queue += node.childs
-            yield node
-
-    def traverse_bfs(self):
-        queue = deque([self.childs[0]])
-        while len(queue) > 0:
-            node = queue.popleft()
-            queue += node.childs
-            yield node
+    def set_idents_bfs_at(self, idents: List, path: List[int]):
+        for ident, node in zip(idents, self.traverse_bfs_at(path)):
+            node.ident = ident
 
     def traverse_bfs_path(self):
         queue = deque([([], self.childs[0])])
@@ -87,7 +76,7 @@ class SymbolBuilder:
             leave.childs = [Node() for _ in range(0, child_per_arm)]
         self.depth += 1
 
-    def has_pattern(self, pattern: List):
+    def find_pattern(self, pattern: List):
         '''Assuming homogenous spread'''
         if len(pattern) == 0:
             raise 'Pattern of length 0 is not supported'
@@ -96,11 +85,22 @@ class SymbolBuilder:
                 node_pattern = [
                     node.ident for node in self.traverse_bfs_at(path)]
                 if list(islice(node_pattern, len(pattern))) == pattern:
-                    return True
-        return False
+                    return path
+        return None
+
+    def has_pattern(self, pattern: List):
+        '''Assuming homogenous spread'''
+        return self.find_pattern(pattern) is not None
 
     def bfs_path(self, index: int):
         return next(islice(self.traverse_bfs_path(), index, index + 1))[0]
+
+    def clear_labels(self):
+        for node in self.traverse_bfs():
+            node.label = None
+
+    def set_label_at(self, path: List[int], label):
+        self._node_at(path).label = label
 
     @property
     def symbol(self):
@@ -123,6 +123,8 @@ def create_samples_permutation(depth=2, spread=1, max_size=120):
     builder = SymbolBuilder()
     for _ in range(depth):
         builder.add_level_uniform(spread)
+    # This line is needed because of python bug while running the unit tests.
+    builder.clear_labels()
 
     idents = list(islice(generate_idents(), size))
     classes = []
@@ -138,15 +140,6 @@ def create_samples_permutation(depth=2, spread=1, max_size=120):
             break
 
     return samples, idents, classes
-
-
-def _count_pattern(sequence, pattern):
-    findings = 0
-    plen = len(pattern)
-    for i in range(len(sequence) - plen+1):
-        if sequence[i:i+plen] == pattern:
-            findings += 1
-    return findings
 
 
 def create_complex_pattern_in_noise(depth=4, spread=2, max_size=120, pattern_depth=1):
@@ -205,3 +198,61 @@ def create_complex_pattern_in_noise(depth=4, spread=2, max_size=120, pattern_dep
         samples.append((class_id, builder.symbol))
 
     return samples, idents, classes
+
+
+def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=1, num_labels=5):
+    '''Embeds some unique and fixed patterns (beginning of the alphabet) into noise'''
+
+    if pattern_depth >= depth:
+        raise f'Pattern depth ({pattern_depth}) must be smaller than outer depth ({depth})'
+    samples = []
+
+    builder = SymbolBuilder()
+    for _ in range(depth-1):
+        builder.add_level_uniform(spread)
+
+    # Noise
+    idents_reservoir = generate_idents()
+
+    tree_size = sum([spread**l for l in range(0, depth)])
+    idents = list(islice(idents_reservoir, tree_size))
+
+    # Create pattern
+    idents_reservoir = generate_idents()
+    pattern_size = sum([spread**l for l in range(0, pattern_depth)])
+    if pattern_size*num_labels > tree_size:
+        raise Exception(f'Not enough space to place {num_labels} different patterns!')
+    patterns = [list(islice(idents_reservoir, pattern_size)) for _ in range(num_labels)]
+
+    max_depth = depth - pattern_depth+1
+    pos_count = pattern_size = sum(
+        [spread**l for l in range(0, max_depth)])
+
+    max_tries = max_size*10
+    while len(samples) < max_size:
+        shuffled = deepcopy(idents)
+        shuffle(shuffled)
+
+        builder.set_idents_bfs(shuffled)
+        for pattern in patterns:
+            if builder.has_pattern(pattern):
+                continue
+
+        # Find position
+        label_id = randint(0, len(patterns)-1)
+        pattern = patterns[label_id]
+
+        pos = randint(0, pos_count-1)
+        path = builder.bfs_path(pos)
+        builder.set_idents_bfs_at(pattern, path)
+        builder.clear_labels()
+        # Label 0 means no label
+        builder.set_label_at(path, label_id+1)
+
+        samples.append(builder.symbol)
+
+        max_tries -= 1
+        if max_tries == 0:
+            raise Exception(f'Could not find enough samples.')
+
+    return samples, idents, patterns

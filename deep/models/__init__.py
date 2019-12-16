@@ -5,7 +5,8 @@ from functools import reduce
 import torch
 import torch.optim as optim
 
-from deep.dataset import PermutationDataset, Embedder, Padder, Uploader, scenarios_choices, ScenarioParameter
+from deep.dataset import scenarios_choices, ScenarioParameter
+from deep.dataset.transformers import Embedder, Padder, Uploader
 from common.timer import Timer
 from common.parameter_search import LearningParmeter
 

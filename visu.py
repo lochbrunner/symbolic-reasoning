@@ -17,9 +17,10 @@ import torch
 # local
 from deep.node import Node
 from common.parameter_search import LearningParmeter
-from deep.dataset import PermutationDataset, Embedder, scenarios_choices, ScenarioParameter, ident_to_id
+from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
+from deep.dataset.transformers import ident_to_id
 
-from deep.generate import SymbolBuilder
+from deep.dataset.generate import SymbolBuilder
 from deep.models import load_model
 
 

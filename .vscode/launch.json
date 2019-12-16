@@ -99,9 +99,9 @@
             "name": "test",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/deep/generate.specs.py",
+            "program": "${workspaceFolder}/run_tests.py",
             "args": [],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
         },
         {
             "name": "test common",

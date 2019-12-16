@@ -9,9 +9,8 @@ class FullyConnectedTagger(nn.Module):
         super(FullyConnectedTagger, self).__init__()
         # Config
         self.config = {
-            'max_spread': 32,
-            'embedding_size': 32,
-            'hidden_size': 32,
+            'max_spread': 2,
+            'embedding_size': 16,
             'spread': 2,
         }
         self.config.update(hyper_parameter)
@@ -27,7 +26,7 @@ class FullyConnectedTagger(nn.Module):
         # Linear supports batch processing
         self.attn = nn.Linear(self.config['embedding_size'], self.config['embedding_size'])
         self.out = nn.Linear((1 + self.config['spread'])*self.config['embedding_size'],
-                             self.config['hidden_size'])
+                             self.config['embedding_size'])
 
         # To tag
         self.hidden_to_tag = nn.Linear(self.config['embedding_size'], tagset_size)

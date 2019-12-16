@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
 from deep.node import Node
-from deep import generate
+from deep.dataset import generate
 import unittest
-
-
-def calc_depth(node: Node):
-    depth = 0
-    stack = [node]
-    while len(stack) > 0:
-        node = stack.pop()
-        depth += 1
-        if len(node.childs) > 0:
-            stack += node.childs[0:1]
-        else:
-            break
-
-    return depth
 
 
 class TestPermutation(unittest.TestCase):
@@ -81,7 +67,7 @@ class TestPermutation(unittest.TestCase):
         self.assertEqual(classes, [0, 1, 2, 3, 4, 5])
 
 
-class TestPattern(unittest.TestCase):
+class TestSinglePattern(unittest.TestCase):
     def test_slim_pattern(self):
         samples, idents, classes = generate.create_complex_pattern_in_noise(
             depth=3, spread=1, max_size=2, pattern_depth=2)
@@ -94,8 +80,8 @@ class TestPattern(unittest.TestCase):
         builder.childs = [samples[1][1]]
         self.assertTrue(builder.has_pattern(['a', 'b']))
 
-        self.assertEqual(calc_depth(samples[0][1]), 3)
-        self.assertEqual(calc_depth(samples[1][1]), 3)
+        self.assertEqual(samples[0][1].depth, 3)
+        self.assertEqual(samples[1][1].depth, 3)
         self.assertEqual(len(samples), 2)
         self.assertEqual(idents, ['a', 'b', 'c'])
         self.assertGreaterEqual(len(classes), 1)
@@ -112,11 +98,64 @@ class TestPattern(unittest.TestCase):
         builder.childs = [samples[1][1]]
         self.assertTrue(builder.has_pattern(['a', 'b', 'c']))
 
-        self.assertEqual(calc_depth(samples[0][1]), 3)
-        self.assertEqual(calc_depth(samples[1][1]), 3)
+        self.assertEqual(samples[0][1].depth, 3)
+        self.assertEqual(samples[1][1].depth, 3)
         self.assertEqual(len(samples), 2)
         self.assertEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
         self.assertGreaterEqual(len(classes), 1)
+
+
+class TestPatternSegmentation(unittest.TestCase):
+    def test_flat(self):
+        samples, idents, patterns = generate.place_patterns_in_noise(
+            depth=3, spread=2, max_size=12, pattern_depth=2, num_labels=2)
+
+        self.assertCountEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+        self.assertEqual(len(patterns), 2)
+        self.assertEqual(len(samples), 12)
+        self.assertEqual(samples[0].depth, 3)
+
+        # Check that each sample has at least one pattern
+        for sample in samples:
+            builder = generate.SymbolBuilder(sample)
+            occurred_patterns = sum([builder.has_pattern(pattern) for pattern in patterns])
+            self.assertGreaterEqual(occurred_patterns, 1)
+
+        # Check the labels
+        for sample in samples:
+            builder = generate.SymbolBuilder(sample)
+            found = False
+            for i, pattern in enumerate(patterns):
+                path = builder.find_pattern(pattern)
+                if path is not None:
+                    actual_label = builder._node_at(path).label
+                    if actual_label is not None:
+                        self.assertEqual(actual_label, i)
+                        found = True
+                        break
+            self.assertTrue(found, 'This sample does not have a pattern')
+
+
+class TestSymbol(unittest.TestCase):
+    def test_equality_small(self):
+        a = Node('a')
+        b = Node('a')
+        self.assertEqual(a, b)
+
+    def test_inequality_small(self):
+        a = Node('a')
+        b = Node('b')
+        self.assertNotEqual(a, b)
+
+    def test_equality_large(self):
+        a = Node('a', childs=[Node('b'), Node('c')])
+        b = Node('a', childs=[Node('b'), Node('c')])
+        self.assertEqual(a, b)
+
+    def test_inequality_large(self):
+        a = Node('a', childs=[Node('b'), Node('c')])
+        b = Node('a', childs=[Node('b'), Node('a')])
+        self.assertNotEqual(a, b)
 
 
 class TestStringBuilder(unittest.TestCase):
@@ -140,6 +179,16 @@ class TestStringBuilder(unittest.TestCase):
         actual = list([path for path, node in builder.traverse_bfs_path()])
         expected = [[], [0], [1], [0, 0], [0, 1]]
         self.assertEqual(actual, expected)
+
+    def test_set_idents_bfs(self):
+        builder = generate.SymbolBuilder()
+        node = Node('n', [Node('n', [Node('n'), Node('n')]), Node('n')])
+        builder.childs = [node]
+        builder.set_idents_bfs(['a', 'b', 'c', 'd', 'e'])
+
+        expected = Node('a', [Node('b', [Node('d'), Node('e')]), Node('c')])
+
+        self.assertEqual(builder.symbol, expected)
 
     def test_traverse_bfs_at(self):
         # Using tree:
