@@ -63,3 +63,31 @@ class FullyConnectedSegmenter(nn.Module):
             i = inst.get_index()
             y[:, :, i] = yy
         return y
+
+    def _cell_introspect(self, x, embedder):
+        r = torch.as_tensor(embedder(x))
+        r = self.embedding(r)
+
+        if len(x.childs) == 0:
+            return r
+        cs = [self._cell_introspect(child, embedder) for child in x.childs]
+
+        cs = torch.stack(cs, dim=0)
+        cs = F.relu(cs)
+        r = F.relu(r)
+        attn = self.attn(r)
+        applied_attn = attn[None, :]*cs
+        applied_attn = F.relu(applied_attn).view(self.config['embedding_size']*2)
+        return F.relu(self.out(torch.cat((r, applied_attn), dim=0)))
+
+    def introspect(self, x, embedder):
+        introspection = {}
+        x = self._cell_introspect(x, embedder)
+
+        x = self.hidden_to_tag(x)
+        x = F.log_softmax(x, dim=0)
+        introspection['scores'] = x
+        return introspection
+
+    def activation_names(self):
+        return ['scores']

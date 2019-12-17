@@ -15,15 +15,13 @@ from torch.utils import data
 from torch import nn
 
 from deep.dataset import create_scenario, scenarios_choices, ScenarioParameter
-from deep.models import create_model, save_model, load_model, all_models
+from deep.dataset.transformers import Embedder
+from deep.models import create_model, all_models
 
 from common.timer import Timer
 from common.utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
-
-# See
-# * https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel
-# * https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
+from common import io
 
 
 class ExecutionParameter:
@@ -57,6 +55,25 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     device = torch.device(exe_params.device)
     logging.info(f'Using device: {device}')
 
+    # Creating dataset and model
+    if exe_params.load_model:
+        dataset, model, optimizer = io.load(exe_params.exe_params.load_model, device)
+    else:
+        pad_token = 0
+        timer = Timer('Creating fresh workspace')
+        dataset = create_scenario(params=scenario_params, device=device, pad_token=pad_token)
+        model = create_model(learn_params.model_name,
+                             vocab_size=dataset.vocab_size,
+                             tagset_size=dataset.tag_size,
+                             pad_token=pad_token,
+                             blueprint=Embedder.blueprint(scenario_params),
+                             hyper_parameter=learn_params.model_hyper_parameter)
+        model.to(device)
+        optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
+        timer.stop_and_log()
+
+    model.train()
+
     # Loading data
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
@@ -65,30 +82,19 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     validate_loader_params = {'batch_size': 1,
                               'shuffle': False,
                               'num_workers': 0}
-
-    timer = Timer('Loading samples')
-    pad_token = 0
-    dataset = create_scenario(params=scenario_params, device=device, pad_token=pad_token)
     training_dataloader = data.DataLoader(dataset, **train_loader_params)
     validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
-    timer.stop_and_log()
 
-    # Loading model
     loss_function = nn.NLLLoss(reduction='mean')
-    model, optimizer = load_model(exe_params.load_model, dataset,
-                                  learn_params, scenario_params, pad_token=0)
-
-    timer = Timer('Sending model to device')
-    model.to(device)
-    timer.stop_and_log()
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
 
     def early_abort(signal, frame):
         clearProgressBar()
-        print('Early abort')
-        save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs, learn_params)
+        loggin.warning('Early abort')
+        save_model(exe_params.save_model, model, optimizer,
+                   learn_params.num_epochs, learn_params, dataset)
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
 
@@ -120,7 +126,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     signal.signal(signal.SIGINT, original_sigint_handler)
 
-    save_model(exe_params.save_model, model, optimizer, learn_params.num_epochs, learn_params)
+    io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params)
 
 
 if __name__ == '__main__':
@@ -147,7 +153,7 @@ if __name__ == '__main__':
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
-                        default='permutation', choices=scenarios_choices() + ['all'])
+                        default='permutation', choices=scenarios_choices())
     parser.add_argument('--depth', type=int, default=2,
                         help='The depth of the used nodes.')
     parser.add_argument('--spread', type=int, default=2)

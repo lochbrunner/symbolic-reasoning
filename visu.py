@@ -2,6 +2,7 @@
 
 # system
 from typing import List, Set, Dict, Tuple, Optional
+import logging
 
 # dash
 import tree_dash_component
@@ -11,32 +12,28 @@ from dash.dependencies import Input, Output
 import dash_html_components as html
 import dash_core_components as dcc
 
+# numpy
+import numpy as np
+
 # torch
 import torch
 
 # local
 from deep.node import Node
 from common.parameter_search import LearningParmeter
+from common.utils import Compose
 from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
 from deep.dataset.transformers import ident_to_id
+from deep.dataset.transformers import SegEmbedder, Uploader, Padder
 
 from deep.dataset.generate import SymbolBuilder
-from deep.models import load_model
+from common import io
 
 
-def load(path: str):
-    scenario_params = ScenarioParameter('permutation', 2, 2)
-    padding_index = 0
-
-    dataset = PermutationDataset(params=scenario_params)
-
-    learn_params = LearningParmeter(model_name=None, num_epochs=1, learning_rate=0, batch_size=1, gradient_clipping=0,
-                                    model_hyper_parameter={})
-    scenario_params = ScenarioParameter(
-        scenario='permutation', depth=2, spread=2)
-    model, _ = load_model(path, dataset, learn_params, scenario_params, padding_index)
-    model.eval()
-    return model, dataset
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'
+)
 
 
 def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
@@ -55,13 +52,39 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     return all_scores, all_paths
 
 
+dataset, model, _, scenario_params = io.load('snapshots/segmenter.sp', transform=Compose([]))
+
+transform = Compose([SegEmbedder(), Padder(
+    depth=scenario_params.depth, spread=scenario_params.spread), Uploader()])
+
+
+def ground_truth_path(node):
+    builder = SymbolBuilder(node)
+
+    for path, node in builder.traverse_bfs_path():
+        if node.label and node.label > 0:
+            return path, node.label
+    return None, None
+
+
+def predict_path_and_label(model, node):
+    x, _, s = transform(node, 2)
+    x = torch.unsqueeze(x, 0)
+    s = torch.as_tensor(s).squeeze(0)
+    y = model(x, s)
+    y = torch.squeeze(y)
+    y = y.detach().numpy()
+    # Find strongest non 0 activation
+    # Remove no tags
+    y = y[1:, :]
+    return np.unravel_index(np.argmax(y), y.shape)
+
+
 def predict(model, node):
     scores = model.introspect(node, ident_to_id)['scores']
     _, i = scores.max(0)
     return i.item()
 
-
-model, dataset = load('snapshots/model.sp')
 
 app = dash.Dash(__name__)
 app.title = 'TreeLstm Visualization'
@@ -111,15 +134,26 @@ def pagination(next_clicked, prev_clicked, value):
      Input(component_id='activation-selector', component_property='value')]
 )
 def update_selection(sample_id, activation_name):
-    sample, tag, _ = dataset[sample_id]
-    tag_scores, paths = traverse_for_scores(model, sample, activation_name)
-    max_index = predict(model, sample)
-    prediction = f'Prediction {max_index}'
+    # Tag
+    use_tag = False
+    if use_tag:
+        sample, tag, _ = dataset[sample_id]
+        tag_scores, paths = traverse_for_scores(model, sample, activation_name)
+        max_index = predict(model, sample)
+        prediction = f'Prediction {max_index}'
+        ground = f'Tag: {tag}'
+    else:
+        sample, _ = dataset[sample_id]
+        tag_scores, paths = traverse_for_scores(model, sample, activation_name)
+        gp, gl = ground_truth_path(sample)
+        ground = f'Ground truth: {gl} @ {gp}'
+        pp, pl = predict_path_and_label(model, sample)
+        prediction = f'Ground truth: {pl} @ {pp}'
 
     trace = go.Heatmap(y=paths, z=tag_scores, colorscale='Electric', colorbar={
                        'title': 'Score'}, showscale=True)
 
-    return sample.as_dict(), f'Tag: {tag}', prediction, {'data': [trace]}
+    return sample.as_dict(), ground, prediction, {'data': [trace]}
 
 
 if __name__ == '__main__':
