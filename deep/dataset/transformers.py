@@ -131,7 +131,7 @@ class Padder:
 
 
 class Uploader:
-    def __init__(self, device):
+    def __init__(self, device=torch.device('cpu')):
         self.device = device
 
     def __call__(self, x, y, s):

@@ -17,16 +17,18 @@ def scenarios_choices():
     return ['permutation', 'pattern']
 
 
-def create_scenario(params: ScenarioParameter, device, transform=None, pad_token=0):
+def create_scenario(params: ScenarioParameter, device, pad_token=0, transform=None):
     if params.scenario == 'permutation':
-        return PermutationDataset(params=params, transform=Compose([
+        transform = transform or Compose([
             TagEmbedder(),
             Padder(pad_token=pad_token),
             Uploader(device)
-        ]))
+        ])
+        return PermutationDataset(params=params, transform=transform)
     elif params.scenario == 'pattern':
-        return EmbPatternDataset(params=params, transform=Compose([
+        transform = transform or Compose([
             SegEmbedder(),
             Padder(pad_token=pad_token),
             Uploader(device)
-        ]))
+        ])
+        return EmbPatternDataset(params=params, transform=transform)

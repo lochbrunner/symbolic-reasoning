@@ -112,21 +112,20 @@ def create_complex_pattern_in_noise(depth=4, spread=2, max_size=120, pattern_dep
     return samples, idents, classes
 
 
-def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=1, num_labels=5):
+def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, num_labels=5):
     '''Embeds some unique and fixed patterns (beginning of the alphabet) into noise'''
-
     if pattern_depth >= depth:
         raise f'Pattern depth ({pattern_depth}) must be smaller than outer depth ({depth})'
     samples = []
 
     builder = SymbolBuilder()
-    for _ in range(depth-1):
+    for _ in range(depth):
         builder.add_level_uniform(spread)
 
     # Noise
     idents_reservoir = generate_idents()
 
-    tree_size = sum([spread**l for l in range(0, depth)])
+    tree_size = sum([spread**l for l in range(0, depth+1)])
     idents = list(islice(idents_reservoir, tree_size))
 
     # Create pattern
