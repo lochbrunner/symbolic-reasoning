@@ -1,0 +1,13 @@
+.tree-container {
+    float: left;
+    width: 100%;
+}
+.tree-container > div {
+    float: left;
+}
+
+#selector {
+    float: left;
+    width: 100%;
+    margin-bottom: -10px;
+}
