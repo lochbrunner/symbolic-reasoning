@@ -48,7 +48,7 @@ impl Bag {
         let mut idents: HashSet<String> = HashSet::new();
         let mut rules: HashMap<&Rule, RuleStatistics> = HashMap::new();
 
-        // Add all rules in advanced in order to remove bias leter
+        // Add all rules in advanced in order to remove bias later
         for trace in traces.iter() {
             // add idents
             idents.extend(trace.meta.used_idents.iter().cloned());

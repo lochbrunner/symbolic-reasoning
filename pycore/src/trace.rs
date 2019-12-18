@@ -228,7 +228,9 @@ impl PyMeta {
             .meta
             .rules
             .iter()
-            .map(|r| PyRule { inner: Rc::new(r.clone()) })
+            .map(|r| PyRule {
+                inner: Rc::new(r.clone()),
+            })
             .collect())
     }
 }
@@ -242,15 +244,11 @@ pub struct PyTrace {
 impl PyTrace {
     #[staticmethod]
     fn load(path: String) -> PyResult<PyTrace> {
-        let file = match File::open(path) {
-            Err(msg) => Err(PyErr::new::<FileNotFoundError, _>(msg.to_string())),
-            Ok(file) => Ok(file),
-        }?;
+        let file =
+            File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
         let reader = BufReader::new(file);
-        let inner = match DenseTrace::read_bincode(reader) {
-            Err(msg) => Err(PyErr::new::<TypeError, _>(msg.to_string())),
-            Ok(trace) => Ok(trace),
-        }?;
+        let inner = DenseTrace::read_bincode(reader)
+            .map_err(|msg|PyErr::new::<TypeError, _>(msg.to_string()))?;
         let inner = Rc::new(inner);
         Ok(PyTrace { inner })
     }
