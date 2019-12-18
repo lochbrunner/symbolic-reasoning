@@ -80,8 +80,8 @@ class TestSinglePattern(unittest.TestCase):
         builder.childs = [samples[1][1]]
         self.assertTrue(builder.has_pattern(['a', 'b']))
 
-        self.assertEqual(samples[0][1].depth, 3)
-        self.assertEqual(samples[1][1].depth, 3)
+        self.assertEqual(samples[0][1].depth, 2)
+        self.assertEqual(samples[1][1].depth, 2)
         self.assertEqual(len(samples), 2)
         self.assertEqual(idents, ['a', 'b', 'c'])
         self.assertGreaterEqual(len(classes), 1)
@@ -98,8 +98,8 @@ class TestSinglePattern(unittest.TestCase):
         builder.childs = [samples[1][1]]
         self.assertTrue(builder.has_pattern(['a', 'b', 'c']))
 
-        self.assertEqual(samples[0][1].depth, 3)
-        self.assertEqual(samples[1][1].depth, 3)
+        self.assertEqual(samples[0][1].depth, 2)
+        self.assertEqual(samples[1][1].depth, 2)
         self.assertEqual(len(samples), 2)
         self.assertEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
         self.assertGreaterEqual(len(classes), 1)
@@ -108,12 +108,12 @@ class TestSinglePattern(unittest.TestCase):
 class TestPatternSegmentation(unittest.TestCase):
     def test_flat(self):
         samples, idents, patterns = generate.place_patterns_in_noise(
-            depth=3, spread=2, max_size=12, pattern_depth=2, num_labels=2)
+            depth=2, spread=2, max_size=12, pattern_depth=1, num_labels=2)
 
         self.assertCountEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
         self.assertEqual(len(patterns), 2)
         self.assertEqual(len(samples), 12)
-        self.assertEqual(samples[0].depth, 3)
+        self.assertEqual(samples[0].depth, 2)
 
         # Check that each sample has at least one pattern
         for sample in samples:
@@ -130,7 +130,7 @@ class TestPatternSegmentation(unittest.TestCase):
                 if path is not None:
                     actual_label = builder._node_at(path).label
                     if actual_label is not None:
-                        self.assertEqual(actual_label, i)
+                        self.assertEqual(actual_label, i+1)
                         found = True
                         break
             self.assertTrue(found, 'This sample does not have a pattern')
@@ -171,10 +171,8 @@ class TestStringBuilder(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_traverse_bfs_path(self):
-        builder = generate.SymbolBuilder()
         node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
-
-        builder.childs = [node]
+        builder = generate.SymbolBuilder(node)
 
         actual = list([path for path, node in builder.traverse_bfs_path()])
         expected = [[], [0], [1], [0, 0], [0, 1]]

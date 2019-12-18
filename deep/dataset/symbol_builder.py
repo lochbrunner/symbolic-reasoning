@@ -7,13 +7,13 @@ from deep.node import Node
 
 
 class SymbolBuilder:
-    def __init__(self, root=Node()):
-        self.childs = [root]
-        self.depth = 1
+    def __init__(self, root=None):
+        self.childs = [root or Node()]
+        self.depth = 0
 
     def _leaves(self, level: int):
         nodes = [self]
-        for _ in range(0, level):
+        for _ in range(0, level+1):
             nodes = [child for node in nodes for child in node.childs]
         return nodes
 
@@ -27,8 +27,8 @@ class SymbolBuilder:
         queue = deque([begin])
         while len(queue) > 0:
             node = queue.popleft()
-            queue += node.childs
             yield node
+            queue += node.childs
 
     def traverse_bfs(self):
         return self._traverse_bfs(self.childs[0])
@@ -54,8 +54,8 @@ class SymbolBuilder:
         queue = deque([([], self.childs[0])])
         while len(queue) > 0:
             path, node = queue.popleft()
-            queue += [(path+[i], n) for i, n in enumerate(node.childs)]
             yield path, node
+            queue += [(path+[i], n) for i, n in enumerate(node.childs)]
 
     def add_level_uniform(self, child_per_arm: int):
         for leave in self._leaves(self.depth):

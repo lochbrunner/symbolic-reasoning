@@ -130,13 +130,13 @@ def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, nu
 
     # Create pattern
     idents_reservoir = generate_idents()
-    pattern_size = sum([spread**l for l in range(0, pattern_depth)])
+    pattern_size = sum([spread**l for l in range(0, pattern_depth+1)])
     if pattern_size*num_labels > tree_size:
         raise Exception(f'Not enough space to place {num_labels} different patterns!')
     patterns = [list(islice(idents_reservoir, pattern_size)) for _ in range(num_labels)]
 
     max_depth = depth - pattern_depth+1
-    pos_count = pattern_size = sum(
+    pos_count = sum(
         [spread**l for l in range(0, max_depth)])
 
     max_tries = max_size*10

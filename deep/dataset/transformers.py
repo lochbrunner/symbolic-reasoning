@@ -1,13 +1,17 @@
 import numpy as np
+import unittest
 from typing import List, Set, Dict, Tuple, Optional
 
 import torch
 
 from deep.node import Node
+from .symbol_builder import SymbolBuilder
 
 
 def ident_to_id(node: Node):
     # 0 is padding
+    if node.ident == '-':
+        return 0
     return ord(node.ident) - 97 + 1
 
 
@@ -110,24 +114,23 @@ class SegEmbedder(Embedder):
 
 
 class Padder:
-    def __init__(self, depth=2, spread=2, pad_token=0):
-        self.max_length = sum(
-            [spread**l for l in range(0, depth+1)])
+    '''Adds childs to each node of the tree that each has the same depth, spread and is complete.'''
+
+    def __init__(self, depth=2, spread=2, pad_token='-'):
+        self.depth = depth
+        self.spread = spread
         self.pad_token = pad_token
 
-    def __call__(self, x, y, s):
-        padded_x = np.ones((self.max_length))*self.pad_token
-        padded_x[0:len(x)] = x
+    def __call__(self, x: Node, *args):
+        # TODO: Write test
+        builder = SymbolBuilder(x)
+        for path, node in builder.traverse_bfs_path():
+            if len(path) < self.depth:
+                nc = len(node.childs)
+                for _ in range(nc, self.spread):
+                    node.childs.append(Node(self.pad_token, []))
 
-        if type(y) is list:
-            padded_y = np.ones((self.max_length))*self.pad_token
-            padded_y[0:len(y)] = y
-            y = padded_y
-
-        x = torch.as_tensor(padded_x, dtype=torch.long)  # pylint: disable=no-member
-        y = torch.as_tensor(y, dtype=torch.long)  # pylint: disable=no-member
-
-        return x, y, s
+        return builder.symbol, args
 
 
 class Uploader:
@@ -135,6 +138,28 @@ class Uploader:
         self.device = device
 
     def __call__(self, x, y, s):
-        x = x.to(self.device)
-        y = y.to(self.device)
+        x = torch.as_tensor(x, dtype=torch.long).to(self.device)  # pylint: disable=no-member
+        y = torch.as_tensor(y, dtype=torch.long).to(self.device)  # pylint: disable=no-member
         return x, y, s
+
+
+class TestPadder(unittest.TestCase):
+    def test_to_short(self):
+        padder = Padder(depth=2, spread=2)
+        node = Node('a')
+        padded, _ = padder(node)
+
+        expected = Node('a', [Node('-', [Node('-', []), Node('-', [])]),
+                              Node('-', [Node('-', []), Node('-', [])])])
+
+        self.assertEqual(padded, expected)
+
+    def test_unbalanced(self):
+        padder = Padder(depth=2, spread=2)
+        node = Node('a', [Node('b', [Node('c')])])
+
+        padded, _ = padder(node)
+
+        expected = Node('a', [Node('b', [Node('c', []), Node('-', [])]),
+                              Node('-', [Node('-', []), Node('-', [])])])
+        self.assertEqual(padded, expected)
