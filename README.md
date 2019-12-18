@@ -118,6 +118,6 @@ Requirements:
 1. Use packed data (boost of factor 25) :heavy_check_mark:
 1. Evaluate performance on pattern in the noise :heavy_check_mark:
 1. Evaluate published Tree LSTM networks (skip for now)
-1. Try to find better networks (needs hyper parameter search (using [scikit-optimize](https://scikit-optimize.github.io/notebooks/bayesian-optimization.html)))
-1. Padding smaller trees
+1. Try to find better networks (skip for now) (needs hyper parameter search (using [scikit-optimize](https://scikit-optimize.github.io/notebooks/bayesian-optimization.html)))
+1. Padding smaller trees :heavy_check_mark:
 1. Integrate into main repo

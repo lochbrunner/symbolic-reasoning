@@ -8,9 +8,9 @@ class NodeEncoder(json.JSONEncoder):
 
 
 class Node:
-    def __init__(self, ident=None, childs=[], label=None):
+    def __init__(self, ident=None, childs=None, label=None):
         self.ident = ident
-        self.childs = childs
+        self.childs = childs or []
         self.label = label
 
     def __repr__(self):
@@ -39,7 +39,7 @@ class Node:
 
     @property
     def depth(self):
-        depth = 0
+        depth = -1
         stack = [self]
         while len(stack) > 0:
             node = stack.pop()

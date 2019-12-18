@@ -156,6 +156,8 @@ if __name__ == '__main__':
                         default='permutation', choices=scenarios_choices())
     parser.add_argument('--depth', type=int, default=2,
                         help='The depth of the used nodes.')
+    parser.add_argument('--pattern-depth', type=int, default=1,
+                        help='The depth of the pattern nodes.')
     parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('--max-size', type=int, default=120)
 
@@ -186,6 +188,7 @@ if __name__ == '__main__':
 
     scenario_params = ScenarioParameter(
         scenario=args.scenario, depth=args.depth, spread=args.spread,
-        max_size=args.max_size)
+        max_size=args.max_size,
+        pattern_depth=args.pattern_depth)
 
     main(exec_params, learn_params, scenario_params=scenario_params)
