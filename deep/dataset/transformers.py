@@ -130,7 +130,7 @@ class Padder:
                 for _ in range(nc, self.spread):
                     node.childs.append(Node(self.pad_token, []))
 
-        return builder.symbol, args
+        return (builder.symbol,) + args
 
 
 class Uploader:
