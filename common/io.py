@@ -34,6 +34,8 @@ def load(filename, device=torch.device('cpu'), transform=None):
 
 
 def save(filename, model, optimizer, scenario_params, learn_params):
+    if filename is None:
+        return
     logging.info(f'Writing snapshot to {filename}')
     torch.save({
         'model_state_dict': model.state_dict(),
