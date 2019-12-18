@@ -54,8 +54,18 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
 
 dataset, model, _, scenario_params = io.load('snapshots/segmenter.sp', transform=Compose([]))
 
-transform = Compose([SegEmbedder(), Padder(
-    depth=scenario_params.depth, spread=scenario_params.spread), Uploader()])
+transform = Compose(
+    [Padder(depth=scenario_params.depth, spread=scenario_params.spread), SegEmbedder(), Uploader()])
+
+
+def create_node(idents):
+    depth = scenario_params.pattern_depth
+    spread = scenario_params.spread
+    builder = SymbolBuilder()
+    for _ in range(depth):
+        builder.add_level_uniform(spread)
+    builder.set_idents_bfs(idents)
+    return builder.symbol
 
 
 def ground_truth_path(node):
@@ -76,6 +86,7 @@ def predict_path_and_label(model, node):
     y = y.detach().numpy()
     # Find strongest non 0 activation
     # Remove no tags
+    y[y == 0.] = -10.
     y = y[1:, :]
     return np.unravel_index(np.argmax(y), y.shape)
 
@@ -86,16 +97,24 @@ def predict(model, node):
     return i.item()
 
 
+external_stylesheets = ['visu/style.css']
+
 app = dash.Dash(__name__)
-app.title = 'TreeLstm Visualization'
+app.title = 'Tree Segmenter Visualization'
 
 
 app.layout = html.Div([
     html.H2(id='title', children=model.__class__.__name__),
-    tree_dash_component.TreeDashComponent(
-        id='symbol',
-        symbol=dataset[0][0].as_dict()
-    ),
+    html.Div(style={}, className='tree-container', children=[
+        tree_dash_component.TreeDashComponent(
+            id='symbol',
+            symbol=dataset[0][0].as_dict()
+        ),
+        tree_dash_component.TreeDashComponent(
+            id='pattern-1',
+            symbol=Node('?').as_dict()
+        )
+    ]),
     dcc.Slider(id='selector', min=0, max=len(dataset)-1, value=3, step=1),
     html.Button('Prev', id='prev', style={'marginRight': '10px'}),
     html.Button('Next', id='next'),
@@ -126,6 +145,7 @@ def pagination(next_clicked, prev_clicked, value):
 
 @app.callback(
     [Output(component_id='symbol', component_property='symbol'),
+     Output(component_id='pattern-1', component_property='symbol'),
      Output(component_id='tag', component_property='children'),
      Output(component_id='tag_prediction', component_property='children'),
      Output(component_id='prediction-heat',  component_property='figure')
@@ -142,18 +162,23 @@ def update_selection(sample_id, activation_name):
         max_index = predict(model, sample)
         prediction = f'Prediction {max_index}'
         ground = f'Tag: {tag}'
+        pattern = Node('-')
+        x = None
     else:
         sample, _ = dataset[sample_id]
         tag_scores, paths = traverse_for_scores(model, sample, activation_name)
         gp, gl = ground_truth_path(sample)
         ground = f'Ground truth: {gl} @ {gp}'
-        pp, pl = predict_path_and_label(model, sample)
+        pl, pp = predict_path_and_label(model, sample)
         prediction = f'Ground truth: {pl} @ {pp}'
+        pattern = dataset.patterns[gl-1]
+        pattern = create_node(pattern)
+        x = list([str(i) for i in range(dataset.tag_size)])
 
-    trace = go.Heatmap(y=paths, z=tag_scores, colorscale='Electric', colorbar={
+    trace = go.Heatmap(y=paths, z=tag_scores, x=x, colorscale='Electric', colorbar={
                        'title': 'Score'}, showscale=True)
 
-    return sample.as_dict(), ground, prediction, {'data': [trace]}
+    return sample.as_dict(), pattern.as_dict(), ground, prediction, {'data': [trace]}
 
 
 if __name__ == '__main__':
