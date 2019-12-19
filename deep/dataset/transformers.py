@@ -7,10 +7,12 @@ import torch
 from deep.node import Node
 from .symbol_builder import SymbolBuilder
 
+pad_token = '<PAD>'
+
 
 def ident_to_id(node: Node):
     # 0 is padding
-    if node.ident == '-':
+    if node.ident == pad_token:
         return 0
     return ord(node.ident) - 97 + 1
 
@@ -64,7 +66,7 @@ class Embedder:
         depth = params.depth
         spread = params.spread
         # One line for each node (not leaf)
-        lines = [l for l in range(depth)[::-1] for i in range(spread**l)]
+        lines = [l for l in range(depth)[::-1] for _ in range(spread**l)]
         i = 0
         h = 0
         instructions = []
@@ -81,6 +83,37 @@ class Embedder:
                 i += 1
                 h += spread
         return instructions
+
+    @staticmethod
+    def legend(params):
+        depth = params.depth
+        spread = params.spread
+        builder = SymbolBuilder()
+        for _ in range(depth):
+            builder.add_level_uniform(spread)
+        for path, node in builder.traverse_bfs_path():
+            node.label = path
+
+        embedder = Embedder()
+        for line in embedder.unroll(builder.symbol):
+            yield line.label
+
+    @staticmethod
+    def leaf_mask(params):
+        '''Returns a mask where each leaves are masked out'''
+        depth = params.depth
+        spread = params.spread
+        tree_size = sum([spread**l for l in range(0, depth+1)])
+        all = np.ones(tree_size)
+        if depth == 0:
+            return all
+        num_groups = spread**(depth-1)
+
+        for i in range(num_groups):
+            offset = i*(spread+1)
+            all[offset:offset+spread] = 0
+
+        return all
 
     def unroll(self, x: Node) -> List[Node]:
         stack = [x]
@@ -116,7 +149,7 @@ class SegEmbedder(Embedder):
 class Padder:
     '''Adds childs to each node of the tree that each has the same depth, spread and is complete.'''
 
-    def __init__(self, depth=2, spread=2, pad_token='-'):
+    def __init__(self, depth=2, spread=2, pad_token=pad_token):
         self.depth = depth
         self.spread = spread
         self.pad_token = pad_token
@@ -134,7 +167,7 @@ class Padder:
 
 
 class Uploader:
-    def __init__(self, device=torch.device('cpu')):
+    def __init__(self, device=torch.device('cpu')):  # pylint: disable=no-member
         self.device = device
 
     def __call__(self, x, y, s):
@@ -147,19 +180,34 @@ class TestPadder(unittest.TestCase):
     def test_to_short(self):
         padder = Padder(depth=2, spread=2)
         node = Node('a')
-        padded, _ = padder(node)
+        padded, = padder(node)
+        p = pad_token
 
-        expected = Node('a', [Node('-', [Node('-', []), Node('-', [])]),
-                              Node('-', [Node('-', []), Node('-', [])])])
+        expected = Node('a', [Node(p, [Node(p, []), Node(p, [])]),
+                              Node(p, [Node(p, []), Node(p, [])])])
 
         self.assertEqual(padded, expected)
 
     def test_unbalanced(self):
         padder = Padder(depth=2, spread=2)
         node = Node('a', [Node('b', [Node('c')])])
+        p = pad_token
+        padded, = padder(node)
 
-        padded, _ = padder(node)
-
-        expected = Node('a', [Node('b', [Node('c', []), Node('-', [])]),
-                              Node('-', [Node('-', []), Node('-', [])])])
+        expected = Node('a', [Node('b', [Node('c', []), Node(p, [])]),
+                              Node(p, [Node(p, []), Node(p, [])])])
         self.assertEqual(padded, expected)
+
+
+class TestEmbedder(unittest.TestCase):
+    class Params:
+        def __init__(self, depth, spread):
+            self.depth = depth
+            self.spread = spread
+
+    def test_leaf_mask(self):
+        mask = Embedder.leaf_mask(TestEmbedder.Params(spread=2, depth=3))
+
+        expected = np.array([0., 0., 1., 0., 0., 1., 0., 0., 1., 0., 0., 1., 1., 1., 1.])
+        # self.assertEqual(mask, expected)
+        np.allclose(mask, expected)
