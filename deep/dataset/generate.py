@@ -1,11 +1,11 @@
-from itertools import permutations, islice
+from itertools import islice
 from string import ascii_lowercase as alphabet
-from random import choices, choice, shuffle, randint
+from random import shuffle, randint
 from copy import deepcopy
+import unittest
 
 from typing import List, Set, Dict, Tuple, Optional
 
-from deep.node import Node
 from .symbol_builder import SymbolBuilder
 
 
@@ -21,37 +21,6 @@ def generate_idents():
 
 def scenarios_choices():
     return ['permutation', 'pattern']
-
-
-def create_samples_permutation(depth=2, spread=1, max_size=120):
-    '''
-    Samples are of the form (class_id, symbol)
-    Using a permutation where of unique idents
-    '''
-    samples = []
-
-    size = sum([spread**l for l in range(0, depth+1)])
-
-    builder = SymbolBuilder()
-    for _ in range(depth):
-        builder.add_level_uniform(spread)
-    # This line is needed because of python bug while running the unit tests.
-    builder.clear_labels()
-
-    idents = list(islice(generate_idents(), size))
-    classes = []
-
-    for (i, perm) in enumerate(permutations(idents)):
-        classes.append(i)
-
-        builder.set_idents_bfs(perm)
-
-        samples.append((i, builder.symbol))
-
-        if len(samples) >= max_size:
-            break
-
-    return samples, idents, classes
 
 
 def create_complex_pattern_in_noise(depth=4, spread=2, max_size=120, pattern_depth=1):
@@ -112,58 +81,39 @@ def create_complex_pattern_in_noise(depth=4, spread=2, max_size=120, pattern_dep
     return samples, idents, classes
 
 
-def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, num_labels=5):
-    '''Embeds some unique and fixed patterns (beginning of the alphabet) into noise'''
-    if pattern_depth >= depth:
-        raise f'Pattern depth ({pattern_depth}) must be smaller than outer depth ({depth})'
-    samples = []
+class TestSinglePattern(unittest.TestCase):
+    def test_slim_pattern(self):
+        samples, idents, classes = create_complex_pattern_in_noise(
+            depth=3, spread=1, max_size=2, pattern_depth=2)
 
-    builder = SymbolBuilder()
-    for _ in range(depth):
-        builder.add_level_uniform(spread)
+        builder = SymbolBuilder()
 
-    # Noise
-    idents_reservoir = generate_idents()
+        builder.childs = [samples[0][1]]
+        self.assertTrue(builder.has_pattern(['a', 'b']))
 
-    tree_size = sum([spread**l for l in range(0, depth+1)])
-    idents = list(islice(idents_reservoir, tree_size))
+        builder.childs = [samples[1][1]]
+        self.assertTrue(builder.has_pattern(['a', 'b']))
 
-    # Create pattern
-    idents_reservoir = generate_idents()
-    pattern_size = sum([spread**l for l in range(0, pattern_depth+1)])
-    if pattern_size*num_labels > tree_size:
-        raise Exception(f'Not enough space to place {num_labels} different patterns!')
-    patterns = [list(islice(idents_reservoir, pattern_size)) for _ in range(num_labels)]
+        self.assertEqual(samples[0][1].depth, 2)
+        self.assertEqual(samples[1][1].depth, 2)
+        self.assertEqual(len(samples), 2)
+        self.assertEqual(idents, ['a', 'b', 'c'])
+        self.assertGreaterEqual(len(classes), 1)
 
-    max_depth = depth - pattern_depth+1
-    pos_count = sum(
-        [spread**l for l in range(0, max_depth)])
+    def test_wide_pattern(self):
+        samples, idents, classes = create_complex_pattern_in_noise(
+            depth=3, spread=2, max_size=2, pattern_depth=2)
 
-    max_tries = max_size*10
-    while len(samples) < max_size:
-        shuffled = deepcopy(idents)
-        shuffle(shuffled)
+        builder = SymbolBuilder()
 
-        builder.set_idents_bfs(shuffled)
-        for pattern in patterns:
-            if builder.has_pattern(pattern):
-                continue
+        builder.childs = [samples[0][1]]
+        self.assertTrue(builder.has_pattern(['a', 'b', 'c']))
 
-        # Find position
-        label_id = randint(0, len(patterns)-1)
-        pattern = patterns[label_id]
+        builder.childs = [samples[1][1]]
+        self.assertTrue(builder.has_pattern(['a', 'b', 'c']))
 
-        pos = randint(0, pos_count-1)
-        path = builder.bfs_path(pos)
-        builder.set_idents_bfs_at(pattern, path)
-        builder.clear_labels()
-        # Label 0 means no label
-        builder.set_label_at(path, label_id+1)
-
-        samples.append(builder.symbol)
-
-        max_tries -= 1
-        if max_tries == 0:
-            raise Exception(f'Could not find enough samples.')
-
-    return samples, idents, patterns
+        self.assertEqual(samples[0][1].depth, 2)
+        self.assertEqual(samples[1][1].depth, 2)
+        self.assertEqual(len(samples), 2)
+        self.assertEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+        self.assertGreaterEqual(len(classes), 1)
