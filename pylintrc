@@ -1,0 +1,9 @@
+[MASTER]
+disable=
+    missing-function-docstring,
+    invalid-name,
+    relative-beyond-top-level,
+    logging-format-interpolation
+
+[TYPECHECK]
+generated-members=numpy.*,torch.*

@@ -14,9 +14,9 @@ import torch.optim as optim
 from torch.utils import data
 from torch import nn
 
-from deep.dataset import create_scenario, scenarios_choices, ScenarioParameter
-from deep.dataset.transformers import Embedder
-from deep.models import create_model, all_models
+from dataset import create_scenario, scenarios_choices, ScenarioParameter
+from dataset.transformers import Embedder
+from models import create_model, all_models
 
 from common.timer import Timer
 from common.utils import printProgressBar, clearProgressBar
@@ -93,7 +93,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
 
-    def early_abort(signal, frame):
+    def early_abort(_signal, _frame):
         clearProgressBar()
         logging.warning('Early abort')
         io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params)

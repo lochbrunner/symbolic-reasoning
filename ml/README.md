@@ -1,39 +1,43 @@
 # Machine Learning approaches
 
-## Rule prediction
+## Setup
 
-Based on initial symbols string.
-No path prediction.
-Using 2 fully connected layers.
+```zsh
+python3 -m venv <venv name>
+. <venv name>/bin/activate
 
-![Rule prediction](./docs/rule-prediction.svg)
-
-## LSTM
-
-Example:
-
-Given the term
-
-* s = a
-* s_0 = b
-* s_1 = c
-
-```python
-o_b, h_b, r_b = model(b, 0, 0)
-o_c, h_c, r_c = model(c, 0, 0)
-
-_  , h_a, r_a = model(a, 0, r_b)
-o_a, h_a, r_a = model(a, h_a, r_c)
-
-# Get max output o_i where i in [a,b,c]
+pip install -r requirements.txt
 ```
 
-If the transformation rule does not apply to the root (here `a`) then ignore the rest of the term.
+## Standard Sequence
+
+```zsh
+./deep_main.py
+```
+
+## Tree Data
+
+Requirements:
+
+* Self-similarity
+
+```zsh
+./deep_main.py
+```
+
+## Unit Tests
 
 
-![Rule prediction](./docs/rule-prediction-lstm.svg)
+```zsh
+./run_tests.py
+```
 
-### TODO
+## Road-Map
 
-* Running on GPU
-* Prediction of path
+1. Use [DataSets](https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel) :heavy_check_mark:
+1. Use packed data (boost of factor 25) :heavy_check_mark:
+1. Evaluate performance on pattern in the noise :heavy_check_mark:
+1. Evaluate published Tree LSTM networks (skip for now)
+1. Try to find better networks (skip for now) (needs hyper parameter search (using [scikit-optimize](https://scikit-optimize.github.io/notebooks/bayesian-optimization.html)))
+1. Padding smaller trees :heavy_check_mark:
+1. Integrate into main repo
