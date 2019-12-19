@@ -11,6 +11,19 @@ pub struct PyFitMap {
     pub path: Vec<usize>,
 }
 
+impl PyFitMap {
+    pub fn get_raw(&self) -> core::FitMap {
+        core::FitMap {
+            path: self.path.clone(),
+            variable: self
+                .variable
+                .iter()
+                .map(|(k, v)| (&(*k.inner), &(*v.inner)))
+                .collect(),
+        }
+    }
+}
+
 #[pymethods]
 impl PyFitMap {
     #[getter]

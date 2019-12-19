@@ -14,6 +14,14 @@ pub struct PySymbol {
     pub inner: Rc<Symbol>,
 }
 
+impl PySymbol {
+    pub fn new(symbol: Symbol) -> PySymbol {
+        PySymbol {
+            inner: Rc::new(symbol),
+        }
+    }
+}
+
 #[pyclass(name=SymbolIter)]
 #[derive(Clone)]
 pub struct PySymbolIter {

@@ -41,7 +41,7 @@ pub fn solve<'a>(
         path: vec![],
     }]];
     let mut statistics = Statistics::new();
-    let variable_creator = &|| &def_symbol;
+    let variable_creator = &|| Ok(def_symbol.clone());
     loop {
         let mut next = vec![];
         for rule in rules.iter() {
@@ -57,7 +57,9 @@ pub fn solve<'a>(
                 statistics.fits_count += 1;
                 for m in matches.iter() {
                     statistics.applies_count += 1;
-                    let deduced = apply(m, variable_creator, &prev_step.deduced, &rule.conclusion);
+                    let deduced =
+                        apply::<_, ()>(m, variable_creator, &prev_step.deduced, &rule.conclusion)
+                            .unwrap();
 
                     let hash = deduced.to_string();
                     if !seen.contains(&hash) {

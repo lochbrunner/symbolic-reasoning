@@ -5,22 +5,22 @@ use std::collections::HashMap;
 use std::slice::from_ref;
 
 /// Maps all the symbols defined in the map with its new values
-fn map_deep<'a, F>(
+fn map_deep<F, E>(
     mapping: &HashMap<&Symbol, &Symbol>,
     variable_creator: &F,
     orig: Symbol,
-) -> Symbol
+) -> Result<Symbol, E>
 where
-    F: Fn() -> &'a Symbol + Sized,
+    F: Fn() -> Result<Symbol, E>,
 {
     match mapping.get(&orig) {
         None => {
             if orig.childs.is_empty() {
                 if orig.fixed() {
-                    orig
+                    Ok(orig)
                 } else {
                     // Introduce new variable
-                    variable_creator().clone()
+                    variable_creator()
                 }
             } else {
                 assert!(
@@ -31,17 +31,17 @@ where
                     .childs
                     .iter()
                     .map(|child| map_deep(mapping, variable_creator, child.clone()))
-                    .collect::<Vec<Symbol>>();
-                Symbol {
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Symbol {
                     depth: Symbol::calc_depth(&childs),
                     childs,
                     flags: orig.flags,
                     value: orig.value,
                     ident: orig.ident.clone(),
-                }
+                })
             }
         }
-        Some(&value) => value.clone(),
+        Some(&value) => Ok(value.clone()),
     }
 }
 
@@ -197,19 +197,19 @@ fn deep_replace(path: &[usize], orig: &Symbol, new: &Symbol) -> Symbol {
 /// Applies the mapping on a expression in order generate a new expression
 /// * `variable_creator` - Is only used rarely that's why it should be evaluated lazy
 /// * `prev` - The symbol which should be transformed to the new symbol
-pub fn apply<'a, F>(
+pub fn apply<F, E>(
     mapping: &FitMap,
     variable_creator: F,
     prev: &Symbol,
     conclusion: &Symbol,
-) -> Symbol
+) -> Result<Symbol, E>
 where
-    F: Fn() -> &'a Symbol + Sized,
+    F: Fn() -> Result<Symbol, E>,
 {
     let FitMap { path, variable, .. } = mapping;
     // Adjust the conclusion
-    let adjusted = map_deep(&variable, &variable_creator, conclusion.clone());
-    deep_replace(path, prev, &adjusted)
+    let adjusted = map_deep(&variable, &variable_creator, conclusion.clone())?;
+    Ok(deep_replace(path, prev, &adjusted))
 }
 
 pub fn apply_batch<'a, F>(
@@ -290,7 +290,7 @@ mod e2e {
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         let var = new_variable("a");
-        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
+        let actual = apply::<_, ()>(&mapping, &|| Ok(var.clone()), &prev, &conclusion).unwrap();
         let expected = Symbol::parse(&context, "B(a)").unwrap();
 
         assert_eq!(actual, expected);
@@ -306,7 +306,7 @@ mod e2e {
 
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         let var = new_variable("a");
-        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
+        let actual = apply::<_, ()>(&mapping, &|| Ok(var.clone()), &prev, &conclusion).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -321,7 +321,7 @@ mod e2e {
         let mapping = fit(&prev, &condition).pop().expect("One mapping");
         // Expect e -> C(a,b)
         let var = new_variable("a");
-        let actual = apply(&mapping, &|| &var, &prev, &conclusion);
+        let actual = apply::<_, ()>(&mapping, &|| Ok(var.clone()), &prev, &conclusion).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -336,7 +336,8 @@ mod e2e {
 
         let mapping = fit(&initial, &rule.condition).pop().expect("One mapping");
         let var = new_variable("a");
-        let actual = apply(&mapping, &|| &var, &initial, &rule.conclusion);
+        let actual =
+            apply::<_, ()>(&mapping, &|| Ok(var.clone()), &initial, &rule.conclusion).unwrap();
         let expected = Symbol::parse(&context, "b*0=e").unwrap();
 
         // println!("Mapping: {}", format_scenario(&mapping));
@@ -361,7 +362,7 @@ mod specs {
         };
         let var = new_variable("a");
 
-        let actual = map_deep(&mapping, &|| &var, orig);
+        let actual = map_deep::<_, ()>(&mapping, &|| Ok(var.clone()), orig).unwrap();
         let expected = new_variable("b");
 
         assert_eq!(actual, expected);
@@ -395,7 +396,7 @@ mod specs {
 
         let var = new_variable("v");
 
-        let actual = apply(&scenario, || &var, &orig, &conclusion);
+        let actual = apply::<_, ()>(&scenario, || Ok(var.clone()), &orig, &conclusion).unwrap();
 
         let expected = Symbol::parse(&context, "v").unwrap();
 
