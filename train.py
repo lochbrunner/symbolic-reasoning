@@ -41,13 +41,14 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     for x, y, s in dataloader:
         x = model(x, s)
         x = x.squeeze()
-        y = y.squeeze()
-        _, arg_max = x.max(0)
+        x = x.cpu().numpy()
+        predict = np.argmax(x, axis=0)
 
-        x = arg_max.cpu().numpy()
-        y = y.cpu().numpy()
-        true += np.sum(x == y)
-        false += np.sum(x != y)
+        y = y.squeeze()
+        truth = y.cpu().numpy()
+
+        true += np.sum(predict == truth)
+        false += np.sum(predict != truth)
     return float(true) / float(true + false)
 
 
@@ -57,7 +58,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     # Creating dataset and model
     if exe_params.load_model:
-        dataset, model, optimizer = io.load(exe_params.exe_params.load_model, device)
+        dataset, model, optimizer, _ = io.load(exe_params.exe_params.load_model, device)
     else:
         pad_token = 0
         timer = Timer('Creating fresh workspace')
@@ -69,7 +70,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                              blueprint=Embedder.blueprint(scenario_params),
                              hyper_parameter=learn_params.model_hyper_parameter)
         model.to(device)
-        optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
+        # optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
+        optimizer = optim.Adadelta(model.parameters())
         timer.stop_and_log()
 
     model.train()
@@ -85,16 +87,16 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     training_dataloader = data.DataLoader(dataset, **train_loader_params)
     validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
 
-    loss_function = nn.NLLLoss(reduction='mean')
+    weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
+    loss_function = nn.NLLLoss(reduction='mean', weight=weight)
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
 
     def early_abort(signal, frame):
         clearProgressBar()
-        loggin.warning('Early abort')
-        save_model(exe_params.save_model, model, optimizer,
-                   learn_params.num_epochs, learn_params, dataset)
+        logging.warning('Early abort')
+        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params)
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
 
@@ -112,7 +114,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 model.parameters(), learn_params.gradient_clipping)
             optimizer.step()
             epoch_loss += loss
-        if epoch % exe_params.report_rate == 0:
+        if (epoch+1) % exe_params.report_rate == 0:
             timer.pause()
             error = validate(model, validation_dataloader)
             clearProgressBar()
@@ -160,6 +162,7 @@ if __name__ == '__main__':
                         help='The depth of the pattern nodes.')
     parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('--max-size', type=int, default=120)
+    parser.add_argument('--num-labels', type=int, default=2)
 
     args = parser.parse_args()
     loglevel = 'INFO' if args.verbose else args.log.upper()
@@ -189,6 +192,7 @@ if __name__ == '__main__':
     scenario_params = ScenarioParameter(
         scenario=args.scenario, depth=args.depth, spread=args.spread,
         max_size=args.max_size,
-        pattern_depth=args.pattern_depth)
+        pattern_depth=args.pattern_depth,
+        num_labels=args.num_labels)
 
     main(exec_params, learn_params, scenario_params=scenario_params)

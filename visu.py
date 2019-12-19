@@ -24,7 +24,7 @@ from common.parameter_search import LearningParmeter
 from common.utils import Compose
 from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
 from deep.dataset.transformers import ident_to_id
-from deep.dataset.transformers import SegEmbedder, Uploader, Padder
+from deep.dataset.transformers import SegEmbedder, Uploader, Padder, Embedder
 
 from deep.dataset.generate import SymbolBuilder
 from common import io
@@ -52,7 +52,8 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     return all_scores, all_paths
 
 
-dataset, model, _, scenario_params = io.load('snapshots/segmenter.sp', transform=Compose([]))
+dataset, model, _, scenario_params = io.load('snapshots/segmenter_3_2.sp', transform=Compose([]))
+model.eval()
 
 transform = Compose(
     [Padder(depth=scenario_params.depth, spread=scenario_params.spread), SegEmbedder(), Uploader()])
@@ -77,18 +78,34 @@ def ground_truth_path(node):
     return None, None
 
 
+@torch.no_grad()
 def predict_path_and_label(model, node):
-    x, _, s = transform(node, 2)
+    x, y, s = transform(node, 2)
     x = torch.unsqueeze(x, 0)
+    y = torch.unsqueeze(y, 0)
     s = torch.as_tensor(s).squeeze(0)
-    y = model(x, s)
+    x = model(x, s)
+
+    x = x.squeeze()
+    x = x.cpu().numpy()
+    # print(np.array2string(x, precision=2, separator=',',  suppress_small=True))
+    mask = Embedder.leaf_mask(scenario_params)
+    mask_indices = np.squeeze(np.argwhere(mask == 1))
+    x = x[:, mask_indices]
+    predict = np.argmax(x, axis=0)
+    x = np.transpose(x)
+
+    y = y.squeeze()
+    truth = y.cpu().numpy()
+
     y = torch.squeeze(y)
     y = y.detach().numpy()
     # Find strongest non 0 activation
-    # Remove no tags
-    y[y == 0.] = -10.
-    y = y[1:, :]
-    return np.unravel_index(np.argmax(y), y.shape)
+    paths = np.array(list(Embedder.legend(scenario_params)))
+
+    paths = paths[mask_indices]
+
+    return predict, paths, x
 
 
 def predict(model, node):
@@ -166,14 +183,17 @@ def update_selection(sample_id, activation_name):
         x = None
     else:
         sample, _ = dataset[sample_id]
-        tag_scores, paths = traverse_for_scores(model, sample, activation_name)
         gp, gl = ground_truth_path(sample)
         ground = f'Ground truth: {gl} @ {gp}'
-        pl, pp = predict_path_and_label(model, sample)
-        prediction = f'Ground truth: {pl} @ {pp}'
+        predict, paths, tag_scores = predict_path_and_label(model, sample)
+        prediction = f'Predict arg-max: {predict}'
         pattern = dataset.patterns[gl-1]
         pattern = create_node(pattern)
         x = list([str(i) for i in range(dataset.tag_size)])
+
+        def stringify(path):
+            return '@' + '/'.join(str(i) for i in path)
+        paths = [stringify(path) for path in paths]
 
     trace = go.Heatmap(y=paths, z=tag_scores, x=x, colorscale='Electric', colorbar={
                        'title': 'Score'}, showscale=True)
