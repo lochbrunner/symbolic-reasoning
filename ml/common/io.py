@@ -5,10 +5,10 @@ from functools import reduce
 import torch
 import torch.optim as optim
 
-from deep.dataset import create_scenario
-from deep.models import create_model
-from deep.dataset.transformers import Embedder
-from common.timer import Timer
+from dataset import create_scenario
+from dataset.transformers import Embedder
+from models import create_model
+from .timer import Timer
 
 
 def load(filename, device=torch.device('cpu'), transform=None):

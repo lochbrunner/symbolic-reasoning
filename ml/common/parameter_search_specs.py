@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from common.parameter_search import *
+from .parameter_search import *
 import unittest
 
 

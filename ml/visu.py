@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # system
-from typing import List, Set, Dict, Tuple, Optional
+from typing import List, Set, Dict, Tuple, Optional  # ignore_ unused-import
 import logging
 
 # dash
@@ -19,15 +19,12 @@ import numpy as np
 import torch
 
 # local
-from deep.node import Node
-from common.parameter_search import LearningParmeter
+from node import Node
 from common.utils import Compose
-from deep.dataset import PermutationDataset, scenarios_choices, ScenarioParameter
-from deep.dataset.transformers import ident_to_id
-from deep.dataset.transformers import SegEmbedder, Uploader, Padder, Embedder
-
-from deep.dataset.generate import SymbolBuilder
 from common import io
+from dataset.transformers import ident_to_id
+from dataset.transformers import SegEmbedder, Uploader, Padder, Embedder
+from dataset.generate import SymbolBuilder
 
 
 logging.basicConfig(
@@ -43,8 +40,8 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     all_paths = []
 
     for path, node in builder.traverse_bfs_path():
-        vars = model.introspect(node, ident_to_id)
-        scores = vars[activation_name].detach().numpy()
+        activations = model.introspect(node, ident_to_id)
+        scores = activations[activation_name].detach().numpy()
         all_scores.insert(0, scores)
         path = '/'.join([str(d) for d in path])
         all_paths.insert(0, f'{node.ident} @ {path}')
@@ -52,7 +49,7 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     return all_scores, all_paths
 
 
-dataset, model, _, scenario_params = io.load('snapshots/segmenter_3_2.sp', transform=Compose([]))
+dataset, model, _, scenario_params = io.load('../snapshots/segmenter_3_2.sp', transform=Compose([]))
 model.eval()
 
 transform = Compose(
@@ -92,20 +89,15 @@ def predict_path_and_label(model, node):
     mask = Embedder.leaf_mask(scenario_params)
     mask_indices = np.squeeze(np.argwhere(mask == 1))
     x = x[:, mask_indices]
-    predict = np.argmax(x, axis=0)
+    prediction = np.argmax(x, axis=0)
     x = np.transpose(x)
 
-    y = y.squeeze()
-    truth = y.cpu().numpy()
-
-    y = torch.squeeze(y)
-    y = y.detach().numpy()
     # Find strongest non 0 activation
     paths = np.array(list(Embedder.legend(scenario_params)))
 
     paths = paths[mask_indices]
 
-    return predict, paths, x
+    return prediction, paths, x
 
 
 def predict(model, node):
@@ -113,8 +105,6 @@ def predict(model, node):
     _, i = scores.max(0)
     return i.item()
 
-
-external_stylesheets = ['visu/style.css']
 
 app = dash.Dash(__name__)
 app.title = 'Tree Segmenter Visualization'
@@ -185,8 +175,8 @@ def update_selection(sample_id, activation_name):
         sample, _ = dataset[sample_id]
         gp, gl = ground_truth_path(sample)
         ground = f'Ground truth: {gl} @ {gp}'
-        predict, paths, tag_scores = predict_path_and_label(model, sample)
-        prediction = f'Predict arg-max: {predict}'
+        prediction, paths, tag_scores = predict_path_and_label(model, sample)
+        prediction = f'Predict arg-max: {prediction}'
         pattern = dataset.patterns[gl-1]
         pattern = create_node(pattern)
         x = list([str(i) for i in range(dataset.tag_size)])

@@ -1,10 +1,10 @@
-import numpy as np
 import unittest
+import numpy as np
 from typing import List, Set, Dict, Tuple, Optional
 
 import torch
 
-from deep.node import Node
+from node import Node
 from .symbol_builder import SymbolBuilder
 
 pad_token = '<PAD>'
