@@ -6,12 +6,13 @@ from common.utils import Compose
 
 
 class ScenarioParameter:
-    def __init__(self, scenario: str, depth: int, spread: int, max_size: int, pattern_depth: int):
+    def __init__(self, scenario: str, depth: int, spread: int, max_size: int, pattern_depth: int, num_labels: int):
         self.scenario = scenario
         self.depth = depth
         self.spread = spread
         self.max_size = max_size
         self.pattern_depth = pattern_depth
+        self.num_labels = num_labels
 
 
 def scenarios_choices():

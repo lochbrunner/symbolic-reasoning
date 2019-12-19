@@ -2,6 +2,7 @@ from typing import List, Set, Dict, Tuple, Optional
 from itertools import islice
 from copy import deepcopy
 from collections import deque
+import unittest
 
 from deep.node import Node
 
@@ -91,3 +92,89 @@ class SymbolBuilder:
     @property
     def symbol(self):
         return deepcopy(self.childs[0])
+
+
+class TestStringBuilder(unittest.TestCase):
+    def test_traverse_bfs(self):
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        actual = list([node.ident for node in builder.traverse_bfs()])
+        expected = ['a', 'b', 'e', 'c', 'd']
+
+        self.assertEqual(actual, expected)
+
+    def test_traverse_bfs_path(self):
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder = SymbolBuilder(node)
+
+        actual = list([path for path, node in builder.traverse_bfs_path()])
+        expected = [[], [0], [1], [0, 0], [0, 1]]
+        self.assertEqual(actual, expected)
+
+    def test_set_idents_bfs(self):
+        builder = SymbolBuilder()
+        node = Node('n', [Node('n', [Node('n'), Node('n')]), Node('n')])
+        builder.childs = [node]
+        builder.set_idents_bfs(['a', 'b', 'c', 'd', 'e'])
+
+        expected = Node('a', [Node('b', [Node('d'), Node('e')]), Node('c')])
+
+        self.assertEqual(builder.symbol, expected)
+
+    def test_traverse_bfs_at(self):
+        # Using tree:
+        # a
+        #  b
+        #   c
+        #   d
+        #  e
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        actual = list([node.ident for node in builder.traverse_bfs_at([0])])
+        expected = ['b', 'c', 'd']
+
+        self.assertEqual(actual, expected)
+
+    def test_set_idents_bfs_at(self):
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+
+        builder.childs = [node]
+
+        builder.set_idents_bfs_at(['r', 's', 't'], [0])
+
+        actual = list([node.ident for node in builder.traverse_bfs()])
+        expected = ['a', 'r', 'e', 's', 't']
+
+        self.assertEqual(actual, expected)
+
+    def test_has_pattern_negative(self):
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder.childs = [node]
+
+        pattern = ['b', 'd', 'c']
+        self.assertFalse(builder.has_pattern(pattern))
+
+    def test_has_pattern_positive(self):
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder.childs = [node]
+
+        pattern = ['b', 'c', 'd']
+        self.assertTrue(builder.has_pattern(pattern))
+
+    def test_bfs_path(self):
+        builder = SymbolBuilder()
+        node = Node('a', [Node('b', [Node('c'), Node('d')]), Node('e')])
+        builder.childs = [node]
+
+        actual = builder.bfs_path(4)
+        expected = [0, 1]
+        self.assertEqual(actual, expected)

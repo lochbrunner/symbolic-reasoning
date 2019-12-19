@@ -1,5 +1,6 @@
 from io import StringIO
 import json
+import unittest
 
 
 class NodeEncoder(json.JSONEncoder):
@@ -53,3 +54,25 @@ class Node:
 
     def as_dict(self):
         return {'ident': self.ident, 'childs': [child.as_dict() for child in self.childs]}
+
+
+class TestSymbol(unittest.TestCase):
+    def test_equality_small(self):
+        a = Node('a')
+        b = Node('a')
+        self.assertEqual(a, b)
+
+    def test_inequality_small(self):
+        a = Node('a')
+        b = Node('b')
+        self.assertNotEqual(a, b)
+
+    def test_equality_large(self):
+        a = Node('a', childs=[Node('b'), Node('c')])
+        b = Node('a', childs=[Node('b'), Node('c')])
+        self.assertEqual(a, b)
+
+    def test_inequality_large(self):
+        a = Node('a', childs=[Node('b'), Node('c')])
+        b = Node('a', childs=[Node('b'), Node('a')])
+        self.assertNotEqual(a, b)
