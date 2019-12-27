@@ -1,4 +1,4 @@
-from itertools import permutations, islice
+from itertools import islice
 from random import shuffle, randint, seed
 from copy import deepcopy
 import unittest
@@ -118,6 +118,8 @@ class EmbPatternDataset(Dataset):
 
 
 class TestPatternSegmentation(unittest.TestCase):
+    '''Unit test for PatternSegmentation'''
+
     def test_flat(self):
         samples, idents, patterns, _ = place_patterns_in_noise(
             depth=2, spread=2, max_size=12, pattern_depth=1, num_labels=2)
@@ -140,7 +142,7 @@ class TestPatternSegmentation(unittest.TestCase):
             for i, pattern in enumerate(patterns):
                 path = builder.find_pattern(pattern)
                 if path is not None:
-                    actual_label = builder._node_at(path).label
+                    actual_label = builder.node_at(path).label
                     if actual_label is not None:
                         self.assertEqual(actual_label, i+1)
                         found = True

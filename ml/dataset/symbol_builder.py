@@ -18,10 +18,10 @@ class SymbolBuilder:
             nodes = [child for node in nodes for child in node.childs]
         return nodes
 
-    def _node_at(self, path: List[int]):
+    def node_at(self, path: List[int]):
         node = self.childs[0]
-        for dir in path:
-            node = node.childs[dir]
+        for d in path:
+            node = node.childs[d]
         return node
 
     def _traverse_bfs(self, begin):
@@ -35,7 +35,7 @@ class SymbolBuilder:
         return self._traverse_bfs(self.childs[0])
 
     def traverse_bfs_at(self, path: List[int]):
-        return self._traverse_bfs(self._node_at(path))
+        return self._traverse_bfs(self.node_at(path))
 
     def set_node(self, node: Node, path: List[int]):
         c_node = self.childs[0]
@@ -87,7 +87,7 @@ class SymbolBuilder:
             node.label = None
 
     def set_label_at(self, path: List[int], label):
-        self._node_at(path).label = label
+        self.node_at(path).label = label
 
     @property
     def symbol(self):

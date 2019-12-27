@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # system
-from typing import List, Set, Dict, Tuple, Optional  # ignore_ unused-import
+from typing import List, Set, Dict, Tuple, Optional  # ignore unused-import
 import logging
 
 # dash

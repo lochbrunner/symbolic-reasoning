@@ -5,7 +5,10 @@
         "**/.settings": true,
         "**/.factorypath": true,
         "**/.ropeproject": true,
-        "**/__pycache__": true
+        "**/__pycache__": true,
+        "Cargo.lock": true,
+        "target": true,
+        "snapshots": true
     },
     "cSpell.words": [
         "Deque",
