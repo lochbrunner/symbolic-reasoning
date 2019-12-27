@@ -1,9 +1,10 @@
 [MASTER]
 disable=
     missing-function-docstring,
+    missing-module-docstring,
     invalid-name,
     relative-beyond-top-level,
-    logging-format-interpolation
+    logging-format-interpolation,
 
 [TYPECHECK]
 generated-members=numpy.*,torch.*
