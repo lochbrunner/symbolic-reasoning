@@ -4,6 +4,8 @@ use core::apply;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
+// TODO: Expose fit and apply as one "atomic" call to python
+
 pub fn pyapply_impl(
     py: Python,
     mapping: &PyFitMap,

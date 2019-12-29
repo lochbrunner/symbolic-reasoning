@@ -26,6 +26,9 @@ extern crate maplit;
 #[macro_use]
 #[cfg(test)]
 extern crate p_macro;
+#[macro_use]
+#[cfg(test)]
+extern crate vector_assertions;
 extern crate nom;
 extern crate test;
 

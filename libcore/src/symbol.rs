@@ -181,6 +181,7 @@ impl Symbol {
         }
     }
 
+    /// Returns the item at the specified path
     pub fn at<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
         let mut current = self;
         for i in path.iter() {
