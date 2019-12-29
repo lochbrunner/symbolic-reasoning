@@ -1,125 +1,130 @@
-use crate::fit::fit;
 use crate::{Rule, Symbol};
 use std::collections::{HashMap, HashSet};
 
 pub mod trace;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
-pub struct RuleStatistics {
-    pub rule: Rule,
-    // Number of fit resulting that rule
-    pub fits: usize,
-    /// How many times it was good to use this rule
-    pub purposeful: usize,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
 pub struct Meta {
     pub idents: Vec<String>,
-    pub rules: Vec<RuleStatistics>,
+    pub rule_distribution: Vec<u32>,
+    /// Rule at index 0 is padding
+    pub rules: Vec<Rule>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+// Clone is needed as long sort_map is not available
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct FitInfo {
-    pub rule: Rule,
+    /// Starting with 1 for better embedding
+    pub rule_id: u32,
     pub path: Vec<usize>,
-    pub purposeful: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct Sample {
     pub initial: Symbol,
     pub fits: Vec<FitInfo>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Bag {
-    pub meta: Meta,
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
+pub struct SampleContainer {
+    pub max_depth: u32,
+    pub max_spread: u32,
     pub samples: Vec<Sample>,
 }
 
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct Bag {
+    pub meta: Meta,
+    pub samples: Vec<SampleContainer>,
+}
+
 impl Bag {
-    pub fn purposeful_from_traces(_traces: &[trace::Trace]) -> Bag {
-        unimplemented!()
-    }
-
-    /// Iterates through all steps of all traces and tries to fit all rules
+    /// Iterates through all steps of all traces and puts them into a bag
+    /// TODO:
+    ///  * select each step and remove duplicates
+    ///  * create statistics
+    ///  * order by size (depth & spread)
     pub fn from_traces(traces: &[trace::Trace]) -> Bag {
+        let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
+
+        let mut initials: HashMap<&Symbol, Vec<FitInfo>> = HashMap::new();
         let mut idents: HashSet<String> = HashSet::new();
-        let mut rules: HashMap<&Rule, RuleStatistics> = HashMap::new();
-
-        // Add all rules in advanced in order to remove bias later
         for trace in traces.iter() {
-            // add idents
-            idents.extend(trace.meta.used_idents.iter().cloned());
-            // add rules
-            for rule in trace.meta.rules.iter() {
-                match rules.get_mut(rule) {
+            for step in trace.all_steps() {
+                let rule_id = match rule_map.get(&step.rule) {
                     None => {
-                        rules.insert(
-                            rule,
-                            RuleStatistics {
-                                rule: rule.reverse(),
-                                purposeful: 0,
-                                fits: 0,
-                            },
-                        );
+                        let rule_id = rule_map.len() as u32 + 1;
+                        rule_map.insert(&step.rule, rule_id);
+                        rule_id
                     }
-                    Some(_) => (),
+                    Some(rule_id) => *rule_id,
+                };
+                // Reverse rules
+                let fitinfo = FitInfo {
+                    path: step.path.clone(),
+                    rule_id,
+                };
+                match initials.get_mut(&step.deduced) {
+                    None => {
+                        initials.insert(&step.deduced, vec![fitinfo]);
+                    }
+                    Some(initial) => initial.push(fitinfo),
+                }
+            }
+            for ident in trace.meta.used_idents.iter() {
+                idents.insert(ident.clone());
+            }
+        }
+        // Sort
+        let mut max_spread: u32 = 0;
+        let mut max_depth = 0;
+        for initial in initials.keys() {
+            if max_depth < initial.depth {
+                max_depth = initial.depth;
+            }
+            for part in initial.parts() {
+                if max_spread < part.childs.len() as u32 {
+                    max_spread = part.childs.len() as u32;
                 }
             }
         }
 
-        let mut samples: Vec<Sample> = Vec::new();
-        let mut seen_initials: HashSet<&Symbol> = HashSet::new();
+        let rules = rule_map
+            .iter()
+            .map(|(r, _)| *r)
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut rule_distribution = vec![0; rules.len() + 1];
 
-        for trace in traces.iter() {
-            // add samples + rule statistics
-            let mut stages = trace.stages.iter().collect::<Vec<&trace::TraceStep>>();
-            'stages: loop {
-                match stages.pop() {
-                    None => break 'stages,
-                    Some(stage) => {
-                        // Use reversed rule
-                        let initial = &stage.info.deduced;
-                        if !seen_initials.contains(initial) {
-                            seen_initials.insert(initial);
-                            let mut fits = vec![];
-                            for rule in rules.iter_mut() {
-                                let rule_fits = fit(&initial, &rule.0.conclusion);
-                                let rule_fits = rule_fits
-                                    .into_iter()
-                                    .map(|f| {
-                                        let purposeful =
-                                            stage.info.rule == *rule.0 && stage.info.path == f.path;
-                                        if purposeful {
-                                            rule.1.purposeful += 1;
-                                        }
-                                        FitInfo {
-                                            rule: (*rule.0).reverse(),
-                                            purposeful,
-                                            path: f.path,
-                                        }
-                                    })
-                                    .collect::<Vec<FitInfo>>();
-                                rule.1.fits += rule_fits.len();
-                                fits.extend(rule_fits);
-                            }
-                            samples.push(Sample {
-                                initial: initial.clone(),
-                                fits,
-                            });
-                        }
-                        stages.extend(stage.successors.iter());
-                    }
-                }
+        for (_, fitinfos) in initials.iter() {
+            for fitinfo in fitinfos.iter() {
+                rule_distribution[fitinfo.rule_id as usize] += 1;
             }
         }
-        // Convert to vector
-        let rules = rules.into_iter().map(|s| s.1).collect();
-        let idents = idents.into_iter().collect();
+
+        let samples = (1..max_depth)
+            .map(|depth| {
+                let samples = initials
+                    .iter()
+                    .map(|(initial, fits)| Sample {
+                        initial: (*initial).clone(),
+                        fits: fits.to_vec(),
+                    })
+                    .collect();
+                SampleContainer {
+                    samples,
+                    max_depth: depth,
+                    max_spread,
+                }
+            })
+            .collect();
+
         Bag {
-            meta: Meta { idents, rules },
+            meta: Meta {
+                idents: idents.into_iter().collect(),
+                rules,
+                rule_distribution,
+            },
             samples,
         }
     }
@@ -153,7 +158,7 @@ mod specs {
     use trace::{ApplyInfo, Trace, TraceStep};
 
     #[test]
-    fn from_traces() {
+    fn create_from_flat_stages() {
         let context = Context::standard();
         let a = Symbol::parse(&context, "a").unwrap();
         let b = Symbol::parse(&context, "b").unwrap();
@@ -199,77 +204,50 @@ mod specs {
 
         let actual = Bag::from_traces(&traces);
 
-        let expected_idents = ["a", "b", "c", "d"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
-
-        let mut actual_idents = actual.meta.idents;
-        actual_idents.sort();
-
-        assert_eq!(actual_idents, expected_idents);
-
-        let expected_rules = vec![
-            RuleStatistics {
-                rule: r1.reverse(),
-                fits: 2,
-                purposeful: 0,
+        let expected = Bag {
+            meta: Meta {
+                idents: vec![
+                    "a".to_string(),
+                    "b".to_string(),
+                    "c".to_string(),
+                    "d".to_string(),
+                ],
+                rule_distribution: vec![0, 1, 1],
+                rules: vec![r1, r2],
             },
-            RuleStatistics {
-                rule: r2.reverse(),
-                fits: 2,
-                purposeful: 0,
-            },
-        ];
-
-        // Sort the actual in order to have a deterministic outcome
-        let mut actual_rules = actual.meta.rules;
-        actual_rules.sort_by(|l, r| {
-            if r == l {
-                std::cmp::Ordering::Equal
-            } else if l.rule == r1 {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        });
-        assert_eq!(actual_rules.len(), expected_rules.len());
-        assert_eq!(actual_rules, expected_rules);
-
-        let expected_samples = vec![
-            Sample {
-                initial: b.clone(),
-                fits: vec![
-                    FitInfo {
-                        rule: r1.reverse(),
-                        path: vec![],
-                        purposeful: true,
+            samples: vec![SampleContainer {
+                max_depth: 1,
+                max_spread: 2,
+                samples: vec![
+                    Sample {
+                        initial: d,
+                        fits: vec![FitInfo {
+                            rule_id: 2,
+                            path: vec![0, 0],
+                        }],
                     },
-                    FitInfo {
-                        rule: r2.reverse(),
-                        path: vec![],
-                        purposeful: true,
+                    Sample {
+                        initial: b,
+                        fits: vec![FitInfo {
+                            rule_id: 1,
+                            path: vec![0, 0],
+                        }],
                     },
                 ],
-            },
-            Sample {
-                initial: d.clone(),
-                fits: vec![
-                    FitInfo {
-                        rule: r1.reverse(),
-                        path: vec![],
-                        purposeful: true,
-                    },
-                    FitInfo {
-                        rule: r2.reverse(),
-                        path: vec![],
-                        purposeful: true,
-                    },
-                ],
-            },
-        ];
+            }],
+        };
 
-        assert_eq!(actual.samples.len(), expected_samples.len());
-        // assert_eq!(actual.samples, expected_samples);
+        assert_vec_eq!(actual.meta.idents, expected.meta.idents);
+        assert_vec_eq!(actual.meta.rules, expected.meta.rules);
+        assert_vec_eq!(
+            actual.meta.rule_distribution,
+            expected.meta.rule_distribution
+        );
+
+        let actual_container = &expected.samples[0];
+        let expected_container = &expected.samples[0];
+        assert_eq!(actual_container.max_depth, expected_container.max_depth);
+        assert_eq!(actual_container.max_spread, expected_container.max_spread);
+        assert_vec_eq!(actual_container.samples, expected_container.samples);
     }
 }

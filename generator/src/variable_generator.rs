@@ -39,7 +39,8 @@ fn next_variable<'a>(
     Err("No letter in alphabet found")
 }
 
-/// TODO: Consider using Memoization here
+/// TODO: Consider using Memorization here
+/// https://docs.rs/cached/0.11.0/cached/
 pub fn variables_generator<'a>(
     current: &'a Symbol,
     alphabet: &'a [Symbol],

@@ -40,7 +40,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::PyBag>()?;
     m.add_class::<bag::PyBagMeta>()?;
     m.add_class::<bag::PyFitInfo>()?;
-    m.add_class::<bag::PyRuleStatistics>()?;
+    m.add_class::<bag::PyContainer>()?;
     m.add_class::<bag::PySample>()?;
     m.add_class::<scenario::PyScenario>()?;
     m.add_class::<fit::PyFitMap>()?;

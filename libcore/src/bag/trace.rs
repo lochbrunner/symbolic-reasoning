@@ -1,8 +1,73 @@
 use crate::dumper::latex::LaTeX;
 use crate::{Rule, Symbol};
 use std::collections::HashSet;
+use std::marker::PhantomData;
 extern crate chrono;
 extern crate serde_yaml;
+
+pub trait TraceStepTrait
+where
+    Self: Sized,
+{
+    type Info;
+    fn successors(&self) -> &Vec<Self>;
+    fn info(&self) -> &Self::Info;
+}
+
+pub trait TraceTrait<S>
+where
+    S: TraceStepTrait,
+{
+    fn stages(&self) -> &Vec<S>;
+}
+
+pub struct StepsIter<'a, S, T>
+where
+    S: TraceStepTrait,
+    T: TraceTrait<S>,
+{
+    cursors: Vec<Vec<usize>>,
+    trace: &'a T,
+    phantom: PhantomData<&'a S>,
+}
+
+impl<'a, S, T> StepsIter<'a, S, T>
+where
+    S: TraceStepTrait,
+    T: TraceTrait<S>,
+{
+    fn get_node(&self, cursor: &[usize]) -> &'a S {
+        let mut current_stage = self.trace.stages();
+        for i in cursor.iter().take(cursor.len() - 1) {
+            current_stage = current_stage[*i].successors();
+        }
+        &current_stage[*cursor.last().unwrap()]
+    }
+}
+
+impl<'a, S, T> Iterator for StepsIter<'a, S, T>
+where
+    S: TraceStepTrait,
+    T: TraceTrait<S>,
+{
+    type Item = &'a S::Info;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.cursors.pop() {
+            None => None,
+            Some(cursor) => {
+                let node = self.get_node(&cursor);
+                for (i, _) in node.successors().iter().enumerate() {
+                    let mut cursor = cursor.clone();
+                    cursor.push(i);
+                    self.cursors.push(cursor);
+                }
+                Some(node.info())
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Clone, PartialEq, Eq, Hash)]
 pub struct ApplyInfo<'a> {
@@ -47,6 +112,22 @@ pub struct Trace<'a> {
     pub stages: Vec<TraceStep<'a>>,
 }
 
+impl<'a> TraceStepTrait for TraceStep<'a> {
+    type Info = ApplyInfo<'a>;
+    fn successors(&self) -> &Vec<Self> {
+        &self.successors
+    }
+    fn info(&self) -> &Self::Info {
+        &self.info
+    }
+}
+
+impl<'a> TraceTrait<TraceStep<'a>> for Trace<'a> {
+    fn stages(&self) -> &Vec<TraceStep<'a>> {
+        &self.stages
+    }
+}
+
 impl<'a> Trace<'a> {
     pub fn write_bincode<W>(&self, writer: W) -> Result<(), String>
     where
@@ -65,6 +146,19 @@ impl<'a> Trace<'a> {
         match serde_yaml::to_writer(writer, self) {
             Ok(_) => Ok(()),
             Err(msg) => Err(msg.to_string()),
+        }
+    }
+
+    pub fn all_steps(&self) -> StepsIter<TraceStep<'a>, Trace<'a>> {
+        StepsIter {
+            cursors: self
+                .stages
+                .iter()
+                .enumerate()
+                .map(|(i, _)| vec![i])
+                .collect(),
+            trace: self,
+            phantom: PhantomData::default(),
         }
     }
 }
@@ -128,12 +222,12 @@ pub struct Calculation<'a> {
     pub steps: Vec<&'a DenseApplyInfo>,
 }
 
-pub struct TraceIter<'a> {
+pub struct DenseTraceIter<'a> {
     cursor: Vec<usize>,
     trace: &'a DenseTrace,
 }
 
-impl<'a> TraceIter<'a> {
+impl<'a> DenseTraceIter<'a> {
     #[inline]
     fn get_steps(&self) -> Vec<&'a DenseApplyInfo> {
         // Extract item
@@ -183,7 +277,7 @@ impl<'a> TraceIter<'a> {
     }
 }
 
-impl<'a> Iterator for TraceIter<'a> {
+impl<'a> Iterator for DenseTraceIter<'a> {
     type Item = Calculation<'a>;
 
     #[inline]
@@ -210,38 +304,19 @@ impl<'a> Iterator for TraceIter<'a> {
     }
 }
 
-pub struct StepsIter<'a> {
-    cursors: Vec<Vec<usize>>,
-    trace: &'a DenseTrace,
-}
-
-impl<'a> StepsIter<'a> {
-    fn get_node(&self, cursor: &[usize]) -> &'a DenseTraceStep {
-        let mut current_stage = &self.trace.stages;
-        for i in cursor.iter().take(cursor.len() - 1) {
-            current_stage = &current_stage[*i].successors;
-        }
-        &current_stage[*cursor.last().unwrap()]
+impl TraceStepTrait for DenseTraceStep {
+    type Info = DenseApplyInfo;
+    fn successors(&self) -> &Vec<Self> {
+        &self.successors
+    }
+    fn info(&self) -> &Self::Info {
+        &self.info
     }
 }
 
-impl<'a> Iterator for StepsIter<'a> {
-    type Item = &'a DenseApplyInfo;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.cursors.pop() {
-            None => None,
-            Some(cursor) => {
-                let node = self.get_node(&cursor);
-                for (i, _) in node.successors.iter().enumerate() {
-                    let mut cursor = cursor.clone();
-                    cursor.push(i);
-                    self.cursors.push(cursor);
-                }
-                Some(&node.info)
-            }
-        }
+impl TraceTrait<DenseTraceStep> for DenseTrace {
+    fn stages(&self) -> &Vec<DenseTraceStep> {
+        &self.stages
     }
 }
 
@@ -256,14 +331,15 @@ impl DenseTrace {
         }
         cursor
     }
-    pub fn unroll(&self) -> TraceIter {
-        TraceIter {
+    /// Returns for each trace endpoint one separate slim trace
+    pub fn unroll(&self) -> DenseTraceIter {
+        DenseTraceIter {
             cursor: self.initial_cursor(),
             trace: self,
         }
     }
 
-    pub fn all_steps(&self) -> StepsIter {
+    pub fn all_steps(&self) -> StepsIter<DenseTraceStep, DenseTrace> {
         StepsIter {
             cursors: self
                 .stages
@@ -272,6 +348,7 @@ impl DenseTrace {
                 .map(|(i, _)| vec![i])
                 .collect(),
             trace: self,
+            phantom: PhantomData::default(),
         }
     }
 

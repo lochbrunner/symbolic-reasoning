@@ -2,22 +2,23 @@
 
 from pycore import Bag
 
-bag = Bag.load('../../out/generator/bag-4-4.bin')
+bag = Bag.load('./out/generator/bag-2-2.bin')
 
 # Meta
 print(f'idents: {str.join(", ",bag.meta.idents)}')
 
-for stat in bag.meta.rules:
-    print(f'Rule: {stat.rule}  [{stat.fits}]')
+rules = [str(rule) for rule in bag.meta.rules]
+print(f'rules: {rules}')
 
-rule_to_ix = {str(rule): i for i, rule in enumerate(bag.meta.rules)}
-print(f'number od rules (dict) {len(rule_to_ix)}')
-print(f'number od rules (orig) {len(bag.meta.rules)}')
+print(f'rule distribution: {bag.meta.rule_distribution}')
 
 # Samples
-print(f'Number of samples: {len(bag.samples)}')
+print(f'Number of containers: {len(bag.samples)}')
+print(f'Size of last: s: {bag.samples[-1].max_spread} d: {bag.samples[-1].max_depth}')
 
-for sample in bag.samples[:3]:
-    print(f'Initial {sample.initial}')
-    for fit in sample.fits:
-        print(f'rule: {fit.rule} @{fit.path}')
+sample = bag.samples[-1].samples[0]
+print(f'Sample {sample.initial} ({len(sample.fits)} fits)')
+path = [str(path) for path in sample.fits[0].path]
+path = '/'.join(path)
+rule = bag.meta.rules[sample.fits[0].rule]
+print(f'Fits: {rule} @ {path}')

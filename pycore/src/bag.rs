@@ -1,7 +1,6 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core::bag;
-use core::{Rule, Symbol};
 use std::fs::File;
 use std::io::BufReader;
 use std::rc::Rc;
@@ -9,43 +8,9 @@ use std::rc::Rc;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
 
-#[pyclass(name=RuleStatistics,subclass)]
-#[derive(Clone)]
-pub struct PyRuleStatistics {
-    rule_ptr: Rc<Rule>,
-    fits_inner: usize,
-    purposeful_inner: usize,
-}
-
-#[pymethods]
-impl PyRuleStatistics {
-    #[getter]
-    fn rule(&self) -> PyResult<PyRule> {
-        Ok(PyRule {
-            inner: self.rule_ptr.clone(),
-        })
-    }
-
-    #[getter]
-    fn fits(&self) -> PyResult<usize> {
-        Ok(self.fits_inner)
-    }
-
-    #[getter]
-    fn purposeful(&self) -> PyResult<usize> {
-        Ok(self.purposeful_inner)
-    }
-}
-
-struct BagMetaData {
-    idents: Vec<String>,
-    rules: Vec<PyRuleStatistics>,
-}
-
 #[pyclass(name=BagMeta,subclass)]
-/// This is a view on the data
 pub struct PyBagMeta {
-    data: Rc<BagMetaData>,
+    data: Rc<bag::Meta>,
 }
 
 #[pymethods]
@@ -56,48 +21,58 @@ impl PyBagMeta {
     }
 
     #[getter]
-    fn rules(&self) -> PyResult<Vec<PyRuleStatistics>> {
-        Ok(self.data.rules.clone())
+    fn rules(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self
+            .data
+            .rules
+            .iter()
+            .map(|r| PyRule {
+                inner: Rc::new(r.clone()),
+            })
+            .collect())
+    }
+
+    #[getter]
+    fn rule_distribution(&self) -> PyResult<Vec<u32>> {
+        Ok(self.data.rule_distribution.clone())
     }
 }
 
-struct FitInfoData {
-    rule: Rc<Rule>,
-    path: Vec<usize>,
-    pub purposeful: bool,
+#[pyclass(name=FitInfo,subclass)]
+#[derive(Clone)]
+pub struct PyFitInfo {
+    /// Starting with 1 for better embedding
+    pub data: Rc<bag::FitInfo>,
 }
 
-#[pyclass(name=FitInfo,subclass)]
-pub struct PyFitInfo {
-    data: Rc<FitInfoData>,
+impl PyFitInfo {
+    pub fn new(orig: bag::FitInfo) -> PyFitInfo {
+        PyFitInfo {
+            data: Rc::new(orig),
+        }
+    }
 }
 
 #[pymethods]
 impl PyFitInfo {
     #[getter]
-    fn rule(&self) -> PyResult<PyRule> {
-        Ok(PyRule {
-            inner: self.data.rule.clone(),
-        })
+    fn rule(&self) -> PyResult<u32> {
+        Ok(self.data.rule_id)
     }
 
     #[getter]
     fn path(&self) -> PyResult<Vec<usize>> {
         Ok(self.data.path.clone())
     }
-
-    #[getter]
-    fn purposeful(&self) -> PyResult<bool> {
-        Ok(self.data.purposeful)
-    }
 }
 
 struct SampleData {
-    initial: Rc<Symbol>,
-    fits: Vec<Rc<FitInfoData>>,
+    initial: PySymbol,
+    fits: Vec<PyFitInfo>,
 }
 
 #[pyclass(name=Sample,subclass)]
+#[derive(Clone)]
 pub struct PySample {
     data: Rc<SampleData>,
 }
@@ -106,37 +81,45 @@ pub struct PySample {
 impl PySample {
     #[getter]
     fn initial(&self) -> PyResult<PySymbol> {
-        Ok(PySymbol {
-            inner: self.data.initial.clone(),
-        })
+        Ok(self.data.initial.clone())
     }
 
     #[getter]
     fn fits(&self) -> PyResult<Vec<PyFitInfo>> {
-        Ok(self
-            .data
-            .fits
-            .iter()
-            .map(|f| PyFitInfo { data: f.clone() })
-            .collect())
+        Ok(self.data.fits.clone())
+    }
+}
+
+#[pyclass(name=Container,subclass)]
+#[derive(Clone)]
+pub struct PyContainer {
+    pub max_depth: u32,
+    pub max_spread: u32,
+    pub samples: Vec<PySample>,
+}
+
+#[pymethods]
+impl PyContainer {
+    #[getter]
+    fn max_depth(&self) -> PyResult<u32> {
+        Ok(self.max_depth)
     }
 
     #[getter]
-    fn purposeful_fits(&self) -> PyResult<Vec<PyFitInfo>> {
-        Ok(self
-            .data
-            .fits
-            .iter()
-            .filter(|f| f.purposeful)
-            .map(|f| PyFitInfo { data: f.clone() })
-            .collect())
+    fn max_spread(&self) -> PyResult<u32> {
+        Ok(self.max_spread)
+    }
+
+    #[getter]
+    fn samples(&self) -> PyResult<Vec<PySample>> {
+        Ok(self.samples.clone())
     }
 }
 
 #[pyclass(name=Bag,subclass)]
 pub struct PyBag {
-    meta_data: Rc<BagMetaData>,
-    samples_data: Vec<Rc<SampleData>>,
+    meta_data: Rc<bag::Meta>,
+    samples_data: Vec<PyContainer>,
 }
 
 #[pymethods]
@@ -148,38 +131,24 @@ impl PyBag {
         let reader = BufReader::new(file);
         let bag = bag::Bag::read_bincode(reader)
             .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
-        // Convert bag
-        let meta = BagMetaData {
-            idents: bag.meta.idents,
-            rules: bag
-                .meta
-                .rules
-                .into_iter()
-                .map(|s| PyRuleStatistics {
-                    rule_ptr: Rc::new(s.rule),
-                    fits_inner: s.fits,
-                    purposeful_inner: s.purposeful,
-                })
-                .collect(),
-        };
-        let meta_data = Rc::new(meta);
+
+        let meta_data = Rc::new(bag.meta);
         let samples_data = bag
             .samples
             .into_iter()
-            .map(|s| {
-                Rc::new(SampleData {
-                    initial: Rc::new(s.initial),
-                    fits: s
-                        .fits
-                        .into_iter()
-                        .map(|f| FitInfoData {
-                            rule: Rc::new(f.rule),
-                            path: f.path,
-                            purposeful: f.purposeful,
-                        })
-                        .map(|f| Rc::new(f))
-                        .collect(),
-                })
+            .map(|c| PyContainer {
+                max_depth: c.max_depth,
+                max_spread: c.max_spread,
+                samples: c
+                    .samples
+                    .into_iter()
+                    .map(|s| PySample {
+                        data: Rc::new(SampleData {
+                            initial: PySymbol::new(s.initial),
+                            fits: s.fits.into_iter().map(PyFitInfo::new).collect(),
+                        }),
+                    })
+                    .collect(),
             })
             .collect();
 
@@ -197,11 +166,7 @@ impl PyBag {
     }
 
     #[getter]
-    fn samples(&self) -> PyResult<Vec<PySample>> {
-        Ok(self
-            .samples_data
-            .iter()
-            .map(|s| PySample { data: s.clone() })
-            .collect())
+    fn samples(&self) -> PyResult<Vec<PyContainer>> {
+        Ok(self.samples_data.clone())
     }
 }
