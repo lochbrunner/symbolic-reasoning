@@ -462,7 +462,7 @@ mod specs {
         .iter()
         .map(|deduced| DenseTraceStep {
             info: DenseApplyInfo {
-                rule: Rule::parse(&context, "v => c").unwrap(),
+                rule: Rule::parse_first(&context, "v => c"),
                 path: vec![],
                 initial: Symbol::parse(&context, "i").unwrap(),
                 deduced: deduced.clone(),
@@ -491,7 +491,7 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c").unwrap(),
+                        rule: Rule::parse_first(&context, "v => c"),
                         path: vec![],
                         initial: Symbol::parse(&context, "i").unwrap(),
                         deduced: Symbol::parse(&context, symbol).unwrap(),
@@ -535,7 +535,7 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c").unwrap(),
+                        rule: Rule::parse_first(&context, "v => c"),
                         path: vec![],
                         initial: Symbol::parse(&context, "i").unwrap(),
                         deduced: Symbol::parse(&context, symbol).unwrap(),
@@ -600,7 +600,7 @@ mod specs {
         .into_iter()
         .map(|deduced| DenseTraceStep {
             info: DenseApplyInfo {
-                rule: Rule::parse(&context, "v => c").unwrap(),
+                rule: Rule::parse_first(&context, "v => c"),
                 path: vec![],
                 initial: Symbol::parse(&context, "i").unwrap(),
                 deduced: deduced.clone(),
@@ -632,7 +632,7 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c").unwrap(),
+                        rule: Rule::parse_first(&context, "v => c"),
                         path: vec![],
                         initial: Symbol::parse(&context, "i").unwrap(),
                         deduced: Symbol::parse(&context, symbol).unwrap(),
@@ -677,7 +677,7 @@ mod specs {
                 .into_iter()
                 .map(|(symbol, successors)| DenseTraceStep {
                     info: DenseApplyInfo {
-                        rule: Rule::parse(&context, "v => c").unwrap(),
+                        rule: Rule::parse_first(&context, "v => c"),
                         path: vec![],
                         initial: Symbol::parse(&context, "i").unwrap(),
                         deduced: Symbol::parse(&context, symbol).unwrap(),

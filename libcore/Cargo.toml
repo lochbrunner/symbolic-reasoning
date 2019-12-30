@@ -16,3 +16,4 @@ vector_assertions = "0.1.0"
 
 [dev-dependencies]
 p-macro = "*"
+stringreader = "*"

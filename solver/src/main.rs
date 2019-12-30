@@ -1,5 +1,5 @@
-use core::io;
-use core::{bag::trace::DenseTrace, Context};
+use core::bag::trace::DenseTrace;
+use core::scenario::Scenario;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -14,10 +14,13 @@ fn main() {
     );
     let trace_loaded = DenseTrace::read_bincode(reader).expect("Deserialize trace");
 
-    let mut context =
-        Context::load("./generator/assets/declarations.yaml").expect("Loading context");
-    context.register_standard_operators();
-    let rules = io::read_rules(&context, "./generator/assets/rules.txt", io::Mode::Normal);
+    let scenario = Scenario::load_from_yaml("real_world_problems/basics/dataset.yaml").unwrap();
+    let rules = scenario
+        .rules
+        .iter()
+        .map(|(_, v)| v)
+        .cloned()
+        .collect::<Vec<_>>();
 
     for calc in trace_loaded.unroll().take(1) {
         let initial = &calc.steps.last().unwrap().deduced;

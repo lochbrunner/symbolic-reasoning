@@ -40,7 +40,7 @@ pub fn solve<'a>(
         prev_index: None,
         path: vec![],
     }]];
-    let mut statistics = Statistics::new();
+    let mut statistics: Statistics = Default::default();
     let variable_creator = &|| Ok(def_symbol.clone());
     loop {
         let mut next = vec![];

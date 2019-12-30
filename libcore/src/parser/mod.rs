@@ -8,17 +8,9 @@ use crate::context::Context;
 pub use astifier::Precedence;
 
 impl Symbol {
-    // pub fn parse_from_str(context: &Context, code: String) -> Symbol {
-    //     let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-    //     astifier::parse(context, &tokens)
-    // }
-
     pub fn parse(context: &Context, code: &str) -> Result<Symbol, String> {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        match astifier::parse(context, &tokens) {
-            Ok(symbol) => Ok(symbol),
-            Err(msg) => Err(format!("{}: {}", msg, code)),
-        }
+        astifier::parse(context, &tokens).map_err(|msg| format!("{}: {}", msg, code))
     }
 }
 

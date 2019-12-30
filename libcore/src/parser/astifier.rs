@@ -268,7 +268,7 @@ impl ParseStack {
                 }
                 IdentOrSymbol::Symbol(symbol) => Ok(symbol),
             },
-            None => Err("Expected at least one symbol in sym stack".to_owned()),
+            None => Err("Expected at least one symbol in parse stack".to_owned()),
         }
     }
 }

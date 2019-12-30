@@ -1,0 +1,38 @@
+declarations:
+  f:
+    is_fixed: true
+    is_function: true
+    only_root: false
+rules:
+  trivial subtraction: a-a => 0
+  trivial division: a/a => 1
+  trivial multiplication: 0*a => 0 
+  # counting
+  counting 2: 1+1 => 2
+  counting 3: 1+2 => 3
+  doubling: a+a <=> 2*a
+  # others
+  commutative property 1: a*b <=> b*a
+  commutative property 2: a+b <=> b+a
+  associative property: a*(b*c) => (a*b)*c 
+  distributive property 1: a*(b+c) => a*b+a*c
+  distributive property 2: a*(b-c) => a*b-a*c
+  # neutrals
+  neutral sum: a+0 => a
+  neutral subtraction: a-0 => a
+  neutral product: 1*a => a
+  neutral division: a/1 => a
+  # exponentiation
+  square: a*a <=> a^2
+  next exponent: a*a^n => a^(n+1)
+  neutral exponent: a^1 => a
+  trivial exponent: a^0 => 1
+  # equations
+  equation 1: a - b = 0 => a = b
+  equation 2: x + a = 0 => x = -a
+  equation 3: a / b = 1 => a = b
+premises:
+ - x = y
+ - x = 0
+ - x = 1
+ - x = y + z

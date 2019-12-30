@@ -17,7 +17,6 @@
 //! ```latex
 //! r*(s+t)
 //! ```
-
 #![feature(test)]
 #[macro_use]
 extern crate serde_derive;
@@ -26,6 +25,8 @@ extern crate maplit;
 #[macro_use]
 #[cfg(test)]
 extern crate p_macro;
+#[cfg(test)]
+extern crate stringreader;
 #[macro_use]
 #[cfg(test)]
 extern crate vector_assertions;
@@ -46,5 +47,5 @@ pub use context::*;
 pub use fit::*;
 pub use rule::*;
 pub use symbol::*;
-pub mod io;
+pub mod scenario;
 pub mod solver;
