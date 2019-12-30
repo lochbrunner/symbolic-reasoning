@@ -164,8 +164,8 @@ mod specs {
         let b = Symbol::parse(&context, "b").unwrap();
         let c = Symbol::parse(&context, "c").unwrap();
         let d = Symbol::parse(&context, "d").unwrap();
-        let r1 = Rule::parse(&context, "a => b").unwrap();
-        let r2 = Rule::parse(&context, "c => d").unwrap();
+        let r1 = Rule::parse_first(&context, "a => b");
+        let r2 = Rule::parse_first(&context, "c => d");
 
         let traces = vec![
             Trace {

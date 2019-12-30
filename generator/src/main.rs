@@ -3,6 +3,7 @@ use rose::draw_rose;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
+use std::path::Path;
 
 #[macro_use]
 extern crate clap;
@@ -14,9 +15,9 @@ mod iter_extensions;
 mod rose;
 mod svg;
 
-use core::bag::trace::{ApplyInfo, Meta, Trace, TraceStep};
+use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
 use core::bag::Bag;
-use core::io::*;
+use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
@@ -113,26 +114,22 @@ fn deduce<'a>(
         }
     }
 
-    let trace = Trace {
+    Trace {
         meta: Meta {
             used_idents,
             rules: rules.to_vec(),
         },
         initial,
         stages: deduce_impl(alphabet, initial, rules, stages, 0),
-    };
-
-    draw_rose("./out/generator/deduced.svg", &trace).expect("SVG Dump");
-    trace
+    }
 }
 
 fn main() {
     let matches = App::new("Sample data generator")
-        .version("0.1.0")
+        .version("0.2.0")
         .author("Matthias Lochbrunner <matthias_lochbrunner@web.de>")
         .arg(
             Arg::with_name("stages")
-                .short("s")
                 .long("stages")
                 .help("numbers of fits (per rule) to use for each stage")
                 .multiple(true)
@@ -140,28 +137,25 @@ fn main() {
                 .default_value("1"),
         )
         .arg(
-            Arg::with_name("declaration")
-                .short("d")
-                .long("declaration-filename")
+            Arg::with_name("scenario")
+                .short("s")
+                .long("scenario-filename")
                 .help("file containing the declarations")
                 .takes_value(true)
-                .default_value("./generator/assets/declarations.yaml"),
+                .default_value("./real_world_problems/basics/dataset.yaml"),
         )
         .arg(
-            Arg::with_name("rules")
-                .short("r")
-                .long("rules-filename")
-                .help("file containing the rules")
+            Arg::with_name("rose")
+                .long("rose-directory")
+                .help("Directory to place the roses")
                 .takes_value(true)
-                .default_value("./generator/assets/rules.txt"),
+                .default_value("./out/generator/rose"),
         )
         .arg(
-            Arg::with_name("premises")
-                .short("p")
-                .long("premises-filename")
-                .help("file containing the premises")
-                .takes_value(true)
-                .default_value("./generator/assets/premises.txt"),
+            Arg::with_name("tex")
+                .long("tex-directory")
+                .help("Directory to place the tex files")
+                .takes_value(true),
         )
         .get_matches();
 
@@ -169,9 +163,15 @@ fn main() {
         .unwrap()
         .into_iter()
         .collect::<Vec<usize>>();
-    let declaration_filename = matches.value_of("declaration").unwrap();
-    let rules_filename = matches.value_of("rules").unwrap();
-    let premises_filename = matches.value_of("premises").unwrap();
+    let declaration_filename = matches.value_of("scenario").unwrap();
+    let scenario = Scenario::load_from_yaml(declaration_filename).unwrap();
+
+    let rules = scenario
+        .rules
+        .iter()
+        .map(|(_, v)| v.reverse())
+        .collect::<Vec<_>>();
+
     let postfix = stages
         .iter()
         .map(|s| s.to_string())
@@ -184,19 +184,39 @@ fn main() {
         .unwrap_or_else(|_| panic!("Loading declarations from {}", declaration_filename));
     context.register_standard_operators();
 
-    let rules = read_rules(&context, rules_filename, Mode::Reversed);
-    let premises = read_premises(&context, premises_filename);
-
-    let traces = premises
+    let traces = scenario
+        .premises
         .iter()
         .map(|initial| deduce(&alphabet, initial, &rules, &stages))
         .collect::<Vec<_>>();
+
+    if let Some(dir) = matches.value_of("rose") {
+        if !Path::new(dir).is_dir() {
+            println!("\"{}\" is not a valid directory!", dir);
+            return;
+        }
+        for (i, trace) in traces.iter().enumerate() {
+            let filename = Path::new(dir).join(&format!("rose_{}.svg", i));
+            let filename = filename.to_str().unwrap();
+            draw_rose(filename, trace).expect("SVG Dump");
+        }
+    }
 
     let bag = Bag::from_traces(&traces);
 
     let writer = BufWriter::new(File::create(out_filename).unwrap());
     bag.write_bincode(writer).expect("Writing bin file");
 
-    // let mut writer = BufWriter::new(File::create("out/generator/trace.tex").unwrap());
-    // trace.write_latex(&mut writer).expect("Writing tex file");
+    if let Some(dir) = matches.value_of("tex") {
+        if !Path::new(dir).is_dir() {
+            println!("\"{}\" is not a valid directory!", dir);
+            return;
+        }
+        for (i, trace) in traces.iter().enumerate() {
+            let filename = Path::new(dir).join(&format!("trace_{}.tex", i));
+            let mut writer = BufWriter::new(File::create(filename).expect("Parent folder exists"));
+            let trace = DenseTrace::from_trace(trace);
+            trace.write_latex(&mut writer).expect("Writing tex file");
+        }
+    }
 }

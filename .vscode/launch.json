@@ -20,6 +20,25 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "generator",
+            "type": "lldb",
+            "request": "launch",
+            "program": "cargo",
+            "args": [
+                "run",
+                "--bin",
+                "generator",
+                "--",
+                "--stages",
+                "2",
+                "2"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Tests GDB",
             "type": "cppdbg",
             "request": "launch",

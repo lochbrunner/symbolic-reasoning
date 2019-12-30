@@ -14,20 +14,11 @@ pub struct CalculationStep<'a> {
     pub term: Symbol,
 }
 
+#[derive(Default)]
 pub struct Statistics {
     pub fits_count: u32,
     pub applies_count: u32,
     pub fit_calls_count: u32,
-}
-
-impl Statistics {
-    pub fn new() -> Statistics {
-        Statistics {
-            fits_count: 0,
-            applies_count: 0,
-            fit_calls_count: 0,
-        }
-    }
 }
 
 pub struct SolveResult<'a> {
