@@ -7,14 +7,17 @@ import torch
 from node import Node
 from .symbol_builder import SymbolBuilder
 
-pad_token = '<PAD>'
+PAD_TOKEN = '<PAD>'
 
 
-def ident_to_id(node: Node):
+def ident_to_id(node: Node, idents: List = None):
     # 0 is padding
-    if node.ident == pad_token:
+    if node.ident == PAD_TOKEN:
         return 0
-    return ord(node.ident) - 97 + 1
+    if idents is None:
+        return ord(node.ident) - 97 + 1
+
+    return idents.index(node.ident)
 
 
 class TraverseInstructionSet:
@@ -22,11 +25,11 @@ class TraverseInstructionSet:
         self.input = input
         self.hidden = hidden
 
-    def get(self, input, hidden):
+    def get(self, x, h):
         if self.input is not None:
-            return input[self.input]
+            return x[self.input]
         if self.hidden is not None:
-            return hidden[self.hidden]
+            return h[self.hidden]
         raise Exception('Missing index!')
 
     def __repr__(self):
@@ -42,9 +45,9 @@ class TraverseInstruction:
         self.root = root
         self.childs = childs
 
-    def get(self, input, hidden):
-        root = self.root.get(input, hidden)
-        childs = [child.get(input, hidden) for child in self.childs]
+    def get(self, x, h):
+        root = self.root.get(x, h)
+        childs = [child.get(x, h) for child in self.childs]
         return root, childs
 
     def get_index(self):
@@ -104,18 +107,19 @@ class Embedder:
         depth = params.depth
         spread = params.spread
         tree_size = sum([spread**l for l in range(0, depth+1)])
-        all = np.ones(tree_size)
+        all_nodes = np.ones(tree_size)
         if depth == 0:
-            return all
+            return all_nodes
         num_groups = spread**(depth-1)
 
         for i in range(num_groups):
             offset = i*(spread+1)
-            all[offset:offset+spread] = 0
+            all_nodes[offset:offset+spread] = 0
 
-        return all
+        return all_nodes
 
     def unroll(self, x: Node) -> List[Node]:
+        assert x is not None
         stack = [x]
         x = []
         seen = set()
@@ -132,7 +136,7 @@ class Embedder:
 class TagEmbedder(Embedder):
     '''Each sample is associated to one tag'''
 
-    def __call__(self, x: Node, y, s):
+    def __call__(self, x: Node, y, s, **kwargs):
         x = [ident_to_id(n) for n in self.unroll(x)]
         return x, y, s
 
@@ -140,48 +144,58 @@ class TagEmbedder(Embedder):
 class SegEmbedder(Embedder):
     '''Each sub node in a sample is associated to one tag'''
 
-    def __call__(self, x: Node, s):
-        y = [n.label or 0 for n in self.unroll(x)]
-        x = [ident_to_id(n) for n in self.unroll(x)]
+    def __call__(self, x: Node, y: Node, s, idents, **kwargs):
+        y = [n.label or 0 for n in self.unroll(y)]
+        x = [ident_to_id(n, idents) for n in self.unroll(x)]
         return x, y, s
 
 
 class Padder:
     '''Adds childs to each node of the tree that each has the same depth, spread and is complete.'''
 
-    def __init__(self, depth=2, spread=2, pad_token=pad_token):
-        self.depth = depth
-        self.spread = spread
-        self.pad_token = pad_token
+    def pad(self, n: Node, depth: int, spread: int, **kwargs) -> Node:
+        if type(n).__name__ == 'Node':
+            builder = SymbolBuilder(n)
+            for path, node in builder.traverse_bfs_path():
+                if len(path) < depth:
+                    nc = len(node.childs)
+                    for _ in range(nc, spread):
+                        node.childs.append(Node(PAD_TOKEN, []))
+            return builder.symbol
+        elif type(n).__name__ == 'Symbol':
+            return n.create_padded(PAD_TOKEN, spread, depth)
+        else:
+            raise Exception(f'Unknown type {type(n).__name__}')
 
-    def __call__(self, x: Node, *args):
+    def __call__(self, x: Node, y: Node, *args, **kwargs):
         # TODO: Write test
-        builder = SymbolBuilder(x)
-        for path, node in builder.traverse_bfs_path():
-            if len(path) < self.depth:
-                nc = len(node.childs)
-                for _ in range(nc, self.spread):
-                    node.childs.append(Node(self.pad_token, []))
+        x = self.pad(x, **kwargs)
+        y = self.pad(y, **kwargs)
 
-        return (builder.symbol,) + args
+        assert x is not None
+        assert y is not None
+
+        return (x, y) + args
 
 
 class Uploader:
     def __init__(self, device=torch.device('cpu')):  # pylint: disable=no-member
         self.device = device
 
-    def __call__(self, x, y, s):
+    def __call__(self, x, y, s, **kwargs):
         x = torch.as_tensor(x, dtype=torch.long).to(self.device)  # pylint: disable=no-member
         y = torch.as_tensor(y, dtype=torch.long).to(self.device)  # pylint: disable=no-member
         return x, y, s
 
 
 class TestPadder(unittest.TestCase):
+    '''Unit test for the padder class'''
+
     def test_to_short(self):
         padder = Padder(depth=2, spread=2)
         node = Node('a')
-        padded, = padder(node)
-        p = pad_token
+        padded, = padder(node)  # pylint: disable=unbalanced-tuple-unpacking
+        p = PAD_TOKEN
 
         expected = Node('a', [Node(p, [Node(p, []), Node(p, [])]),
                               Node(p, [Node(p, []), Node(p, [])])])
@@ -191,8 +205,8 @@ class TestPadder(unittest.TestCase):
     def test_unbalanced(self):
         padder = Padder(depth=2, spread=2)
         node = Node('a', [Node('b', [Node('c')])])
-        p = pad_token
-        padded, = padder(node)
+        p = PAD_TOKEN
+        padded, = padder(node)  # pylint: disable=unbalanced-tuple-unpacking
 
         expected = Node('a', [Node('b', [Node('c', []), Node(p, [])]),
                               Node(p, [Node(p, []), Node(p, [])])])
@@ -200,7 +214,10 @@ class TestPadder(unittest.TestCase):
 
 
 class TestEmbedder(unittest.TestCase):
+    '''Unit test for Embedder base class'''
     class Params:
+        '''Simple POD class'''
+
         def __init__(self, depth, spread):
             self.depth = depth
             self.spread = spread

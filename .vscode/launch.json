@@ -65,15 +65,18 @@
             "name": "train",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/train.py",
+            "program": "${workspaceFolder}/ml/train.py",
             "args": [
-                "-m",
-                "FullyConnectedTagger",
-                "-s",
-                "pattern"
+                "-v",
+                "-d",
+                "cpu",
+                "--bag-filename",
+                "${workspaceFolder}/out/generator/bag-2-2.bin",
+                "--scenario",
+                "bag"
             ],
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/ml",
             "justMyCode": false
         },
         {

@@ -11,6 +11,7 @@ mod symbol;
 mod symbol_builder;
 mod trace;
 
+
 #[pyfunction]
 fn fit(outer: &symbol::PySymbol, inner: &symbol::PySymbol) -> PyResult<Vec<fit::PyFitMap>> {
     fit::pyfit_impl(outer, inner)

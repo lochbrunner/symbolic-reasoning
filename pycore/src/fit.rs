@@ -2,7 +2,6 @@ use crate::symbol::PySymbol;
 use core;
 use pyo3::prelude::*;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[pyclass(name=FitMap,subclass)]
 #[derive(Debug)]
@@ -54,16 +53,7 @@ pub fn pyfit_impl(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>>
             variable: o
                 .variable
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        PySymbol {
-                            inner: Rc::new((*k).clone()),
-                        },
-                        PySymbol {
-                            inner: Rc::new((*v).clone()),
-                        },
-                    )
-                })
+                .map(|(k, v)| (PySymbol::new((*k).clone()), PySymbol::new((*v).clone())))
                 .collect(),
         })
         .collect();

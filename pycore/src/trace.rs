@@ -33,17 +33,13 @@ impl PyApplyInfo {
     #[getter]
     fn get_initial(&self) -> PyResult<PySymbol> {
         let inner = self.inner.initial.clone();
-        Ok(PySymbol {
-            inner: Rc::new(inner),
-        })
+        Ok(PySymbol::new(inner))
     }
 
     #[getter]
     fn get_deduced(&self) -> PyResult<PySymbol> {
         let inner = self.inner.deduced.clone();
-        Ok(PySymbol {
-            inner: Rc::new(inner),
-        })
+        Ok(PySymbol::new(inner))
     }
 }
 
@@ -248,7 +244,7 @@ impl PyTrace {
             File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
         let reader = BufReader::new(file);
         let inner = DenseTrace::read_bincode(reader)
-            .map_err(|msg|PyErr::new::<TypeError, _>(msg.to_string()))?;
+            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
         let inner = Rc::new(inner);
         Ok(PyTrace { inner })
     }

@@ -4,11 +4,15 @@ import unittest
 
 
 class NodeEncoder(json.JSONEncoder):
+    '''Needed for json dumps'''
+
     def default(self, o):  # pylint: disable=E0202
         return o.__dict__
 
 
 class Node:
+    '''Python implementation of the Symbol'''
+
     def __init__(self, ident=None, childs=None, label=None):
         self.ident = ident
         self.childs = childs or []
@@ -17,18 +21,18 @@ class Node:
     def __repr__(self):
         return json.dumps(self, cls=NodeEncoder)
 
-    def _str_ident(self, buffer, indent):
+    def str_ident(self, buffer, indent):
         ident = self.ident or '?'
         s = ' '
         indents = s * indent
         label = f'{s*self.depth}{self.label}' if self.label is not None else ''
         buffer.write(f'{indents}{ident}{label}\n')
         for child in self.childs:
-            child._str_ident(buffer, indent + 1)
+            child.str_ident(buffer, indent + 1)
 
     def __str__(self):
         buffer = StringIO()
-        self._str_ident(buffer, 0)
+        self.str_ident(buffer, 0)
 
         return buffer.getvalue()
 
@@ -36,7 +40,7 @@ class Node:
         return self.ident == other.ident and self.childs == other.childs
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(id(self))
 
     @property
     def depth(self):
@@ -57,6 +61,8 @@ class Node:
 
 
 class TestSymbol(unittest.TestCase):
+    '''Unit tests for python Symbol class'''
+
     def test_equality_small(self):
         a = Node('a')
         b = Node('a')

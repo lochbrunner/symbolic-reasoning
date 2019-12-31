@@ -3,9 +3,7 @@ from random import shuffle, randint, seed
 from copy import deepcopy
 import unittest
 
-from torch.utils.data import Dataset
-
-from common.utils import memoize
+from .dataset_base import DatasetBase
 from .generate import generate_idents
 from .symbol_builder import SymbolBuilder
 
@@ -64,7 +62,7 @@ def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, nu
         # Label 0 means no label
         builder.set_label_at(path, label_id+1)
 
-        samples.append(builder.symbol)
+        samples.append((builder.symbol, (path, label_id+1)))
 
         max_tries -= 1
         if max_tries == 0:
@@ -73,48 +71,34 @@ def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, nu
     return samples, idents, patterns, label_distribution
 
 
-class EmbPatternDataset(Dataset):
+class EmbPatternDataset(DatasetBase):
     '''Embeds different patterns in a noise'''
 
     def __init__(self, params, transform=None, preprocess=False):
-        self.transform = transform
-        self.samples, self.idents, self.patterns, self.label_distribution = place_patterns_in_noise(
-            depth=params.depth, spread=params.spread, max_size=params.max_size, pattern_depth=1, num_labels=params.num_labels)
-        self.preprocess = preprocess
+        super(EmbPatternDataset, self).__init__(transform, preprocess)
+        self.samples, self._idents, self.patterns, self.label_distribution = place_patterns_in_noise(
+            depth=params.depth, spread=params.spread, max_size=params.max_size,
+            pattern_depth=1, num_labels=params.num_labels)
+
+        builder = SymbolBuilder()
+        for _ in range(params.depth):
+            builder.add_level_uniform(params.spread)
+        self.label_builder = builder
+
         if preprocess:
             self.samples = [self._process_sample(sample) for sample in self.samples]
 
-    def _process_sample(self, sample):
-        x = sample
-        s = 2  # spread
-        if self.transform is not None:
-            return self.transform(x, s)
-        return x, s
+        self._max_spread = params.spread
+        self._max_depth = params.depth
 
-    def __len__(self):
-        return len(self.samples)
-
-    @memoize
-    def __getitem__(self, index):
-        if not self.preprocess:
-            return self._process_sample(self.samples[index])
-        else:
-            return self.samples[index]
-
-    @property
-    def vocab_size(self):
-        return len(self.idents)
-
-    @property
-    def tag_size(self):
-        # One additional for no tag
-        return len(self.patterns) + 1
-
-    @property
-    def label_weight(self):
-        # nodes_count = sum(self.label_distribution)
-        min_node = min(self.label_distribution)
-        return [min_node/label for label in self.label_distribution]
+    def unpack_sample(self, sample):
+        x, (path, label) = sample
+        builder = self.label_builder
+        builder.clear_labels()
+        # Label 0 means no label
+        builder.set_label_at(path, label)
+        y = builder.symbol
+        return x, y
 
 
 class TestPatternSegmentation(unittest.TestCase):

@@ -59,7 +59,7 @@ class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         for t in self.transforms:
-            args = t(*args)
+            args = t(*args, **kwargs)
         return args

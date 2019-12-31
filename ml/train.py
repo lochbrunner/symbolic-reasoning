@@ -151,11 +151,11 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
-    parser.add_argument('-m', '--model', choices=[m for m in all_models], default='LstmTreeTagger')
+    parser.add_argument('-m', '--model', choices=[m for m in all_models], default='FullyConnectedSegmenter')
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
-                        default='permutation', choices=scenarios_choices())
+                        default='pattern', choices=scenarios_choices())
     parser.add_argument('--depth', type=int, default=2,
                         help='The depth of the used nodes.')
     parser.add_argument('--pattern-depth', type=int, default=1,
@@ -163,6 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('--max-size', type=int, default=120)
     parser.add_argument('--num-labels', type=int, default=2)
+    parser.add_argument('--bag-filename', type=str, default=None)
 
     args = parser.parse_args()
     loglevel = 'INFO' if args.verbose else args.log.upper()
@@ -193,6 +194,7 @@ if __name__ == '__main__':
         scenario=args.scenario, depth=args.depth, spread=args.spread,
         max_size=args.max_size,
         pattern_depth=args.pattern_depth,
-        num_labels=args.num_labels)
+        num_labels=args.num_labels,
+        filename=args.bag_filename)
 
     main(exec_params, learn_params, scenario_params=scenario_params)

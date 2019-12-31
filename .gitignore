@@ -8,3 +8,4 @@ reports
 snapshots
 lstm
 .vscode/tags
+pycore.so

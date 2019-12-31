@@ -151,6 +151,32 @@ impl Symbol {
         SymbolAndPathIter::new(self)
     }
 
+    pub fn parts_with_path_mut(&mut self) -> SymbolAndPathIter {
+        SymbolAndPathIter::new(self)
+    }
+
+    fn print_tree_impl(&self, buffer: &mut String, indent: usize) {
+        let ident = if self.ident.is_empty() {
+            "?"
+        } else {
+            &self.ident
+        };
+        let indent_str = String::from_utf8(vec![b' '; indent]).unwrap();
+        buffer.push_str(&indent_str);
+        buffer.push_str(ident);
+        buffer.push_str(&"\n");
+
+        for child in self.childs.iter() {
+            child.print_tree_impl(buffer, indent + 1)
+        }
+    }
+
+    pub fn print_tree(&self) -> String {
+        let mut code = String::new();
+        self.print_tree_impl(&mut code, 0);
+        code
+    }
+
     /// Iterates all the childs of a specified level
     /// # Example
     /// ```
@@ -212,6 +238,7 @@ impl Symbol {
         self.depth = Symbol::calc_depth(&self.childs);
     }
 
+    // Symbol creation
     pub fn create_flags(fixed: bool, only_root: bool) -> FlagType {
         let fixed = if fixed { symbol_flags::FIXED } else { 0 };
         let only_root = if only_root {
