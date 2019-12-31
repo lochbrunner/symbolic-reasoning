@@ -9,27 +9,16 @@ python3 -m venv <venv name>
 pip install -r requirements.txt
 ```
 
-## Standard Sequence
+## Training
 
 ```zsh
-./deep_main.py
-```
-
-## Tree Data
-
-Requirements:
-
-* Self-similarity
-
-```zsh
-./deep_main.py
+./train.py
 ```
 
 ## Unit Tests
 
-
 ```zsh
-./run_tests.py
+PYTHONPATH=ml ./run_tests.py
 ```
 
 ## Road-Map

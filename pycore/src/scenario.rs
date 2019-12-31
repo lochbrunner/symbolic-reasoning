@@ -1,4 +1,4 @@
-use core::io::Scenario;
+use core::scenario::Scenario;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;

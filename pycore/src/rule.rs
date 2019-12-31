@@ -18,8 +18,8 @@ impl PyRule {
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
         match Rule::parse(&context.inner, &code) {
-            Ok(rule) => Ok(PyRule {
-                inner: Rc::new(rule),
+            Ok(mut rule) => Ok(PyRule {
+                inner: Rc::new(rule.pop().unwrap()),
             }),
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
         }
@@ -28,17 +28,13 @@ impl PyRule {
     #[getter]
     fn get_condition(&self) -> PyResult<PySymbol> {
         let inner = self.inner.condition.clone();
-        Ok(PySymbol {
-            inner: Rc::new(inner),
-        })
+        Ok(PySymbol::new(inner))
     }
 
     #[getter]
     fn get_conclusion(&self) -> PyResult<PySymbol> {
         let inner = self.inner.conclusion.clone();
-        Ok(PySymbol {
-            inner: Rc::new(inner),
-        })
+        Ok(PySymbol::new(inner))
     }
 
     #[getter]

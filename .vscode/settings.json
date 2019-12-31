@@ -13,22 +13,24 @@
     "cSpell.words": [
         "Deque",
         "LSTM",
+        "PYTHONPATH",
+        "Uploader",
         "bincode",
         "childs",
+        "deque",
         "dtype",
+        "fitinfo",
         "idents",
+        "isnan",
+        "itertools",
         "maplit",
+        "optim",
         "pyclass",
         "pymethods",
         "pyproto",
         "repr",
         "serde",
-        "staticmethod",
-        "PYTHONPATH",
-        "deque",
-        "isnan",
-        "itertools",
-        "optim"
+        "staticmethod"
     ],
     "python.pythonPath": "/bin/python3"
 }

@@ -204,6 +204,7 @@ fn main() {
 
     let bag = Bag::from_traces(&traces);
 
+    println!("Writing bag file to \"{}\" ...", out_filename);
     let writer = BufWriter::new(File::create(out_filename).unwrap());
     bag.write_bincode(writer).expect("Writing bin file");
 

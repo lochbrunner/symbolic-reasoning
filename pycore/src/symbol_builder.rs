@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use pyo3::exceptions::IndexError;
 use pyo3::prelude::*;
 
@@ -75,9 +73,7 @@ impl PySymbolBuilder {
 
     #[getter]
     fn symbol(&self) -> PyResult<PySymbol> {
-        Ok(PySymbol {
-            inner: Rc::new(self.inner.clone()),
-        })
+        Ok(PySymbol::new(self.inner.clone()))
     }
 }
 

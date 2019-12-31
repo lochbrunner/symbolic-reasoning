@@ -95,12 +95,14 @@ impl Bag {
             .cloned()
             .collect::<Vec<_>>();
         let mut rule_distribution = vec![0; rules.len() + 1];
-
         for (_, fitinfos) in initials.iter() {
             for fitinfo in fitinfos.iter() {
                 rule_distribution[fitinfo.rule_id as usize] += 1;
             }
         }
+        rule_distribution[0] = initials.iter().fold(0, |acc, (symbol, fits)| {
+            acc + ((symbol.parts().count() - 1) * fits.len()) as u32
+        });
 
         let samples = (1..max_depth)
             .map(|depth| {
