@@ -1,23 +1,57 @@
 use crate::context::PyContext;
 use core::dumper::{dump_latex, dump_verbose};
 use core::Symbol;
+use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
-use pyo3::exceptions::{IndexError, TypeError};
+use pyo3::exceptions::{IndexError, KeyError, NotImplementedError, TypeError};
+use pyo3::gc::{PyGCProtocol, PyVisit};
 use pyo3::prelude::*;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 /// Python Wrapper for core::Symbol
 #[pyclass(name=Symbol,subclass)]
-#[derive(Hash, Clone, PartialEq, Eq)]
+#[derive(PartialEq)]
 pub struct PySymbol {
     pub inner: Rc<Symbol>,
+    pub attributes: HashMap<String, PyObject>,
+}
+
+impl Hash for PySymbol {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
+    }
+}
+
+impl Clone for PySymbol {
+    fn clone(&self) -> Self {
+        PySymbol {
+            inner: self.inner.clone(),
+            attributes: HashMap::new(),
+        }
+    }
 }
 
 impl PySymbol {
     pub fn new(symbol: Symbol) -> PySymbol {
         PySymbol {
             inner: Rc::new(symbol),
+            attributes: HashMap::new(),
+        }
+    }
+}
+
+impl Eq for PySymbol {}
+
+impl PySymbol {
+    fn try_release_attribute(&mut self, name: &str) {
+        if let Some((_, obj)) = self.attributes.remove_entry(name) {
+            let gil = GILGuard::acquire();
+            let py = gil.python();
+            py.release(obj);
         }
     }
 }
@@ -155,18 +189,17 @@ impl PySymbol {
     fn clone(&self) -> PyResult<PySymbol> {
         Ok(PySymbol {
             inner: self.inner.clone(),
+            attributes: HashMap::new(),
         })
     }
 
     #[text_signature = "($self, padding, spread, depth, /)"]
     fn pad(&mut self, padding: String, spread: u32, depth: u32) -> PyResult<()> {
         match Rc::get_mut(&mut self.inner) {
-            None => {
-                return Err(PyErr::new::<TypeError, _>(format!(
-                    "Can not get mut reference of symbol {}",
-                    self.inner
-                )));
-            }
+            None => Err(PyErr::new::<TypeError, _>(format!(
+                "Can not get mut reference of symbol {}",
+                self.inner
+            ))),
             Some(parent) => {
                 for level in 0..depth {
                     for node in parent.iter_level_mut(level) {
@@ -176,10 +209,11 @@ impl PySymbol {
                         }
                     }
                 }
+                Ok(())
             }
         }
-        Ok(())
     }
+    /// Same as pad, but not in-place
     #[text_signature = "($self, padding, spread, depth, /)"]
     fn create_padded(&self, padding: String, spread: u32, depth: u32) -> PyResult<PySymbol> {
         let mut new_symbol = (*self.inner).clone();
@@ -195,14 +229,81 @@ impl PySymbol {
     }
 }
 
+fn op_to_string(op: &CompareOp) -> &str {
+    match op {
+        CompareOp::Lt => "<",
+        CompareOp::Le => "<=",
+        CompareOp::Eq => "==",
+        CompareOp::Ne => "!=",
+        CompareOp::Gt => ">",
+        CompareOp::Ge => ">=",
+    }
+}
+
 #[pyproto]
-impl pyo3::class::basic::PyObjectProtocol for PySymbol {
+impl PyObjectProtocol for PySymbol {
     fn __str__(&self) -> PyResult<String> {
         Ok(self.inner.to_string())
     }
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self.inner))
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        let mut state = DefaultHasher::new();
+        (*self.inner).hash(&mut state);
+        Ok(state.finish() as isize)
+    }
+
+    fn __richcmp__(&'p self, other: &'p PySymbol, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(*self.inner == *other.inner),
+            CompareOp::Ne => Ok(*self.inner != *other.inner),
+            _ => Err(PyErr::new::<NotImplementedError, _>(format!(
+                "Comparison operator {} for Symbol is not implemented yet!",
+                op_to_string(&op)
+            ))),
+        }
+    }
+
+    fn __setattr__(&'p mut self, name: &'p str, value: PyObject) -> PyResult<()> {
+        self.try_release_attribute(name);
+        self.attributes.insert(name.to_string(), value);
+        Ok(())
+    }
+
+    fn __getattr__(&'p self, name: &'p str) -> PyResult<&'p PyObject> {
+        match self.attributes.get(name) {
+            Some(value) => Ok(value),
+            None => Err(PyErr::new::<KeyError, _>(format!(
+                "No Attribute with key \"{}\" found!",
+                name
+            ))),
+        }
+    }
+
+    fn __delattr__(&mut self, name: &str) -> PyResult<()> {
+        self.try_release_attribute(name);
+        Ok(())
+    }
+}
+
+#[pyproto]
+impl PyGCProtocol for PySymbol {
+    fn __traverse__(&self, visit: PyVisit) -> Result<(), pyo3::PyTraverseError> {
+        for obj in self.attributes.values() {
+            visit.call(obj)?
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        for obj in self.attributes.values() {
+            let gil = GILGuard::acquire();
+            let py = gil.python();
+            py.release(obj);
+        }
     }
 }
 
