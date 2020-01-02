@@ -111,16 +111,16 @@ class TestPatternSegmentation(unittest.TestCase):
         self.assertCountEqual(idents, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
         self.assertEqual(len(patterns), 2)
         self.assertEqual(len(samples), 12)
-        self.assertEqual(samples[0].depth, 2)
+        self.assertEqual(samples[0][0].depth, 2)
 
         # Check that each sample has at least one pattern
-        for sample in samples:
+        for sample, _ in samples:
             builder = SymbolBuilder(sample)
             occurred_patterns = sum([builder.has_pattern(pattern) for pattern in patterns])
             self.assertGreaterEqual(occurred_patterns, 1)
 
         # Check the labels
-        for sample in samples:
+        for sample, _ in samples:
             builder = SymbolBuilder(sample)
             found = False
             for i, pattern in enumerate(patterns):

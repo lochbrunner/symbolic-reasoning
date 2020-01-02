@@ -93,6 +93,17 @@ class SymbolBuilder:
     def symbol(self):
         return deepcopy(self.childs[0])
 
+    @property
+    def symbol_ref(self):
+        return self.childs[0]
+
+    @staticmethod
+    def create(depth, spread):
+        builder = SymbolBuilder()
+        for _ in range(depth):
+            builder.add_level_uniform(spread)
+        return builder
+
 
 class TestStringBuilder(unittest.TestCase):
     def test_traverse_bfs(self):

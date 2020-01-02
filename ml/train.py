@@ -151,7 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
-    parser.add_argument('-m', '--model', choices=[m for m in all_models], default='FullyConnectedSegmenter')
+    parser.add_argument('-m', '--model', choices=all_models, default='FullyConnectedSegmenter')
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     loglevel = 'INFO' if args.verbose else args.log.upper()
 
     logging.basicConfig(
-        level=logging._nameToLevel[loglevel],
+        level=logging.getLevelName(loglevel),
         format='%(message)s'
     )
 
