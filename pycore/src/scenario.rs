@@ -15,9 +15,11 @@ pub struct PyScenario {
 
 #[pymethods]
 impl PyScenario {
+    /// Loads a scenario from file
     #[staticmethod]
-    fn load(code: String) -> PyResult<PyScenario> {
-        match Scenario::load_from_yaml(&code) {
+    #[text_signature = "(filename, /)"]
+    fn load(filename: String) -> PyResult<PyScenario> {
+        match Scenario::load_from_yaml(&filename) {
             Ok(scenario) => Ok(PyScenario {
                 inner: Rc::new(scenario),
             }),

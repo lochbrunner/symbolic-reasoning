@@ -98,7 +98,7 @@ class SymbolBuilder:
         return self.childs[0]
 
     @staticmethod
-    def create(depth, spread):
+    def create(depth, spread, **kwargs):
         builder = SymbolBuilder()
         for _ in range(depth):
             builder.add_level_uniform(spread)

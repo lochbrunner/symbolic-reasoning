@@ -90,10 +90,11 @@
             "justMyCode": false
         },
         {
-            "name": "test",
+            "name": "test ml",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/run_tests.py",
+            "cwd": "${workspaceFolder}/ml",
+            "program": "${workspaceFolder}/ml/run_tests.py",
             "args": [],
             "console": "integratedTerminal",
             "justMyCode": false
