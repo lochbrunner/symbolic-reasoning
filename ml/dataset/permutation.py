@@ -134,8 +134,8 @@ class TestPermutation(unittest.TestCase):
         expected_samples.append(Node('c', [Node('b', [Node('a')])]))
 
         self.maxDiff = None
-        self.assertCountEqual([sample[1]
-                               for sample in samples], expected_samples)
+        self.assertCountEqual([sample
+                               for _, sample in samples], expected_samples)
 
         self.assertEqual(idents, ['a', 'b', 'c'])
         self.assertEqual(classes, [0, 1, 2, 3, 4, 5])

@@ -40,7 +40,7 @@ class Node:
         return self.ident == other.ident and self.childs == other.childs
 
     def __hash__(self):
-        return hash(id(self))
+        return hash(str(self))
 
     @property
     def depth(self):
