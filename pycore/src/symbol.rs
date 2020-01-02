@@ -8,6 +8,7 @@ use pyo3::gc::{PyGCProtocol, PyVisit};
 use pyo3::prelude::*;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -56,17 +57,54 @@ impl PySymbol {
     }
 }
 
-#[pyclass(name=SymbolIter)]
+#[pyclass(name=SymbolBfsIter)]
 #[derive(Clone)]
-pub struct PySymbolIter {
+pub struct PySymbolBfsIter {
+    pub parent: Rc<Symbol>,
+    pub queue: VecDeque<Symbol>,
+}
+
+impl PySymbolBfsIter {
+    pub fn new(symbol: &Rc<Symbol>) -> PySymbolBfsIter {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back((*symbol.clone()).clone());
+        PySymbolBfsIter {
+            parent: symbol.clone(),
+            queue,
+        }
+    }
+}
+
+#[pyproto]
+impl PyIterProtocol for PySymbolBfsIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolBfsIter> {
+        Ok(PySymbolBfsIter::new(&s.parent))
+    }
+
+    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<PySymbol>> {
+        match s.queue.pop_front() {
+            None => Ok(None),
+            Some(current) => {
+                for child in current.childs.iter() {
+                    s.queue.push_back(child.clone());
+                }
+                Ok(Some(PySymbol::new(current)))
+            }
+        }
+    }
+}
+
+#[pyclass(name=SymbolDfsIter)]
+#[derive(Clone)]
+pub struct PySymbolDfsIter {
     pub parent: Rc<Symbol>,
     pub stack: Vec<Symbol>,
 }
 
 #[pyproto]
-impl PyIterProtocol for PySymbolIter {
-    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolIter> {
-        Ok(PySymbolIter {
+impl PyIterProtocol for PySymbolDfsIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolDfsIter> {
+        Ok(PySymbolDfsIter {
             parent: s.parent.clone(),
             stack: vec![(*s.parent).clone()],
         })
@@ -87,15 +125,15 @@ impl PyIterProtocol for PySymbolIter {
 
 #[pyclass(name=SymbolAndPathIter)]
 #[derive(Clone)]
-pub struct PySymbolAndPathIter {
+pub struct PySymbolAndPathDfsIter {
     pub parent: Rc<Symbol>,
     pub stack: Vec<Vec<usize>>,
 }
 
 #[pyproto]
-impl PyIterProtocol for PySymbolAndPathIter {
-    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolAndPathIter> {
-        Ok(PySymbolAndPathIter {
+impl PyIterProtocol for PySymbolAndPathDfsIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolAndPathDfsIter> {
+        Ok(PySymbolAndPathDfsIter {
             parent: s.parent.clone(),
             stack: vec![vec![]],
         })
@@ -122,10 +160,18 @@ impl PyIterProtocol for PySymbolAndPathIter {
 #[pymethods]
 impl PySymbol {
     #[staticmethod]
+    #[text_signature = "(context, code, /)"]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
         let inner =
             Symbol::parse(&context.inner, &code).map_err(|msg| PyErr::new::<TypeError, _>(msg))?;
         Ok(PySymbol::new(inner))
+    }
+
+    #[staticmethod]
+    #[text_signature = "(ident, fixed, /)"]
+    #[args(fixed = false)]
+    fn variable(ident: &str, fixed: bool) -> PyResult<PySymbol> {
+        Ok(PySymbol::new(Symbol::new_variable(ident, fixed)))
     }
 
     #[getter]
@@ -142,16 +188,21 @@ impl PySymbol {
     }
 
     #[getter]
-    fn parts(&self) -> PyResult<PySymbolIter> {
-        Ok(PySymbolIter {
+    fn parts_bfs(&self) -> PyResult<PySymbolBfsIter> {
+        Ok(PySymbolBfsIter::new(&self.inner))
+    }
+
+    #[getter]
+    fn parts_dfs(&self) -> PyResult<PySymbolDfsIter> {
+        Ok(PySymbolDfsIter {
             parent: self.inner.clone(),
             stack: vec![(*self.inner).clone()],
         })
     }
 
     #[getter]
-    fn parts_with_path(&self) -> PyResult<PySymbolAndPathIter> {
-        Ok(PySymbolAndPathIter {
+    fn parts_dfs_with_path(&self) -> PyResult<PySymbolAndPathDfsIter> {
+        Ok(PySymbolAndPathDfsIter {
             parent: self.inner.clone(),
             stack: vec![vec![]],
         })
@@ -185,6 +236,21 @@ impl PySymbol {
             .collect())
     }
 
+    #[getter]
+    fn depth(&self) -> PyResult<u32> {
+        Ok(self.inner.depth)
+    }
+
+    #[getter]
+    fn fixed(&self) -> PyResult<bool> {
+        Ok(self.inner.fixed())
+    }
+
+    #[getter]
+    fn only_root(&self) -> PyResult<bool> {
+        Ok(self.inner.only_root())
+    }
+
     #[text_signature = "($self, /)"]
     fn clone(&self) -> PyResult<PySymbol> {
         Ok(PySymbol {
@@ -209,6 +275,7 @@ impl PySymbol {
                         }
                     }
                 }
+                parent.fix_depth();
                 Ok(())
             }
         }
@@ -225,6 +292,7 @@ impl PySymbol {
                 }
             }
         }
+        new_symbol.fix_depth();
         Ok(PySymbol::new(new_symbol))
     }
 }

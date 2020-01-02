@@ -8,7 +8,8 @@
         "**/__pycache__": true,
         "Cargo.lock": true,
         "target": true,
-        "snapshots": true
+        "snapshots": true,
+        "pycore.so": true
     },
     "cSpell.words": [
         "Deque",

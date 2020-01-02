@@ -11,13 +11,16 @@ mod symbol;
 mod symbol_builder;
 mod trace;
 
-
+/// Tries to fit the inner into the outer symbol.unimplemented!
+/// Returns a list of possible mappings.
 #[pyfunction]
+#[text_signature = "(outer, inner, /)"]
 fn fit(outer: &symbol::PySymbol, inner: &symbol::PySymbol) -> PyResult<Vec<fit::PyFitMap>> {
     fit::pyfit_impl(outer, inner)
 }
 
 #[pyfunction]
+#[text_signature = "(mapping, variable_creator, prev, conclusion, /)"]
 fn apply(
     py: Python,
     mapping: &fit::PyFitMap,
