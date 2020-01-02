@@ -1,6 +1,7 @@
 use super::symbol::*;
 use maplit::*;
 use std::collections::HashMap;
+use std::fmt;
 
 /// Use this struct later
 #[derive(Debug, Clone)]
@@ -11,6 +12,25 @@ pub struct FitMap<'a> {
     /// Path to the node
     /// Each item represents the index of the next child
     pub path: Vec<usize>,
+}
+
+impl<'a> fmt::Display for FitMap<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mapping = self
+            .variable
+            .iter()
+            .map(|(s, t)| format!("{} -> {}", s, t))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let path = self
+            .path
+            .iter()
+            .map(|p| format!("{}", p))
+            .collect::<Vec<_>>()
+            .join("/");
+
+        write!(f, "{} @ /{}", mapping, path)
+    }
 }
 
 fn fit_impl<'a>(
@@ -135,12 +155,15 @@ fn fit_fixed<'a>(
 ) -> Vec<FitMap<'a>> {
     // Check root
     if outer.ident != inner.ident {
-        folk_childs(outer, inner, map, path, Vec::new())
+        // Are we in a running fitting?
+        match map {
+            Some(_) => vec![],
+            None => folk_childs(outer, inner, map, path, Vec::new()),
+        }
     } else if outer.childs.len() != inner.childs.len() {
         // Wrong number of childs
         vec![]
     } else {
-        // TODO: Don't allocate memory for hypothetical used variable
         let new_scenario = Some(FitMap {
             variable: HashMap::new(),
             path: path.to_vec(),
@@ -157,8 +180,8 @@ fn fit_fixed<'a>(
             path: path.to_vec(),
         }];
 
-        for i in 0..outer.childs.len() {
-            let add = fit_impl(&outer.childs[i], &inner.childs[i], &scenario, path);
+        for (outer, inner) in outer.childs.iter().zip(inner.childs.iter()) {
+            let add = fit_impl(outer, inner, &scenario, path);
             if add.is_empty() {
                 return vec![];
             }
@@ -643,5 +666,17 @@ mod specs {
         assert_eq!(scenario_ab.variable.len(), 1);
         assert_eq!(format_scenario(scenario_ab), "a => b");
         assert_eq!(scenario_ab.path, vec![1], "Wrong path");
+    }
+
+    #[test]
+    fn solver_issue_1() {
+        let context = Context::standard();
+        let outer = Symbol::parse(&context, "3/(1+2)").unwrap();
+        let inner = Symbol::parse(&context, "a/1").unwrap();
+
+        let scenarios = fit(&outer, &inner);
+        assert!(scenarios.is_empty());
+
+        // println!("{}", scenarios[0]);
     }
 }

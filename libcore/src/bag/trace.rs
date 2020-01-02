@@ -592,12 +592,11 @@ mod specs {
     #[test]
     fn all_steps_flat_stages() {
         let context = Context::standard();
-
         let stages = [
             Symbol::parse(&context, "a").unwrap(),
             Symbol::parse(&context, "b").unwrap(),
         ]
-        .into_iter()
+        .iter()
         .map(|deduced| DenseTraceStep {
             info: DenseApplyInfo {
                 rule: Rule::parse_first(&context, "v => c"),
