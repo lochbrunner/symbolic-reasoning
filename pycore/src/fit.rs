@@ -41,6 +41,22 @@ impl pyo3::class::basic::PyObjectProtocol for PyFitMap {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
     }
+
+    fn __str__(&self) -> PyResult<String> {
+        let mapping = self
+            .variable
+            .iter()
+            .map(|(s, t)| format!("{} -> {}", s.inner, t.inner))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let path = self
+            .path
+            .iter()
+            .map(|p| format!("{}", p))
+            .collect::<Vec<_>>()
+            .join("/");
+        Ok(format!("{} @ /{}", mapping, path))
+    }
 }
 
 pub fn pyfit_impl(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
