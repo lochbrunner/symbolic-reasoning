@@ -11,12 +11,24 @@ mod symbol;
 mod symbol_builder;
 mod trace;
 
-/// Tries to fit the inner into the outer symbol.unimplemented!
+/// Tries to fit the inner into the outer symbol.
 /// Returns a list of possible mappings.
 #[pyfunction]
 #[text_signature = "(outer, inner, /)"]
 fn fit(outer: &symbol::PySymbol, inner: &symbol::PySymbol) -> PyResult<Vec<fit::PyFitMap>> {
     fit::pyfit_impl(outer, inner)
+}
+
+/// Tries to fit the inner into the outer symbol at a specified path.
+/// Returns a list of possible mappings.
+#[pyfunction]
+#[text_signature = "(outer, inner, path /)"]
+fn fit_at(
+    outer: &symbol::PySymbol,
+    inner: &symbol::PySymbol,
+    path: Vec<usize>,
+) -> PyResult<Vec<fit::PyFitMap>> {
+    fit::pyfit_at_impl(outer, inner, &path)
 }
 
 #[pyfunction]
@@ -49,6 +61,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<scenario::PyScenario>()?;
     m.add_class::<fit::PyFitMap>()?;
     m.add_wrapped(wrap_pyfunction!(fit))?;
+    m.add_wrapped(wrap_pyfunction!(fit_at))?;
     m.add_wrapped(wrap_pyfunction!(apply))?;
     Ok(())
 }

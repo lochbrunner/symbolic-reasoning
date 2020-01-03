@@ -1,5 +1,6 @@
 use crate::symbol::PySymbol;
 use core;
+use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
@@ -11,6 +12,17 @@ pub struct PyFitMap {
 }
 
 impl PyFitMap {
+    pub fn new<'a>(fitmap: &core::FitMap<'a>) -> PyFitMap {
+        PyFitMap {
+            path: fitmap.path.clone(),
+            variable: fitmap
+                .variable
+                .iter()
+                .map(|(k, v)| (PySymbol::new((*k).clone()), PySymbol::new((*v).clone())))
+                .collect(),
+        }
+    }
+
     pub fn get_raw(&self) -> core::FitMap {
         core::FitMap {
             path: self.path.clone(),
@@ -37,7 +49,7 @@ impl PyFitMap {
 }
 
 #[pyproto]
-impl pyo3::class::basic::PyObjectProtocol for PyFitMap {
+impl PyObjectProtocol for PyFitMap {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
     }
@@ -55,24 +67,25 @@ impl pyo3::class::basic::PyObjectProtocol for PyFitMap {
             .map(|p| format!("{}", p))
             .collect::<Vec<_>>()
             .join("/");
-        Ok(format!("{} @ /{}", mapping, path))
+        Ok(format!("{} /{}", mapping, path))
     }
 }
 
 pub fn pyfit_impl(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
     let fitmaps = core::fit::fit(&outer.inner, &inner.inner);
 
-    let fitmaps = fitmaps
-        .iter()
-        .map(|o| PyFitMap {
-            path: o.path.clone(),
-            variable: o
-                .variable
-                .iter()
-                .map(|(k, v)| (PySymbol::new((*k).clone()), PySymbol::new((*v).clone())))
-                .collect(),
-        })
-        .collect();
+    let fitmaps = fitmaps.iter().map(PyFitMap::new).collect();
 
     Ok(fitmaps)
+}
+
+pub fn pyfit_at_impl(
+    outer: &PySymbol,
+    inner: &PySymbol,
+    path: &[usize],
+) -> PyResult<Vec<PyFitMap>> {
+    Ok(core::fit::fit_at(&outer.inner, &inner.inner, path)
+        .iter()
+        .map(PyFitMap::new)
+        .collect())
 }
