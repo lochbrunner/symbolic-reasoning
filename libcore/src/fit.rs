@@ -29,7 +29,7 @@ impl<'a> fmt::Display for FitMap<'a> {
             .collect::<Vec<_>>()
             .join("/");
 
-        write!(f, "{} @ /{}", mapping, path)
+        write!(f, "{} /{}", mapping, path)
     }
 }
 
@@ -199,6 +199,19 @@ pub fn fit<'a>(outer: &'a Symbol, inner: &'a Symbol) -> Vec<FitMap<'a>> {
     let map = Option::<FitMap>::None;
     let path = vec![];
     fit_impl(outer, inner, &map, &path)
+}
+pub fn fit_at<'a>(outer: &'a Symbol, inner: &'a Symbol, path: &[usize]) -> Vec<FitMap<'a>> {
+    // TODO: Should this return a Result or Option instead of vector?
+    match outer.at(path) {
+        None => vec![],
+        Some(outer) => {
+            let map = Some(FitMap {
+                variable: HashMap::new(),
+                path: path.to_vec(),
+            });
+            fit_impl(outer, inner, &map, path)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -646,6 +659,35 @@ mod specs {
     }
 
     #[test]
+    fn fit_at_some() {
+        let mut context = create_context(vec!["F"], vec!["A"]);
+        context.register_standard_operators();
+        let outer = Symbol::parse(&context, "F(A+1)").unwrap();
+        let inner = Symbol::parse(&context, "a+1").unwrap();
+
+        let scenarios = fit_at(&outer, &inner, &vec![0]);
+        for scenario in scenarios.iter() {
+            println!("{}", scenario);
+        }
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert_eq!(format_scenario(scenario), "a => A");
+        assert_eq!(scenario.path, vec![0], "Wrong path");
+    }
+
+    #[test]
+    fn fit_at_none() {
+        let mut context = create_context(vec!["F"], vec!["A"]);
+        context.register_standard_operators();
+        let outer = Symbol::parse(&context, "F(A+1)").unwrap();
+        let inner = Symbol::parse(&context, "a+1").unwrap();
+
+        let scenarios = fit_at(&outer, &inner, &vec![]);
+
+        assert!(scenarios.is_empty());
+    }
+
+    #[test]
     fn generator_issue_1() {
         let context = Context::standard();
         let outer = Symbol::parse(&context, "a=b").unwrap();
@@ -676,7 +718,5 @@ mod specs {
 
         let scenarios = fit(&outer, &inner);
         assert!(scenarios.is_empty());
-
-        // println!("{}", scenarios[0]);
     }
 }
