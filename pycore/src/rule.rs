@@ -11,6 +11,7 @@ use std::rc::Rc;
 #[pyclass(name=Rule,subclass)]
 pub struct PyRule {
     pub inner: Rc<Rule>,
+    pub name: String,
 }
 
 #[pymethods]
@@ -20,6 +21,7 @@ impl PyRule {
         match Rule::parse(&context.inner, &code) {
             Ok(mut rule) => Ok(PyRule {
                 inner: Rc::new(rule.pop().unwrap()),
+                name: format!("Parsed from {}", code),
             }),
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
         }
@@ -44,6 +46,7 @@ impl PyRule {
                 conclusion: self.inner.condition.clone(),
                 condition: self.inner.conclusion.clone(),
             }),
+            name: format!("Reverse of {}", self.name),
         })
     }
 
@@ -64,6 +67,11 @@ impl PyRule {
             dump_latex(&self.inner.condition, None),
             dump_latex(&self.inner.conclusion, None)
         ))
+    }
+
+    #[getter]
+    fn name(&self) -> PyResult<String> {
+        Ok(self.name.clone())
     }
 }
 

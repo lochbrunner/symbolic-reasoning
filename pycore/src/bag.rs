@@ -26,8 +26,9 @@ impl PyBagMeta {
             .data
             .rules
             .iter()
-            .map(|r| PyRule {
+            .map(|(l, r)| PyRule {
                 inner: Rc::new(r.clone()),
+                name: l.clone(),
             })
             .collect())
     }

@@ -114,7 +114,7 @@ impl<'a> Iterator for SymbolLevelIter<'a> {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub struct Symbol {
     pub ident: String,
     // Empty for non operators

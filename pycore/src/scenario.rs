@@ -38,6 +38,7 @@ impl PyScenario {
                     k.clone(),
                     PyRule {
                         inner: Rc::new(v.clone()),
+                        name: k.clone(),
                     },
                 )
             })
@@ -55,6 +56,7 @@ impl PyScenario {
                     k.clone(),
                     PyRule {
                         inner: Rc::new(v.clone()),
+                        name: k.clone(),
                     },
                 )
             })

@@ -2,7 +2,7 @@ use super::{Context, Symbol};
 
 use std::fmt;
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Rule {
     pub condition: Symbol,
     pub conclusion: Symbol,

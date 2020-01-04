@@ -46,7 +46,7 @@ fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec
 fn deduce_impl<'a>(
     alphabet: &'a [Symbol],
     initial: &Symbol,
-    rules: &'a [Rule],
+    rules: &'a [(String, Rule)],
     stages: &[usize],
     stage_index: usize,
 ) -> Vec<TraceStep<'a>> {
@@ -55,7 +55,7 @@ fn deduce_impl<'a>(
     }
     let mut stage = vec![];
     // How to reduce for all rules in sum
-    for rule in rules.iter() {
+    for (_, rule) in rules.iter() {
         stage.extend(
             deduce_once(alphabet, initial, rule)
                 .pick(Strategy::Random(true))
@@ -93,12 +93,12 @@ fn extract_idents_from_rules(rules: &[Rule]) -> HashSet<String> {
 fn deduce<'a>(
     alphabet: &'a [Symbol],
     initial: &'a Symbol,
-    rules: &'a [Rule],
+    rules: &'a [(String, Rule)],
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
     let mut used_idents =
-        extract_idents_from_rules(&rules.iter().map(|r| r.reverse()).collect::<Vec<_>>());
+        extract_idents_from_rules(&rules.iter().map(|(_, r)| r.reverse()).collect::<Vec<_>>());
 
     for part in initial.parts() {
         if !used_idents.contains(&part.ident) {
@@ -169,7 +169,7 @@ fn main() {
     let rules = scenario
         .rules
         .iter()
-        .map(|(_, v)| v.reverse())
+        .map(|(k, v)| (k.clone(), v.reverse()))
         .collect::<Vec<_>>();
 
     let postfix = stages
