@@ -21,7 +21,10 @@ impl PyApplyInfo {
     #[getter]
     fn get_rule(&self) -> PyResult<PyRule> {
         let inner = Rc::new(self.inner.rule.clone());
-        Ok(PyRule { inner })
+        Ok(PyRule {
+            inner,
+            name: String::new(),
+        })
     }
 
     #[getter]
@@ -224,8 +227,9 @@ impl PyMeta {
             .meta
             .rules
             .iter()
-            .map(|r| PyRule {
+            .map(|(n, r)| PyRule {
                 inner: Rc::new(r.clone()),
+                name: n.clone(),
             })
             .collect())
     }

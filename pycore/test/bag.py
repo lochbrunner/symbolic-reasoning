@@ -21,7 +21,7 @@ print(f'Sample {sample.initial} ({len(sample.fits)} fits)')
 path = [str(path) for path in sample.fits[0].path]
 path = '/'.join(path)
 rule = bag.meta.rules[sample.fits[0].rule]
-print(f'Fits: {rule} @ {path}')
+print(f'Fits: {rule.name} @ {path}')
 
 # Testing label
 a = sample.initial
@@ -32,9 +32,3 @@ b = a
 print(f'b: {b.label}')
 a.label = 15
 print(f'b: {b.label}')
-
-c = b.clone()
-
-print(f'c: {c.label}')
-b.label = 7
-print(f'c: {c.label}')

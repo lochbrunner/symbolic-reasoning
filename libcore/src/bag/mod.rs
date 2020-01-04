@@ -8,7 +8,7 @@ pub struct Meta {
     pub idents: Vec<String>,
     pub rule_distribution: Vec<u32>,
     /// Rule at index 0 is padding
-    pub rules: Vec<Rule>,
+    pub rules: Vec<(String, Rule)>,
 }
 
 // Clone is needed as long sort_map is not available
@@ -45,21 +45,23 @@ impl Bag {
     ///  * create statistics
     ///  * order by size (depth & spread)
     pub fn from_traces(traces: &[trace::Trace]) -> Bag {
-        let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
+        let mut rule_map: HashMap<&Rule, (u32, String)> = HashMap::new();
 
         let mut initials: HashMap<&Symbol, Vec<FitInfo>> = HashMap::new();
         let mut idents: HashSet<String> = HashSet::new();
         for trace in traces.iter() {
+            for ident in trace.meta.used_idents.iter() {
+                idents.insert(ident.clone());
+            }
+            for (name, rule) in trace.meta.rules.iter() {
+                if !rule_map.contains_key(&rule) {
+                    let rule_id = rule_map.len() as u32 + 1;
+                    rule_map.insert(&rule, (rule_id, name.to_string()));
+                }
+            }
             for step in trace.all_steps() {
-                let rule_id = match rule_map.get(&step.rule) {
-                    None => {
-                        let rule_id = rule_map.len() as u32 + 1;
-                        rule_map.insert(&step.rule, rule_id);
-                        rule_id
-                    }
-                    Some(rule_id) => *rule_id,
-                };
                 // Reverse rules
+                let rule_id = rule_map.get(&step.rule).expect("Rule").0;
                 let fitinfo = FitInfo {
                     path: step.path.clone(),
                     rule_id,
@@ -70,9 +72,6 @@ impl Bag {
                     }
                     Some(initial) => initial.push(fitinfo),
                 }
-            }
-            for ident in trace.meta.used_idents.iter() {
-                idents.insert(ident.clone());
             }
         }
         // Sort
@@ -88,12 +87,11 @@ impl Bag {
                 }
             }
         }
+        let mut rules = vec![Default::default(); rule_map.len() + 1];
+        for (r, (i, n)) in rule_map.iter() {
+            rules.insert(*i as usize, (n.clone(), (*r).clone()))
+        }
 
-        let rules = rule_map
-            .iter()
-            .map(|(r, _)| *r)
-            .cloned()
-            .collect::<Vec<_>>();
         let mut rule_distribution = vec![0; rules.len() + 1];
         for (_, fitinfos) in initials.iter() {
             for fitinfo in fitinfos.iter() {
@@ -166,8 +164,8 @@ mod specs {
         let b = Symbol::parse(&context, "b").unwrap();
         let c = Symbol::parse(&context, "c").unwrap();
         let d = Symbol::parse(&context, "d").unwrap();
-        let r1 = Rule::parse_first(&context, "a => b");
-        let r2 = Rule::parse_first(&context, "c => d");
+        let r1 = ("r1".to_string(), Rule::parse_first(&context, "a => b"));
+        let r2 = ("r2".to_string(), Rule::parse_first(&context, "c => d"));
 
         let traces = vec![
             Trace {
@@ -178,7 +176,7 @@ mod specs {
                 initial: &a,
                 stages: vec![TraceStep {
                     info: ApplyInfo {
-                        rule: &r1,
+                        rule: &r1.1,
                         path: vec![0, 0],
                         initial: a.clone(),
                         deduced: b.clone(),
@@ -194,7 +192,7 @@ mod specs {
                 initial: &c,
                 stages: vec![TraceStep {
                     info: ApplyInfo {
-                        rule: &r2,
+                        rule: &r2.1,
                         path: vec![0, 0],
                         initial: c.clone(),
                         deduced: d.clone(),

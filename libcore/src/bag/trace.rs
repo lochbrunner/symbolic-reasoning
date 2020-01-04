@@ -102,7 +102,7 @@ pub struct TraceStep<'a> {
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Meta {
     pub used_idents: HashSet<String>,
-    pub rules: Vec<Rule>,
+    pub rules: Vec<(String, Rule)>,
 }
 
 #[derive(Serialize)]
