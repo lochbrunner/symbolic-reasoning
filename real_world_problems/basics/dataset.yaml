@@ -10,6 +10,10 @@ rules:
   # counting
   counting 2: 1+1 => 2
   counting 3: 1+2 => 3
+  # counting down (Could be deduced from above later)
+  de-counting 2: 2-1 => 1
+  de-counting 3: 3-1 => 2
+  de-counting 4: 4-1 => 3
   doubling: a+a <=> 2*a
   # others
   commutative property 1: a*b <=> b*a
@@ -36,3 +40,6 @@ premises:
  - x = 0
  - x = 1
  - x = y + z
+problems:
+ one step: 3/3 => 1
+ two steps: 3/(1+2) => 1
