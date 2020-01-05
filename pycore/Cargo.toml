@@ -9,6 +9,5 @@ name = "pycore"
 crate-type = ["cdylib"]
 
 [dependencies]
-# pyo3 = {version = "0.8.3    ", features = ["extension-module", "unsound-subclass"]}
-pyo3 = {path="/home/matthias/workspace/github/lochbrunner/pyo3", features = ["extension-module", "unsound-subclass"]}
+pyo3 = {version = "0.8.5    ", features = ["extension-module", "unsound-subclass"]}
 core = { path = "../libcore" }

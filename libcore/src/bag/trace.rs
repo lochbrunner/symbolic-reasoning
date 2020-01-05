@@ -163,6 +163,7 @@ impl<'a> Trace<'a> {
     }
 }
 
+/// Same as ApplyInfo but with values instead of references.
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DenseApplyInfo {
     pub rule: Rule,
