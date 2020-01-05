@@ -89,10 +89,11 @@ impl Bag {
         }
         let mut rules = vec![Default::default(); rule_map.len() + 1];
         for (r, (i, n)) in rule_map.iter() {
-            rules.insert(*i as usize, (n.clone(), (*r).clone()))
+            rules[*i as usize] = (n.clone(), (*r).clone());
         }
+        rules[0].0 = "padding".to_string();
 
-        let mut rule_distribution = vec![0; rules.len() + 1];
+        let mut rule_distribution = vec![0; rules.len()];
         for (_, fitinfos) in initials.iter() {
             for fitinfo in fitinfos.iter() {
                 rule_distribution[fitinfo.rule_id as usize] += 1;
@@ -166,6 +167,7 @@ mod specs {
         let d = Symbol::parse(&context, "d").unwrap();
         let r1 = ("r1".to_string(), Rule::parse_first(&context, "a => b"));
         let r2 = ("r2".to_string(), Rule::parse_first(&context, "c => d"));
+        let pad_rule = ("padding".to_string(), Default::default());
 
         let traces = vec![
             Trace {
@@ -213,7 +215,7 @@ mod specs {
                     "d".to_string(),
                 ],
                 rule_distribution: vec![0, 1, 1],
-                rules: vec![r1, r2],
+                rules: vec![pad_rule, r1, r2],
             },
             samples: vec![SampleContainer {
                 max_depth: 1,
