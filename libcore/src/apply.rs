@@ -351,6 +351,7 @@ mod e2e {
 #[cfg(test)]
 mod specs {
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn map_deep_simple() {
@@ -368,8 +369,8 @@ mod specs {
         assert_eq!(actual, expected);
     }
 
-    #[test]
-    fn deep_replace_simple() {
+    #[bench]
+    fn deep_replace_simple(b: &mut Bencher) {
         let context = create_context(vec!["A", "B"], vec![]);
         let orig = Symbol::parse(&context, "A(b)").unwrap();
         let part = Symbol::parse(&context, "c").unwrap();
@@ -378,9 +379,9 @@ mod specs {
 
         let expected = Symbol::parse(&context, "A(c)").unwrap();
 
-        println!("Actual:   {}", actual);
-        println!("Expected: {}", expected);
         assert_eq!(actual, expected);
+
+        b.iter(|| deep_replace(&path, &orig, &part))
     }
 
     #[test]
@@ -425,8 +426,8 @@ mod specs {
         assert_eq!(actual, expected);
     }
 
-    #[test]
-    fn apply_batch_introduce_consistent_variable_consistent_flat() {
+    #[bench]
+    fn apply_batch_introduce_consistent_variable_consistent_flat(b: &mut Bencher) {
         // Issue #8
         let context = Context::standard();
 
@@ -448,10 +449,12 @@ mod specs {
 
         assert_eq!(actual.len(), expected.len());
         assert_eq!(actual, expected);
+
+        b.iter(|| apply_batch(&scenario, || vars.iter().collect(), &orig, &conclusion))
     }
 
-    #[test]
-    fn apply_batch_introduce_consistent_variable_consistent_deep() {
+    #[bench]
+    fn apply_batch_introduce_consistent_variable_consistent_deep(b: &mut Bencher) {
         // Issue #8
         let context = Context::standard();
 
@@ -473,5 +476,7 @@ mod specs {
 
         assert_eq!(actual.len(), expected.len());
         assert_eq!(actual, expected);
+
+        b.iter(|| apply_batch(&scenario, || vars.iter().collect(), &orig, &conclusion))
     }
 }

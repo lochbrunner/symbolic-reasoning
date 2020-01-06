@@ -9,3 +9,5 @@ snapshots
 lstm
 .vscode/tags
 pycore.so
+perf.*
+flame*.svg
