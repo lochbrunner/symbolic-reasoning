@@ -43,6 +43,27 @@ fn apply(
     apply::pyapply_impl(py, mapping, variable_creator, prev, conclusion)
 }
 
+#[pyfunction(fit_and_apply)]
+fn fit_and_apply(
+    py: Python,
+    variable_creator: PyObject,
+    prev: &symbol::PySymbol,
+    rule: &rule::PyRule,
+) -> PyResult<Vec<(symbol::PySymbol, fit::PyFitMap)>> {
+    fit::pyfit_and_apply_impl(py, variable_creator, prev, rule)
+}
+
+#[pyfunction(fit_and_apply_at)]
+fn fit_at_and_apply(
+    py: Python,
+    variable_creator: PyObject,
+    prev: &symbol::PySymbol,
+    rule: &rule::PyRule,
+    path: Vec<usize>,
+) -> PyResult<Option<(symbol::PySymbol, fit::PyFitMap)>> {
+    fit::pyfit_at_and_apply_impl(py, variable_creator, prev, rule, &path)
+}
+
 #[pymodule]
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<context::PyDeclaration>()?;
@@ -61,7 +82,9 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<scenario::PyScenario>()?;
     m.add_class::<fit::PyFitMap>()?;
     m.add_wrapped(wrap_pyfunction!(fit))?;
+    m.add_wrapped(wrap_pyfunction!(fit_and_apply))?;
     m.add_wrapped(wrap_pyfunction!(fit_at))?;
+    m.add_wrapped(wrap_pyfunction!(fit_at_and_apply))?;
     m.add_wrapped(wrap_pyfunction!(apply))?;
     Ok(())
 }

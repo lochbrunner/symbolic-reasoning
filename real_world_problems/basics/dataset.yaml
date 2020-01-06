@@ -43,3 +43,10 @@ premises:
 problems:
  one step: 3/3 => 1
  two steps: 3/(1+2) => 1
+ # binomial formula (a+b)(a+b) => (a+b)*a + (a+b)*b => a*a+b*a + (a+b)*b => a*a+b*a + a*b+b*b
+ three steps: (a+b)(a+b) => a*a+b*a + a*b+b*b
+ four steps: (a+b)^2 => a*a+b*a + a*b+b*b
+ five steps: (a+b)^2 => a*a+b*a + b*a+b*b
+ six steps: (a+b)^2 => a*a + 2*b*a + b*b
+ seven steps: (a+b)^2 => a^2 + 2*b*a + b*b
+ eight steps: (a+b)^2 => a^2 + 2*b*a + b^2

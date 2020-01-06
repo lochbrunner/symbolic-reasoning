@@ -1,7 +1,9 @@
+use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 use std::collections::HashMap;
 
 #[pyclass(name=FitMap,subclass)]
@@ -71,14 +73,15 @@ impl PyObjectProtocol for PyFitMap {
     }
 }
 
+#[inline]
 pub fn pyfit_impl(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
-    let fitmaps = core::fit::fit(&outer.inner, &inner.inner);
-
-    let fitmaps = fitmaps.iter().map(PyFitMap::new).collect();
-
-    Ok(fitmaps)
+    Ok(core::fit::fit(&outer.inner, &inner.inner)
+        .iter()
+        .map(PyFitMap::new)
+        .collect())
 }
 
+#[inline]
 pub fn pyfit_at_impl(
     outer: &PySymbol,
     inner: &PySymbol,
@@ -88,4 +91,69 @@ pub fn pyfit_at_impl(
         .iter()
         .map(PyFitMap::new)
         .collect())
+}
+
+#[pyfunction(fit_and_apply)]
+pub fn pyfit_and_apply_impl(
+    py: Python,
+    variable_creator: PyObject,
+    prev: &PySymbol,
+    rule: &PyRule,
+) -> PyResult<Vec<(PySymbol, PyFitMap)>> {
+    core::fit::fit(&prev.inner, &rule.inner.condition)
+        .into_iter()
+        .map(|mapping| {
+            let r = core::apply::<_, PyErr>(
+                &mapping,
+                || {
+                    let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
+                    let symbol: &PySymbol = obj.extract(py)?;
+                    Ok((*symbol.inner).clone())
+                },
+                &prev.inner,
+                &rule.inner.conclusion,
+            );
+            (r, mapping)
+        })
+        .map(|(r, m)| match r {
+            Ok(r) => Ok((PySymbol::new(r), PyFitMap::new(&m))),
+            Err(e) => Err(e),
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
+pub fn pyfit_at_and_apply_impl(
+    py: Python,
+    variable_creator: PyObject,
+    prev: &PySymbol,
+    rule: &PyRule,
+    path: &[usize],
+) -> PyResult<Option<(PySymbol, PyFitMap)>> {
+    match core::fit::fit_at(&prev.inner, &rule.inner.condition, path)
+        .into_iter()
+        .map(|mapping| {
+            let r = core::apply::<_, PyErr>(
+                &mapping,
+                || {
+                    let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
+                    let symbol: &PySymbol = obj.extract(py)?;
+                    Ok((*symbol.inner).clone())
+                },
+                &prev.inner,
+                &rule.inner.conclusion,
+            );
+            (r, mapping)
+        })
+        .map(|(r, m)| match r {
+            Ok(r) => Ok((PySymbol::new(r), PyFitMap::new(&m))),
+            Err(e) => Err(e),
+        })
+        .nth(0)
+    {
+        None => Ok(None),
+        Some(v) => match v {
+            Ok(v) => Ok(Some(v)),
+            Err(e) => Err(e),
+        },
+    }
 }
