@@ -75,3 +75,20 @@ This project contains.
 
 * [Calculation Generator](./generator)
 * [Machine Learning](./ml)
+
+
+## Test
+
+Run
+
+```zsh
+cargo t --workspace --exclude pycore
+```
+
+## Profiling
+
+```zsh
+perf record -g cargo bench no_variable_deep --workspace --exclude pycore
+perf script | stackcollapse-perf.pl | rust-unmangle | flamegraph.pl > flame_no_variable_deep.svg
+firefox flame_no_variable_deep.svg
+```

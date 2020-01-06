@@ -710,13 +710,17 @@ mod specs {
         assert_eq!(scenario_ab.path, vec![1], "Wrong path");
     }
 
-    #[test]
-    fn solver_issue_1() {
+    #[bench]
+    fn solver_issue_1(b: &mut Bencher) {
         let context = Context::standard();
         let outer = Symbol::parse(&context, "3/(1+2)").unwrap();
         let inner = Symbol::parse(&context, "a/1").unwrap();
 
         let scenarios = fit(&outer, &inner);
         assert!(scenarios.is_empty());
+
+        b.iter(|| {
+            fit(&outer, &inner);
+        })
     }
 }
