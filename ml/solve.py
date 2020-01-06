@@ -6,6 +6,7 @@ import logging
 from pycore import Symbol, Scenario, fit, apply
 
 from common import io
+from common.timer import Timer
 
 
 class ApplyInfo:
@@ -17,36 +18,31 @@ class ApplyInfo:
         self.mapping = mapping
 
 
-def main(scenario, model, **kwargs):
-    scenario = Scenario.load(scenario)
-    # model = io.load(model)
+class Statistics:
+    def __init__(self):
+        self.fit_tries = 0
+        self.fit_results = 0
 
-    # Get first problem
-    problem = scenario.problems['two steps']
-    print(f'problem: {problem}')
-    print('-'*30)
-    source = problem.condition
-    target = problem.conclusion
-    context = scenario.declarations
+    def __str__(self):
+        return f'Performing {self.fit_tries} fits results in {self.fit_results} fitting maps.'
 
-    def variable_generator():
-        return Symbol.parse(context, 'u')
 
-    rules = scenario.rules
+def try_solve(rules, initial, target, variable_generator):
+    seen = set()
+    num_epochs = 2
+    statistics = Statistics()
 
     traces = [ApplyInfo(
         rule_name='initial', rule_formula='',
-        current=problem.condition, previous=None, mapping=None)]
-
-    seen = set()
-    num_epochs = 2
-    solution = None
+        current=initial, previous=None, mapping=None)]
     for _ in range(num_epochs):
         prevs = traces.copy()
         traces.clear()
         for prev in prevs:
             for rule in rules.values():
                 mappings = fit(prev.current, rule.condition)
+                statistics.fit_tries += 1
+                statistics.fit_results += len(mappings)
                 for mapping in mappings:
                     deduced = apply(mapping, variable_generator, prev.current, rule.conclusion)
                     s = str(deduced)
@@ -58,9 +54,30 @@ def main(scenario, model, **kwargs):
                         current=deduced,
                         previous=prev, mapping=mapping)
                     if deduced == target:
-                        solution = apply_info
+                        return apply_info, statistics
                     else:
                         traces.append(apply_info)
+
+
+def main(scenario, model, **kwargs):
+    with Timer('Loading model'):
+        scenario = Scenario.load(scenario)
+
+    # model = io.load(model)
+
+    # Get first problem
+    problem = scenario.problems['two steps']
+    logging.info(f'problem: {problem}')
+    logging.info('-'*30)
+    source = problem.condition
+    target = problem.conclusion
+    context = scenario.declarations
+
+    def variable_generator():
+        return Symbol.parse(context, 'u')
+
+    with Timer('Solving problem'):
+        solution, statistics = try_solve(scenario.rules, problem.condition, problem.conclusion, variable_generator)
 
     if solution is not None:
         trace = []
@@ -75,6 +92,8 @@ def main(scenario, model, **kwargs):
                 print(f'Initial: {step.current}')
     else:
         logging.warning(f'No solution found for {source} => {target}')
+
+    logging.info(statistics)
 
 
 if __name__ == '__main__':

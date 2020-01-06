@@ -45,3 +45,9 @@ class Timer:
         delta_str = Timer._format_time(seconds)
 
         logging.info(f'{self.label} took {delta_str}')
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, type, value, traceback):
+        self.stop_and_log()
