@@ -4,6 +4,7 @@ use core;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
 
 #[pyclass(name=FitMap,subclass)]
@@ -73,34 +74,37 @@ impl PyObjectProtocol for PyFitMap {
     }
 }
 
-#[inline]
-pub fn pyfit_impl(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
+/// Tries to fit the inner into the outer symbol.
+/// Returns a list of possible mappings.
+#[pyfunction]
+#[text_signature = "(outer, inner, /)"]
+fn fit(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
     Ok(core::fit::fit(&outer.inner, &inner.inner)
         .iter()
         .map(PyFitMap::new)
         .collect())
 }
 
-#[inline]
-pub fn pyfit_at_impl(
-    outer: &PySymbol,
-    inner: &PySymbol,
-    path: &[usize],
-) -> PyResult<Vec<PyFitMap>> {
-    Ok(core::fit::fit_at(&outer.inner, &inner.inner, path)
+/// Tries to fit the inner into the outer symbol at a specified path.
+/// Returns a list of possible mappings.
+#[pyfunction]
+#[text_signature = "(outer, inner, path /)"]
+fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Vec<PyFitMap>> {
+    Ok(core::fit::fit_at(&outer.inner, &inner.inner, &path)
         .iter()
         .map(PyFitMap::new)
         .collect())
 }
 
-#[pyfunction(fit_and_apply)]
-pub fn pyfit_and_apply_impl(
+#[pyfunction]
+#[text_signature = "(outer, variable_creator, orig, rule /)"]
+fn fit_and_apply(
     py: Python,
     variable_creator: PyObject,
-    prev: &PySymbol,
+    orig: &PySymbol,
     rule: &PyRule,
 ) -> PyResult<Vec<(PySymbol, PyFitMap)>> {
-    core::fit::fit(&prev.inner, &rule.inner.condition)
+    core::fit::fit(&orig.inner, &rule.inner.condition)
         .into_iter()
         .map(|mapping| {
             let r = core::apply::<_, PyErr>(
@@ -110,7 +114,7 @@ pub fn pyfit_and_apply_impl(
                     let symbol: &PySymbol = obj.extract(py)?;
                     Ok((*symbol.inner).clone())
                 },
-                &prev.inner,
+                &orig.inner,
                 &rule.inner.conclusion,
             );
             (r, mapping)
@@ -122,14 +126,16 @@ pub fn pyfit_and_apply_impl(
         .collect::<Result<Vec<_>, _>>()
 }
 
-pub fn pyfit_at_and_apply_impl(
+#[pyfunction]
+#[text_signature = "(outer, variable_creator, orig, rule, path /)"]
+fn fit_at_and_apply(
     py: Python,
     variable_creator: PyObject,
-    prev: &PySymbol,
+    orig: &PySymbol,
     rule: &PyRule,
-    path: &[usize],
+    path: Vec<usize>,
 ) -> PyResult<Option<(PySymbol, PyFitMap)>> {
-    match core::fit::fit_at(&prev.inner, &rule.inner.condition, path)
+    match core::fit::fit_at(&orig.inner, &rule.inner.condition, &path)
         .into_iter()
         .map(|mapping| {
             let r = core::apply::<_, PyErr>(
@@ -139,7 +145,7 @@ pub fn pyfit_at_and_apply_impl(
                     let symbol: &PySymbol = obj.extract(py)?;
                     Ok((*symbol.inner).clone())
                 },
-                &prev.inner,
+                &orig.inner,
                 &rule.inner.conclusion,
             );
             (r, mapping)
@@ -156,4 +162,14 @@ pub fn pyfit_at_and_apply_impl(
             Err(e) => Err(e),
         },
     }
+}
+
+/// Registers all functions and classes regarding fitting.
+pub fn register(m: &PyModule) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(fit))?;
+    m.add_wrapped(wrap_pyfunction!(fit_and_apply))?;
+    m.add_wrapped(wrap_pyfunction!(fit_at))?;
+    m.add_wrapped(wrap_pyfunction!(fit_at_and_apply))?;
+    m.add_class::<PyFitMap>()?;
+    Ok(())
 }
