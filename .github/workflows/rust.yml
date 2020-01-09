@@ -6,11 +6,20 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    rust: nightly
 
     steps:
     - uses: actions/checkout@v1
     - name: Build
+      uses: actions-rs/toolchain@v1
       run: cargo build --verbose
+      with:
+        profile: minimal
+        toolchain: stable
+        components: rustfmt, clippy
     - name: Run tests
+      uses: actions-rs/toolchain@v1
       run: cargo test --verbose --workspace --exclude pycore
+      with:
+        profile: minimal
+        toolchain: stable
+        components: rustfmt, clippy
