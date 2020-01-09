@@ -93,10 +93,13 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
 
+    def save_snapshot():
+        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
+
     def early_abort(_signal, _frame):
         clearProgressBar()
         logging.warning('Early abort')
-        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params)
+        save_snapshot()
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
 
@@ -128,7 +131,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     signal.signal(signal.SIGINT, original_sigint_handler)
 
-    io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params)
+    save_snapshot()
 
 
 if __name__ == '__main__':

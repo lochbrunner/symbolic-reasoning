@@ -55,4 +55,4 @@ class DatasetBase(Dataset):
     @property
     def label_weight(self):
         min_node = min(self.label_distribution)
-        return [min_node/label for label in self.label_distribution]
+        return [min_node/max(label, 1) for label in self.label_distribution]
