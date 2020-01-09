@@ -28,6 +28,8 @@ fn apply(
     Ok(PySymbol::new(applied))
 }
 
+// TODO: apply_batch
+
 pub fn register(m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(apply))?;
     Ok(())

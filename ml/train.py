@@ -36,20 +36,23 @@ class ExecutionParameter:
 def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     true = 0
     false = 0
-    # We assume batchsize of 1
-    assert dataloader.batch_size == 1
+
     for x, y, s in dataloader:
+        # Dimensions
+        # x: batch * label * length
+        # y: batch * length
         x = model(x, s)
-        x = x.squeeze()
+        assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'
+        batch_size = x.size(0)
         x = x.cpu().numpy()
-        predict = np.argmax(x, axis=0)
+        y = y.cpu().numpy()
+        for i in range(batch_size):
+            predict = np.argmax(x[i, :, :], axis=0)
+            truth = y[i, :]
 
-        y = y.squeeze()
-        truth = y.cpu().numpy()
-
-        true += np.sum(predict == truth)
-        false += np.sum(predict != truth)
-    return float(true) / float(true + false)
+            true += np.sum(predict == truth)
+            false += np.sum(predict != truth)
+    return float(true) / max(1, float(true + false))
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -70,7 +73,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                              blueprint=Embedder.blueprint(scenario_params),
                              hyper_parameter=learn_params.model_hyper_parameter)
         model.to(device)
-        # optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
+
         optimizer = optim.Adadelta(model.parameters())
         timer.stop_and_log()
 
@@ -81,7 +84,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                            'shuffle': True,
                            'num_workers': 0}
 
-    validate_loader_params = {'batch_size': 1,
+    validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
                               'num_workers': 0}
     training_dataloader = data.DataLoader(dataset, **train_loader_params)

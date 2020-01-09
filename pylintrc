@@ -1,6 +1,7 @@
 [MASTER]
 disable=
     missing-function-docstring,
+    missing-class-docstring,
     missing-module-docstring,
     invalid-name,
     relative-beyond-top-level,

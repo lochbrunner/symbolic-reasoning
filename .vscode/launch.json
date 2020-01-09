@@ -8,7 +8,7 @@
             "name": "Tests LLDB",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/core-b7a3976c1ed4d36b",
+            "program": "${workspaceFolder}/target/debug/deps/core-e1c2cdf2ab37368b",
             "args": [
                 "--test",
                 "generator_issue_1",
@@ -37,29 +37,6 @@
                 "rust"
             ],
             "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Tests GDB",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/core-b7a3976c1ed4d36b",
-            "args": [
-                "--test",
-                "folk_simple",
-                "--nocapture"
-            ],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
         },
         {
             "name": "train",
