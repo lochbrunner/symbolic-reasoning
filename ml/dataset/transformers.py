@@ -65,40 +65,6 @@ class Embedder:
     '''
 
     @staticmethod
-    def blueprint_dep(params):
-        depth = params.depth
-        spread = params.spread
-        # One line for each node (not leaf)
-        lines = [l for l in range(depth)[::-1] for _ in range(spread**l)]
-        i = 0
-        h = 0
-
-        def jump_size(v):
-            if spread**(depth-1) == v:
-                print(f'jump({v}): end')
-                return 1
-            c = sum([1 for l in range(depth) if v % spread**l == 0])
-            print(f'jump({v}): {c}')
-            return c
-
-        instructions = []
-        for c, l in enumerate(lines):
-            if l == depth-1:
-                instructions.append(TraverseInstruction(
-                    TraverseInstructionSet(input=i + spread),
-                    [TraverseInstructionSet(input=i+s) for s in range(spread)]))
-                i += spread
-                i += jump_size(c+1)  # jump over parent node
-            else:
-                instructions.append(TraverseInstruction(
-                    TraverseInstructionSet(input=i),
-                    [TraverseInstructionSet(hidden=h+s) for s in range(spread)]))
-                # i += jump_size(c+1)  # jump over parent node
-                i += 1
-                h += spread
-        return instructions
-
-    @staticmethod
     def blueprint(params):
         '''Unrolls a dummy node and records the lines'''
         builder = SymbolBuilder.create(**vars(params))
@@ -127,6 +93,13 @@ class Embedder:
                     TraverseInstructionSet(input=input_mapping[id(node)]),
                     [create_inst(child) for child in node.childs]))
                 hidden_mapping[id(node)] = h
+                h += 1
+            else:  # leaves
+                # last is padding
+                legend.append(TraverseInstruction(
+                    TraverseInstructionSet(input=input_mapping[id(node)]),
+                    [TraverseInstructionSet(input=len(input_mapping))
+                        for _ in range(params.spread)]))
                 h += 1
 
         return legend
@@ -182,8 +155,9 @@ class SegEmbedder(Embedder):
     '''Each sub node in a sample is associated to one tag'''
 
     def __call__(self, x: Node, y: Node, s, idents, **kwargs):
-        y = [n.label or 0 for n in self.unroll(y)]
-        x = [ident_to_id(n, idents) for n in self.unroll(x)]
+        # Last is padding for the leaves
+        y = [n.label or 0 for n in self.unroll(y)] + [0]
+        x = [ident_to_id(n, idents) for n in self.unroll(x)] + [0]
         return x, y, s
 
 
@@ -275,17 +249,27 @@ class TestEmbedder(unittest.TestCase):
             Node('ad', [Node('adk'), Node('adl'), Node('adm')])])
         embedder = Embedder()
         unrolled = embedder.unroll(node)
-        unrolled = list(unrolled)
+        unrolled = list(unrolled) + ['PADDING']
         # self.assertEqual([n.ident for n in unrolled], ['abe', 'abf', 'abg', 'ab',
         #                                                'ach', 'aci', 'adj', 'ac', 'adk', 'adl', 'adm', 'ad', 'a'])
         params = TestEmbedder.Params(2, 3)
         blueprint = Embedder.blueprint(params)
 
+        seen = set()
         hidden = []
         for inst in blueprint:
             r, c = inst.get(unrolled, hidden)
-            self.assertEqual([n.ident for n in r.childs], [n.ident for n in c])
+            if len(r.childs) == 0:
+                for ci in c:
+                    self.assertEqual(ci, 'PADDING')
+                self.assertEqual(len(c), params.spread)
+            else:
+                self.assertEqual([n.ident for n in r.childs], [n.ident for n in c])
             hidden.append(r)
+            seen.add(id(r))
+
+        self.assertEqual(len(seen), sum([params.spread**l for l in range(params.depth+1)]))
+        self.assertEqual(len(blueprint), len(seen), 'All instructions are unique')
 
     @staticmethod
     def print_lined(code):
@@ -299,15 +283,26 @@ class TestEmbedder(unittest.TestCase):
             Node('ac', [Node('ach', [Node('achr'), Node('achs')]), Node('aci', [Node('acit'), Node('aciu')])])])
         embedder = Embedder()
         unrolled = embedder.unroll(node)
-        unrolled = list(unrolled)
+        unrolled = list(unrolled) + ['PADDING']
         # self.assertEqual([n.ident for n in unrolled], ['aben', 'abeo', 'abe', 'abfp',
         #                                                'abfq', 'abf', 'ab', 'achr', 'achs', 'ach', 'acit', 'aciu', 'aci', 'ac', 'a'])
 
         params = TestEmbedder.Params(depth=3, spread=2)
         blueprint = Embedder.blueprint(params)
 
+        seen = set()
+
         hidden = []
         for inst in blueprint:
             r, c = inst.get(unrolled, hidden)
-            self.assertEqual([n.ident for n in r.childs], [n.ident for n in c])
+            if len(r.childs) == 0:
+                for ci in c:
+                    self.assertEqual(ci, 'PADDING')
+                self.assertEqual(len(c), params.spread)
+            else:
+                self.assertEqual([n.ident for n in r.childs], [n.ident for n in c])
             hidden.append(r)
+            seen.add(id(r))
+
+        self.assertEqual(len(seen), sum([params.spread**l for l in range(params.depth+1)]))
+        self.assertEqual(len(blueprint), len(seen), 'All instructions are unique')
