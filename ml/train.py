@@ -13,6 +13,7 @@ import torch
 import torch.optim as optim
 from torch.utils import data
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 
 from dataset import create_scenario, scenarios_choices, ScenarioParameter
 from dataset.transformers import Embedder
@@ -25,11 +26,12 @@ from common import io
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None, device: str = 'auto'):
+    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None, device: str = 'auto', tensorboard: bool = False):
         self.report_rate = report_rate
         self.load_model = load_model
         self.save_model = save_model
         self.device = device
+        self.tensorboard = tensorboard
 
 
 @torch.no_grad()
@@ -106,6 +108,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
 
+    if exe_params.tensorboard:
+        writer = SummaryWriter()
+        x, s, _ = next(iter(validation_dataloader))
+        writer.add_graph(model, (x, s))
+        writer.close()
+
     timer = Timer(f'Training per sample:')
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
@@ -151,6 +159,7 @@ if __name__ == '__main__':
                         default=None, help='Path to the model')
     parser.add_argument('-r', '--report-rate', type=int, default=20)
     parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
+    parser.add_argument('--tensorboard', action='store_true', default=False)
 
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
@@ -188,7 +197,8 @@ if __name__ == '__main__':
     exec_params = ExecutionParameter(
         report_rate=args.report_rate, load_model=args.load_model or args.update_model,
         save_model=args.save_model or args.update_model,
-        device=get_device(args.device))
+        device=get_device(args.device),
+        tensorboard=args.tensorboard)
 
     learn_params = LearningParmeter(
         model_name=args.model,

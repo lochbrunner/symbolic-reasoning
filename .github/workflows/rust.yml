@@ -9,17 +9,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
     - name: Build
-      uses: actions-rs/toolchain@v1
-      run: cargo build --verbose
+      uses: actions-rs/cargo@v1
       with:
-        profile: minimal
-        toolchain: stable
-        components: rustfmt, clippy
-    - name: Run tests
-      uses: actions-rs/toolchain@v1
-      run: cargo test --verbose --workspace --exclude pycore
+        command: build
+    - name: Test Rust
+      uses: actions-rs/cargo@v1
       with:
-        profile: minimal
-        toolchain: stable
-        components: rustfmt, clippy
+        command: test
+        args: --verbose --workspace --exclude pycore
