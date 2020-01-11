@@ -1,3 +1,5 @@
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/Rust/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=Rust)
+
 # Symbolic reasoning
 
 ## Outline
