@@ -1,4 +1,6 @@
-[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/Rust/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=Rust)
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/core/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=core)
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/pycore/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=pycore)[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/ml/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=ml)
+
 
 # Symbolic reasoning
 

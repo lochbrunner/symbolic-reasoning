@@ -2,8 +2,6 @@
 
 import logging
 import argparse
-from functools import reduce
-import operator
 import signal
 import sys
 
@@ -26,10 +24,11 @@ from common import io
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int = 10, load_model: str = None, save_model: str = None, device: str = 'auto', tensorboard: bool = False):
+    def __init__(self, report_rate: int = 10, update_model: str = None, load_model: str = None,
+                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, **kwargs):
         self.report_rate = report_rate
-        self.load_model = load_model
-        self.save_model = save_model
+        self.load_model = load_model or update_model
+        self.save_model = save_model or update_model
         self.device = device
         self.tensorboard = tensorboard
 
@@ -72,7 +71,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                              vocab_size=dataset.vocab_size,
                              tagset_size=dataset.tag_size,
                              pad_token=pad_token,
-                             blueprint=Embedder.blueprint(scenario_params),
+                             spread=dataset.max_spread,
+                             depth=dataset.max_depth,
                              hyper_parameter=learn_params.model_hyper_parameter)
         model.to(device)
 
@@ -101,7 +101,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     def save_snapshot():
         io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
 
-    def early_abort(_signal, _frame):
+    def early_abort(*args):
         clearProgressBar()
         logging.warning('Early abort')
         save_snapshot()
@@ -166,7 +166,8 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
-    parser.add_argument('-m', '--model', choices=all_models, default='FullyConnectedSegmenter')
+    parser.add_argument('-m', '--model', choices=all_models,
+                        default='FullyConnectedSegmenter', dest='model_name')
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('--spread', type=int, default=2)
     parser.add_argument('--max-size', type=int, default=120)
     parser.add_argument('--num-labels', type=int, default=2)
-    parser.add_argument('--bag-filename', type=str, default=None)
+    parser.add_argument('--bag-filename', type=str, default=None, dest='filename')
 
     args = parser.parse_args()
     loglevel = 'INFO' if args.verbose else args.log.upper()
@@ -188,29 +189,12 @@ if __name__ == '__main__':
         format='%(message)s'
     )
 
-    def get_device(device):
-        if device == 'auto':
-            return 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            return device
+    if args.device == 'auto':
+        args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    exec_params = ExecutionParameter(
-        report_rate=args.report_rate, load_model=args.load_model or args.update_model,
-        save_model=args.save_model or args.update_model,
-        device=get_device(args.device),
-        tensorboard=args.tensorboard)
-
-    learn_params = LearningParmeter(
-        model_name=args.model,
-        num_epochs=args.num_epochs, learning_rate=args.learning_rate,
-        batch_size=args.batch_size, gradient_clipping=args.gradient_clipping,
-        model_hyper_parameter={})
-
-    scenario_params = ScenarioParameter(
-        scenario=args.scenario, depth=args.depth, spread=args.spread,
-        max_size=args.max_size,
-        pattern_depth=args.pattern_depth,
-        num_labels=args.num_labels,
-        filename=args.bag_filename)
-
-    main(exec_params, learn_params, scenario_params=scenario_params)
+    # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
+    main(
+        exe_params=ExecutionParameter(**vars(args)),
+        learn_params=LearningParmeter(**vars(args)),
+        scenario_params=ScenarioParameter(**vars(args))
+    )

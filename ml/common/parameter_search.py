@@ -5,13 +5,13 @@ from copy import deepcopy
 class LearningParmeter:
     def __init__(self, model_name, num_epochs: int = 10, learning_rate: float = 0.1,
                  batch_size: int = 10, gradient_clipping: float = 0.1,
-                 model_hyper_parameter: dict = {}):
+                 model_hyper_parameter: dict = None, **kwargs):
         self.model_name = model_name
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.gradient_clipping = gradient_clipping
-        self.model_hyper_parameter = model_hyper_parameter
+        self.model_hyper_parameter = model_hyper_parameter or {}
 
 
 class MarchSearch:

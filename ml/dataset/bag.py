@@ -21,6 +21,7 @@ class BagDataset(DatasetBase):
 
         self._idents = meta.idents
         self.label_distribution = meta.rule_distribution
+        self._rule_map = [str(rule) for rule in meta.rules]
 
         # Only use largest
         container = bag.samples[-1]
@@ -50,3 +51,8 @@ class BagDataset(DatasetBase):
         builder.set_label_at(fit.path, fit.rule)
         y = builder.symbol
         return x, y
+
+    @property
+    def rule_map(self):
+        '''Maps rule id to rule string representation'''
+        return self._rule_map

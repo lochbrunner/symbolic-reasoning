@@ -25,7 +25,8 @@ def load(filename, device=torch.device('cpu'), transform=None):
                              vocab_size=dataset.vocab_size,
                              tagset_size=dataset.tag_size,
                              pad_token=padding_index,
-                             blueprint=Embedder.blueprint(scenario_params),
+                             spread=dataset.max_spread,
+                             depth=dataset.max_depth,
                              hyper_parameter=learn_params.model_hyper_parameter)
 
         optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)

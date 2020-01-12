@@ -1,11 +1,23 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.utils.rnn as rnn
+
+from dataset.transformers import Embedder
 
 
 class FullyConnectedSegmenter(nn.Module):
-    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter):
+
+    class Params:
+        '''Simple POD class'''
+
+        def __init__(self, depth, spread):
+            self.depth = depth
+            self.spread = spread
+
+    def _create_blueprint(self, params):
+        return Embedder.blueprint(params)
+
+    def __init__(self, vocab_size, tagset_size, pad_token, spread, depth, hyper_parameter):
         super(FullyConnectedSegmenter, self).__init__()
         # Config
         self.config = {
@@ -14,7 +26,7 @@ class FullyConnectedSegmenter(nn.Module):
             'spread': 2,
         }
         self.config.update(hyper_parameter)
-        self.blueprint = blueprint
+        self.blueprint = self._create_blueprint(FullyConnectedSegmenter.Params(depth=depth, spread=spread))
         self.tagset_size = tagset_size
 
         # Embedding
@@ -46,7 +58,7 @@ class FullyConnectedSegmenter(nn.Module):
         y = F.log_softmax(y, dim=1)
         return h, y
 
-    def forward(self, x, s):
+    def forward(self, x, *args):
         device = next(self.parameters()).device
         batch_size = x.size(0)
         seq_size = x.size(1)
