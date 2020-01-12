@@ -24,4 +24,4 @@ jobs:
           command: build
           args: --release
       - name: Test
-        run: PYTHONPATH=ml python3 ./ml/run_tests.py
+        run: PYTHONPATH=ml python3 ./ml/run_tests.py -v

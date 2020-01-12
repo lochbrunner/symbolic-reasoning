@@ -3,80 +3,96 @@
 from pycore import Context, Symbol
 
 from typing import List
-
-context = Context.standard()
-
-a = Symbol.parse(context, 'a+b')
+import unittest
 
 
-def unroll(x: Symbol) -> List[Symbol]:
-    stack = [(x, '/')]
-    x = []
-    # Using the path as unique id because id(n) is not unique enough ;)
-    # id(n) is the memory address which get reused by the rust backend.
-    seen = set()
-    while len(stack) > 0:
-        n, p = stack[-1]
-        if len(n.childs) > 0 and p not in seen:
-            stack.extend([(c, f'{p}{i}') for i, c in enumerate(n.childs[::-1])])
-            seen.add(p)
-        else:
-            stack.pop()
-            yield n
+class TestSymbol(unittest.TestCase):
 
+    @staticmethod
+    def unroll(x: Symbol) -> List[Symbol]:
+        stack = [(x, '/')]
+        x = []
+        # Using the path as unique id because id(n) is not unique enough ;)
+        # id(n) is the memory address which get reused by the rust backend.
+        seen = set()
+        while len(stack) > 0:
+            n, p = stack[-1]
+            if len(n.childs) > 0 and p not in seen:
+                stack.extend([(c, f'{p}{i}') for i, c in enumerate(n.childs[::-1])])
+                seen.add(p)
+            else:
+                stack.pop()
+                yield n
 
-for n in unroll(a):
-    print(f'n: {n}')
+    def test_dumping(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, "a/b")
 
-leaf = Symbol.parse(context, 'c')
+        self.assertEqual(symbol.latex, '\\frac{a}{b}')
+        self.assertEqual(str(symbol), 'a/b')
+        self.assertEqual(symbol.ident, '/')
+        self.assertEqual(str(symbol.at([1])), 'b')
 
-a = Symbol.parse(context, 'a')
-a.pad('<PAD>', 2, 1)
-childs = ', '.join([str(c.ident) for c in a.childs])
-print(f'a.childs: {childs}')
+    def test_unroll(self):
 
+        context = Context.standard()
 
-# Test Padding
-print('Test padding ...')
-a = Symbol.parse(context, 'x=0*x/1')
-a = a.create_padded('<PAD>', 2, 5)
-padded_size = a.tree.count('\n')
-unrolled = unroll(a)
-exprected_len = sum(2**l for l in range(6))
-print(f'unrolled: {len(list(unrolled))} (expected: {exprected_len})')
-# print(a.tree)
+        a = Symbol.parse(context, 'a+b')
+        self.assertListEqual([str(p) for p in TestSymbol.unroll(a)], ['a', 'b', 'a+b'])
 
-# Test comparison
-print('Test comparison ...')
-a = Symbol.parse(context, 'a+c')
-b = Symbol.parse(context, 'a+b')
-a1 = Symbol.parse(context, 'a+c')
-print(f'eq: {a==b}')
-print(f'eq: {a==a1}')
+        a = Symbol.parse(context, 'a')
+        a.pad('<PAD>', 2, 1)
+        self.assertListEqual([str(p) for p in a.childs], ['<PAD>', '<PAD>'])
 
-print(f'hash of {a}: {hash(a)} <{id(a)}>')
-print(f'hash of {a1}: {hash(a1)} <{id(a1)}>')
-print(f'hash of {b}: {hash(b)} <{id(b)}>')
+    def test_padding(self):
 
-# Test comparison
-print('Attribute ...')
-a.label = 'blub'
+        context = Context.standard()
 
-print(f'a.label: {a.label}')
-del a.label
-try:
-    print(f'a.label: {a.label}')
-except KeyError as e:
-    print(e)
+        a = Symbol.parse(context, 'x=0*x/1')
+        a = a.create_padded('<PAD>', 2, 5)
+        self.assertEqual(63, a.tree.count('\n'))
+        unrolled = TestSymbol.unroll(a)
+        exprected_len = sum(2**l for l in range(6))
+        self.assertEqual(len(list(unrolled)), exprected_len)
 
+    def test_comparison(self):
 
-# Test comparison
-print('Traverse ...')
-a = Symbol.parse(context, 'a*b+c*d')
-print(f'dfs {a}')
-for part in a.parts_dfs:
-    print(part)
+        context = Context.standard()
 
-print(f'bfs {a}')
-for part in a.parts_bfs:
-    print(part)
+        a = Symbol.parse(context, 'a+c')
+        b = Symbol.parse(context, 'a+b')
+        a1 = Symbol.parse(context, 'a+c')
+        self.assertNotEqual(a, b)
+        self.assertEqual(a, a1)
+
+        self.assertNotEqual(hash(a), hash(b))
+        self.assertNotEqual(id(a), id(b))
+
+        self.assertEqual(hash(a), hash(a1))
+        self.assertNotEqual(id(a), id(a1))
+
+    def test_attributes(self):
+        context = Context.standard()
+        a = Symbol.parse(context, 'a+c')
+
+        a.label = 'my_label'
+        self.assertEqual(a.label, 'my_label')
+
+        del a.label
+        with self.assertRaises(KeyError):
+            a.label
+
+    def test_traverse_dfs(self):
+        context = Context.standard()
+
+        a = Symbol.parse(context, 'a*b+c*d')
+
+        self.assertListEqual([str(p) for p in a.parts_dfs],
+                             ['a*b+c*d', 'c*d', 'd', 'c', 'a*b', 'b', 'a'])
+
+    def test_traverse_bfs(self):
+        context = Context.standard()
+        a = Symbol.parse(context, 'a*b+c*d')
+
+        self.assertListEqual([str(p) for p in a.parts_bfs],
+                             ['a*b+c*d', 'a*b', 'c*d', 'a', 'b', 'c', 'd'])

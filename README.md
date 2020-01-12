@@ -1,5 +1,6 @@
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/core/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=core)
-[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/pycore/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=pycore)[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/ml/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=ml)
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/pycore/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=pycore)
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/ml/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=ml)
 
 
 # Symbolic reasoning
@@ -13,8 +14,8 @@
   * Brut-force solver
 * Networks for pattern recognition
   * Network with deep capacity
-  * Bias, FC, LSTM, ...
-* Fits vs best fit and generation of synthetic trainings/test data
+  * Bias, FC, LSTM, Cnn, ...
+* Using GANs for generation of synthetic trainings/test data
 * Using memory
 * Applications to [real world problems](./real_world_problems/README.md)
 * Results

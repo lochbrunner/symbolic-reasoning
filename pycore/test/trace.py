@@ -5,19 +5,6 @@ from pycore import Trace, Symbol, Rule, Context
 
 context = Context.standard()
 
-symbol = Symbol.parse(context, "a/b")
-
-print(f'symbol: {symbol}')
-print(f'symbol.latex: {symbol.latex}')
-print(f'symbol.ident: {symbol.ident}')
-
-print(f'Get arm at [1]: {symbol.get([1])}')
-
-# Traverse symbol
-parts = str.join(', ', [part.ident for part in symbol.parts])
-print(f'parts: {parts}')
-print('')
-
 rule = Rule.parse(context, "a => b")
 
 print(f'rule: {rule}')

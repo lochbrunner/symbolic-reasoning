@@ -2,33 +2,46 @@
 
 from pycore import Bag
 
-bag = Bag.load('./out/generator/bag-2-2.bin')
+import unittest
 
-# Meta
-print(f'idents: {str.join(", ",bag.meta.idents)}')
 
-rules = [str(rule) for rule in bag.meta.rules]
-print(f'rules: {rules}')
+class TestBag(unittest.TestCase):
 
-print(f'rule distribution: {bag.meta.rule_distribution}')
+    def test_bag(self):
 
-# Samples
-print(f'Number of containers: {len(bag.samples)}')
-print(f'Size of last: s: {bag.samples[-1].max_spread} d: {bag.samples[-1].max_depth}')
+        bag = Bag.load('./../../out/generator/bag-2-2.bin')
 
-sample = bag.samples[-1].samples[0]
-print(f'Sample {sample.initial} ({len(sample.fits)} fits)')
-path = [str(path) for path in sample.fits[0].path]
-path = '/'.join(path)
-rule = bag.meta.rules[sample.fits[0].rule]
-print(f'Fits: {rule.name} @ {path}')
+        # Meta
+        self.assertGreater(len(bag.meta.idents), 0)
+        # print(f'idents: {str.join(", ",bag.meta.idents)}')
 
-# Testing label
-a = sample.initial
-a.label = 12
+        self.assertGreater(len(bag.meta.rules), 0)
+        # rules = [str(rule) for rule in bag.meta.rules]
+        # print(f'rules: {rules}')
 
-b = a
+        self.assertGreater(len(bag.meta.rule_distribution), 1)
+        # print(f'rule distribution: {bag.meta.rule_distribution}')
 
-print(f'b: {b.label}')
-a.label = 15
-print(f'b: {b.label}')
+        # Samples
+        self.assertGreater(len(bag.samples), 0)
+        # print(f'Number of containers: {len(bag.samples)}')
+        self.assertIsNotNone(bag.samples[-1].max_spread)
+        self.assertIsNotNone(bag.samples[-1].max_depth)
+        # print(f'Size of last: s: {bag.samples[-1].max_spread} d: {bag.samples[-1].max_depth}')
+
+        sample = bag.samples[-1].samples[0]
+        # print(f'Sample {sample.initial} ({len(sample.fits)} fits)')
+        # path = [str(path) for path in sample.fits[0].path]
+        # path = '/'.join(path)
+        # rule = bag.meta.rules[sample.fits[0].rule]
+        # print(f'Fits: {rule.name} @ {path}')
+
+        # Testing label
+        a = sample.initial
+        a.label = 12
+
+        b = a
+
+        self.assertEqual(b.label, 12)
+        a.label = 15
+        self.assertEqual(b.label, 15)

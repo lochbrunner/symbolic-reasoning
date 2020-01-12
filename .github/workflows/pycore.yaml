@@ -22,4 +22,4 @@ jobs:
           command: build
           args: --release
       - name: Test
-        run: echo "Nothing to do"
+        run: PYTHONPATH=pycore/test python3 ./pycore/test/run_tests.py -v

@@ -2,15 +2,21 @@
 
 from pycore import SymbolBuilder
 
-s = SymbolBuilder()
-s.set_level_idents(0, ['a'])
+import unittest
 
-s.add_level_uniform()
-s.set_level_idents(1, ['b', 'c'])
 
-print(f'{s} should be a(b, c)')
+class TestSymbolBuilder(unittest.TestCase):
+    def test_symbol_builder(self):
 
-s.add_level_uniform()
-s.set_level_idents(2, ['d', 'e', 'f', 'g'])
+        s = SymbolBuilder()
+        s.set_level_idents(0, ['a'])
 
-print(f'{s} should be a(b(d, e), c(f, g))')
+        s.add_level_uniform()
+        s.set_level_idents(1, ['b', 'c'])
+
+        self.assertEqual(str(s), 'a(b, c)')
+
+        s.add_level_uniform()
+        s.set_level_idents(2, ['d', 'e', 'f', 'g'])
+
+        self.assertEqual(str(s), 'a(b(d, e), c(f, g))')

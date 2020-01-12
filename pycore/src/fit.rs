@@ -89,11 +89,11 @@ fn fit(outer: &PySymbol, inner: &PySymbol) -> PyResult<Vec<PyFitMap>> {
 /// Returns a list of possible mappings.
 #[pyfunction]
 #[text_signature = "(outer, inner, path /)"]
-fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Vec<PyFitMap>> {
+fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Option<PyFitMap>> {
     Ok(core::fit::fit_at(&outer.inner, &inner.inner, &path)
         .iter()
         .map(PyFitMap::new)
-        .collect())
+        .nth(0))
 }
 
 #[pyfunction]
