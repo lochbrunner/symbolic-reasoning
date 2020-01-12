@@ -74,6 +74,7 @@ class Embedder:
 
         for c, node in enumerate(embedder.unroll(builder.symbol_ref)):
             input_mapping[id(node)] = c
+        input_mapping[None] = len(input_mapping)
 
         hidden_mapping = {}
 
@@ -98,7 +99,7 @@ class Embedder:
                 # last is padding
                 legend.append(TraverseInstruction(
                     TraverseInstructionSet(input=input_mapping[id(node)]),
-                    [TraverseInstructionSet(input=len(input_mapping))
+                    [TraverseInstructionSet(input=input_mapping[None])
                         for _ in range(params.spread)]))
                 h += 1
 
@@ -114,8 +115,7 @@ class Embedder:
         for path, node in builder.traverse_bfs_path():
             node.label = path
 
-        embedder = Embedder()
-        for line in embedder.unroll(builder.symbol):
+        for line in Embedder.unroll(builder.symbol):
             yield line.label
 
     @staticmethod
@@ -135,7 +135,8 @@ class Embedder:
 
         return all_nodes
 
-    def unroll(self, x: Node) -> List[Node]:
+    @staticmethod
+    def unroll(x: Node) -> List[Node]:
         assert x is not None
         if type(x).__name__ == 'Node':
             return SymbolBuilder(x).traverse_bfs()

@@ -13,10 +13,11 @@ class NodeEncoder(json.JSONEncoder):
 class Node:
     '''Python implementation of the Symbol'''
 
-    def __init__(self, ident=None, childs=None, label=None):
+    def __init__(self, ident=None, childs=None, label=None, parent=None):
         self.ident = ident
         self.childs = childs or []
         self.label = label
+        self.parent = parent
 
     def __repr__(self):
         return json.dumps(self, cls=NodeEncoder)

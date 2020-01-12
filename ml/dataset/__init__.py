@@ -1,13 +1,14 @@
+from common.utils import Compose
+
 from .permutation import PermutationDataset
 from .embedded_pattern import EmbPatternDataset
 from .bag import BagDataset
-
 from .transformers import SegEmbedder, TagEmbedder, Padder, Uploader
-from common.utils import Compose
 
 
 class ScenarioParameter:
-    def __init__(self, scenario: str, depth: int, spread: int, max_size: int, pattern_depth: int, num_labels: int, filename: str):
+    def __init__(self, scenario: str, depth: int, spread: int, max_size: int,
+                 pattern_depth: int, num_labels: int, filename: str, **kwargs):
         self.scenario = scenario
         self.depth = depth
         self.spread = spread

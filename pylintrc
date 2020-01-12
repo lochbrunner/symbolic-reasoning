@@ -3,9 +3,14 @@ disable=
     missing-function-docstring,
     missing-class-docstring,
     missing-module-docstring,
+    too-many-locals,
+    too-many-statements,
+    too-many-arguments,
     invalid-name,
     relative-beyond-top-level,
     logging-format-interpolation,
+    too-few-public-methods
 
+ignored-argument-names=arg|args|kwargs
 [TYPECHECK]
 generated-members=numpy.*,torch.*

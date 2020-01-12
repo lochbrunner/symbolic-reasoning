@@ -60,7 +60,7 @@ class SymbolBuilder:
 
     def add_level_uniform(self, child_per_arm: int):
         for leave in self._leaves(self.depth):
-            leave.childs = [Node() for _ in range(0, child_per_arm)]
+            leave.childs = [Node(parent=leave) for _ in range(0, child_per_arm)]
         self.depth += 1
 
     def find_pattern(self, pattern: List):
