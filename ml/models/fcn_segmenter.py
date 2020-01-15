@@ -103,3 +103,7 @@ class FullyConnectedSegmenter(nn.Module):
 
     def activation_names(self):
         return ['scores']
+
+    @property
+    def device(self):
+        return next(self.parameters()).device

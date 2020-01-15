@@ -1,12 +1,15 @@
+import torch
 from torch.utils.data import Dataset
 
 from common.utils import memoize
+from node import Node
+from .symbol_builder import SymbolBuilder
+from .transformers import Padder, Embedder, ident_to_id
 
 
 class DatasetBase(Dataset):
 
-    def __init__(self, transform=None, preprocess=False):
-        self.transform = transform
+    def __init__(self, preprocess=False):
         self.preprocess = preprocess
         self._max_depth = -1
         self._max_spread = -1
@@ -19,11 +22,30 @@ class DatasetBase(Dataset):
         raise NotImplementedError('unpack_sample')
 
     def _process_sample(self, sample):
-        x, y = self.unpack_sample(sample)
-        s = self._max_spread
-        if self.transform is not None:
-            return self.transform(x, y, s, spread=self._max_spread, depth=self._max_depth, idents=self._idents)
-        return x, y, s
+        # pad
+        x, (path, label) = self.unpack_sample(sample)
+        builder = Padder.create_mask(x)
+        m = Padder.create_mask(x, 1).symbol
+        builder.set_label_at(path, label)
+        y = builder.symbol
+        x = Padder.pad(x, spread=self._max_spread, depth=self._max_depth)
+
+        def factory():
+            return Node(label=-1, childs=[])
+        y = Padder.pad(y, factory=factory, spread=self._max_spread, depth=self._max_depth)
+
+        def factory_m():
+            return Node(label=0, childs=[])
+        m = Padder.pad(m, factory=factory_m, spread=self._max_spread, depth=self._max_depth)
+        # unroll
+        x = [ident_to_id(n, self._idents) for n in Embedder.unroll(x)] + [0]
+        y = [n.label or 0 for n in Embedder.unroll(y)] + [-1]
+        m = [n.label or 0 for n in Embedder.unroll(m)] + [0]
+        # torchify
+        x = torch.as_tensor(x, dtype=torch.long)
+        y = torch.as_tensor(y, dtype=torch.long)
+        m = torch.as_tensor(m, dtype=torch.long)
+        return x, y, m
 
     @property
     def max_spread(self):
@@ -54,5 +76,5 @@ class DatasetBase(Dataset):
 
     @property
     def label_weight(self):
-        min_node = min(self.label_distribution)
+        min_node = max(min(self.label_distribution), 1)
         return [min_node/max(label, 1) for label in self.label_distribution]

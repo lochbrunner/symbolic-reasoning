@@ -1,8 +1,6 @@
-from torch.utils.data import Dataset
-
 from pycore import Bag
 
-from common.utils import memoize
+
 from .symbol_builder import SymbolBuilder
 from .dataset_base import DatasetBase
 
@@ -10,8 +8,8 @@ from .dataset_base import DatasetBase
 class BagDataset(DatasetBase):
     '''Loads samples from a bag file'''
 
-    def __init__(self, params, transform=None, preprocess=False):
-        super(BagDataset, self).__init__(transform, preprocess)
+    def __init__(self, params, preprocess=False):
+        super(BagDataset, self).__init__(preprocess)
 
         bag = Bag.load(params.filename)
 
@@ -44,13 +42,7 @@ class BagDataset(DatasetBase):
 
     def unpack_sample(self, sample):
         x, fit = sample
-
-        builder = self.label_builder
-        builder.clear_labels()
-        # Label 0 means no label
-        builder.set_label_at(fit.path, fit.rule)
-        y = builder.symbol
-        return x, y
+        return x, (fit.path, fit.rule)
 
     @property
     def rule_map(self):

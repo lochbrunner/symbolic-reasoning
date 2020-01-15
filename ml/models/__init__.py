@@ -10,10 +10,10 @@ from dataset.transformers import Embedder
 from common.timer import Timer
 from common.parameter_search import LearningParmeter
 
-from .lstm_tree_tagger import LstmTreeTagger, GruTreeTagger
+from .lstm_tagger import LstmTreeTagger, GruTreeTagger
 from .fcn_tagger import FullyConnectedTagger
 from .fcn_segmenter import FullyConnectedSegmenter
-from .tree_cnn import TreeCnnSegmenter
+from .cnn_segmenter import TreeCnnSegmenter
 
 all_models = {'LstmTreeTagger': LstmTreeTagger,
               'GruTreeTagger': GruTreeTagger,

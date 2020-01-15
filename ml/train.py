@@ -38,18 +38,26 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     true = 0
     false = 0
 
-    for x, y, s in dataloader:
+    for x, y, m in dataloader:
+        x = x.to(model.device)
+        y = y.to(model.device)
+        m = m.to(model.device)
         # Dimensions
         # x: batch * label * length
         # y: batch * length
-        x = model(x, s)
+        x = model(x)
         assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'
         batch_size = x.size(0)
         x = x.cpu().numpy()
         y = y.cpu().numpy()
+        m = m.cpu().numpy()
         for i in range(batch_size):
             predict = np.argmax(x[i, :, :], axis=0)
             truth = y[i, :]
+            mask = m[i, :]
+            mask = mask == 1
+            predict = predict[mask]
+            truth = truth[mask]
 
             true += np.sum(predict == truth)
             false += np.sum(predict != truth)
@@ -93,7 +101,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
 
     weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
-    loss_function = nn.NLLLoss(reduction='mean', weight=weight)
+    loss_function = nn.NLLLoss(reduction='mean', weight=weight, ignore_index=-1)
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -118,9 +126,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
-        for x, y, s in training_dataloader:
+        for x, y, m in training_dataloader:
+            x = x.to(device)
+            y = y.to(device)
+            m = m.to(device)
             optimizer.zero_grad()
-            x = model(x, s)
+            x = model(x, m)
             # batch x tags
             loss = loss_function(x, y)
             loss.backward()
@@ -128,7 +139,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 model.parameters(), learn_params.gradient_clipping)
             optimizer.step()
             epoch_loss += loss
-        if (epoch+1) % exe_params.report_rate == 0:
+        if epoch % exe_params.report_rate == 0:
             timer.pause()
             error = validate(model, validation_dataloader)
             clearProgressBar()

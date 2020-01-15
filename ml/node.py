@@ -60,6 +60,13 @@ class Node:
     def as_dict(self):
         return {'ident': self.ident, 'childs': [child.as_dict() for child in self.childs]}
 
+    @staticmethod
+    def from_rust(symbol):
+        return Node(ident=symbol.ident, childs=[Node.from_rust(c) for c in symbol.childs])
+
+    def clone(self):
+        return Node(ident=self.ident, childs=[c.clone() for c in self.childs], label=self.label, parent=self.parent)
+
 
 class TestSymbol(unittest.TestCase):
     '''Unit tests for python Symbol class'''

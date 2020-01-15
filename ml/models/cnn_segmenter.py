@@ -37,14 +37,14 @@ class TreeCnnLayer(nn.Module):
     def __init__(self, spread, depth, in_size, out_size):
         super(TreeCnnLayer, self).__init__()
 
-        self.index_tensor = self._create_index_tensor(spread, depth)
+        self.register_buffer('index_tensor', self._create_index_tensor(spread, depth))
         mask = torch.Tensor(spread+2, in_size, out_size)
         stdv = 0.5
         nn.init.uniform_(mask, -stdv, stdv)
         self.mask = nn.Parameter(mask)
         self.bias = nn.Parameter(torch.zeros(out_size))
 
-    def forward(self, x):
+    def forward(self, x, *args):
         # m: mask (k,i,j)
         # s: index map (l -> k,l)
         # x: input (b,l,i)
@@ -65,6 +65,7 @@ class TreeCnnLayer(nn.Module):
         # 2. gather x_lĸ
         x = x[:, None, :, :].expand(-1, l, -1, -1)
         s = self.index_tensor[None, :, :, None].expand(b, -1, -1, i)
+
         x = torch.gather(x, 2, s)
         # x: (b,l,k,i)
 
@@ -106,7 +107,12 @@ class TreeCnnSegmenter(nn.Module):
         x = self.embedding(x)
         y = self.cnn(x)
         # j must be second index: b,j,...
+        y = F.log_softmax(y, dim=2)
         return torch.transpose(y, 1, 2)
 
     def activation_names(self):
         return []
+
+    @property
+    def device(self):
+        return next(self.parameters()).device

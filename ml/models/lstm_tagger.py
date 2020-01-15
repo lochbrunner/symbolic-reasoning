@@ -5,7 +5,7 @@ import torch.nn.utils.rnn as rnn
 
 
 class RnnTreeTagger(nn.Module):
-    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, hyper_parameter, Rnn):
+    def __init__(self, vocab_size, tagset_size, pad_token, blueprint, spread, hyper_parameter, Rnn):
         super(RnnTreeTagger, self).__init__()
         self.blueprint = blueprint
         self.config = {
@@ -14,6 +14,7 @@ class RnnTreeTagger(nn.Module):
             'lstm_layers': 1
         }
         self.config.update(hyper_parameter)
+        self.spread = spread
 
         # Embedding
         self.embedding = nn.Embedding(
@@ -47,11 +48,11 @@ class RnnTreeTagger(nn.Module):
         # To tag
         self.hidden_to_tag = nn.Linear(self.config['embedding_size'], tagset_size)
 
-    def _cell(self, r, cs, s, introspection):
+    def _cell(self, r, cs, introspection):
         c = torch.stack(cs, dim=1)  # pylint: disable=no-member
         batch_size = r.size(0)
         # batch x sequence x embedding
-        c = rnn.pack_padded_sequence(c, s, batch_first=True, enforce_sorted=False)
+        c = rnn.pack_padded_sequence(c, self.spread, batch_first=True, enforce_sorted=False)
         lstm_h = self.lstm_h[:, None].expand(-1, batch_size, -1)
         lstm_c = self.lstm_c[:, None].expand(-1, batch_size, -1)
         c, _ = self.lstm(c, (lstm_h, lstm_c))
@@ -66,7 +67,7 @@ class RnnTreeTagger(nn.Module):
 
         return x
 
-    def forward(self, x, s, introspection=None):
+    def forward(self, x, *args, introspection=None):
         # Expect for spread=2 and depth=2:
         #  i2, (i0, i1)
         #  i5, (i3, i4)
@@ -79,7 +80,7 @@ class RnnTreeTagger(nn.Module):
         hidden = []
         for inst in self.blueprint:
             r, c = inst.get(input, hidden)
-            hidden.append(self._cell(r, c, s, introspection))
+            hidden.append(self._cell(r, c, introspection))
 
         x = hidden[-1]
         x = self.hidden_to_tag(x)

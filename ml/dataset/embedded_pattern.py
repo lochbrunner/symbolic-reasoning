@@ -92,13 +92,7 @@ class EmbPatternDataset(DatasetBase):
         self._max_depth = params.depth
 
     def unpack_sample(self, sample):
-        x, (path, label) = sample
-        builder = self.label_builder
-        builder.clear_labels()
-        # Label 0 means no label
-        builder.set_label_at(path, label)
-        y = builder.symbol
-        return x, y
+        return sample
 
 
 class TestPatternSegmentation(unittest.TestCase):

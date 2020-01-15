@@ -31,16 +31,6 @@ def create_scenario(params: ScenarioParameter, device, pad_token=0, transform=No
         ])
         return PermutationDataset(params=params, transform=transform)
     elif params.scenario == 'pattern':
-        transform = transform or Compose([
-            Padder(),
-            SegEmbedder(),
-            Uploader(device)
-        ])
-        return EmbPatternDataset(params=params, transform=transform)
+        return EmbPatternDataset(params=params)
     elif params.scenario == 'bag':
-        transform = transform or Compose([
-            Padder(),
-            SegEmbedder(),
-            Uploader(device)
-        ])
-        return BagDataset(params=params, transform=transform, preprocess=True)
+        return BagDataset(params=params, preprocess=True)
