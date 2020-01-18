@@ -12,7 +12,7 @@ pub trait LaTeX {
         W: std::io::Write;
 }
 
-pub fn dump_latex(symbol: &Symbol, decoration: Option<Decoration>) -> String {
+pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>) -> String {
     let context = FormatContext {
         operators: Operators {
             infix: hashmap! {
@@ -68,11 +68,11 @@ impl Symbol {
             "{}",
             dump_latex(
                 self,
-                Some(Decoration {
+                vec![Decoration {
                     path,
                     pre: "\\mathbin{\\textcolor{red}{",
                     post: "}}",
-                })
+                }]
             )
         )
     }
@@ -83,14 +83,14 @@ impl LaTeX for Symbol {
     where
         W: std::io::Write,
     {
-        write!(writer, "{}", dump_latex(self, None))
+        write!(writer, "{}", dump_latex(self, vec![]))
     }
 
     fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
     where
         W: std::io::Write,
     {
-        writeln!(writer, "{}", dump_latex(self, None))
+        writeln!(writer, "{}", dump_latex(self, vec![]))
     }
 }
 
@@ -102,8 +102,8 @@ impl LaTeX for Rule {
         write!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, None),
-            dump_latex(&self.conclusion, None)
+            dump_latex(&self.condition, vec![]),
+            dump_latex(&self.conclusion, vec![])
         )
     }
 
@@ -114,8 +114,8 @@ impl LaTeX for Rule {
         writeln!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, None),
-            dump_latex(&self.conclusion, None)
+            dump_latex(&self.condition, vec![]),
+            dump_latex(&self.conclusion, vec![])
         )
     }
 }
@@ -145,7 +145,7 @@ mod e2e {
     fn fraction_simple() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/b").unwrap();
-        assert_eq!(dump_latex(&term, None), String::from("\\frac{a}{b}"));
+        assert_eq!(dump_latex(&term, vec![]), String::from("\\frac{a}{b}"));
     }
 
     #[test]
@@ -153,7 +153,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/(b/c)").unwrap();
         assert_eq!(
-            dump_latex(&term, None),
+            dump_latex(&term, vec![]),
             String::from("\\frac{a}{\\frac{b}{c}}")
         );
     }
@@ -163,7 +163,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a*(b+c)").unwrap();
         assert_eq!(
-            dump_latex(&term, None),
+            dump_latex(&term, vec![]),
             String::from("a\\cdot \\left( b+c\\right) ")
         );
     }
@@ -172,7 +172,7 @@ mod e2e {
     fn double_super_script() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a^b^c").unwrap();
-        assert_eq!(dump_latex(&term, None), String::from("a^{b^{c}}"));
+        assert_eq!(dump_latex(&term, vec![]), String::from("a^{b^{c}}"));
     }
 
     #[test]
@@ -180,7 +180,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "(a+b)^c").unwrap();
         assert_eq!(
-            dump_latex(&term, None),
+            dump_latex(&term, vec![]),
             String::from("\\left( a+b\\right) ^{c}")
         );
     }
@@ -190,11 +190,11 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a").unwrap();
         let path = vec![];
-        let deco = Some(Decoration {
+        let deco = vec![Decoration {
             path: &path,
             pre: "<",
             post: ">",
-        });
+        }];
 
         assert_eq!(dump_latex(&term, deco), String::from("<a>"));
     }
@@ -204,12 +204,43 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a+b").unwrap();
         let path = vec![0];
-        let deco = Some(Decoration {
+        let deco = vec![Decoration {
             path: &path,
             pre: "<",
             post: ">",
-        });
+        }];
 
         assert_eq!(dump_latex(&term, deco), String::from("<a>+b"));
+    }
+
+    #[test]
+    fn decoration_all() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "a+b").unwrap();
+        let path_0 = vec![0];
+        let path_r = vec![];
+        let path_1 = vec![1];
+        let deco = vec![
+            Decoration {
+                path: &path_0,
+                pre: "<A>",
+                post: "</A>",
+            },
+            Decoration {
+                path: &path_1,
+                pre: "<B>",
+                post: "</B>",
+            },
+            Decoration {
+                path: &path_r,
+                pre: "<C>",
+                post: "</C>",
+            },
+        ];
+
+        assert_eq!(
+            dump_latex(&term, deco),
+            String::from("<C><A>a</A>+<B>b</B></C>")
+        );
     }
 }

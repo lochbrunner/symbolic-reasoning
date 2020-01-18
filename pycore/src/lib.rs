@@ -14,6 +14,7 @@ mod trace;
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<context::PyDeclaration>()?;
     m.add_class::<context::PyContext>()?;
+    m.add_class::<symbol::PyDecoration>()?;
     m.add_class::<symbol::PySymbol>()?;
     m.add_class::<symbol_builder::PySymbolBuilder>()?;
     m.add_class::<rule::PyRule>()?;

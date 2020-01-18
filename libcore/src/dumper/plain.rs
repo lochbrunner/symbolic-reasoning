@@ -24,7 +24,7 @@ pub fn dump_simple(symbol: &Symbol) -> String {
             symbols: hashmap! {},
             functions: hashmap! {},
         },
-        decoration: None,
+        decoration: vec![],
     };
     let mut string = String::new();
     dump_base(&context, symbol, FormatingLocation::new(), &mut string);
@@ -52,7 +52,7 @@ pub fn dump_verbose(symbol: &Symbol) -> String {
             symbols: hashmap! {},
             functions: hashmap! {},
         },
-        decoration: None,
+        decoration: vec![],
     };
     let mut string = String::new();
     dump_base(&context, symbol, FormatingLocation::new(), &mut string);

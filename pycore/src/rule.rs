@@ -64,8 +64,8 @@ impl PyRule {
     fn latex(&self) -> PyResult<String> {
         Ok(format!(
             "{} \\Rightarrow {} ",
-            dump_latex(&self.inner.condition, None),
-            dump_latex(&self.inner.conclusion, None)
+            dump_latex(&self.inner.condition, vec![]),
+            dump_latex(&self.inner.conclusion, vec![])
         ))
     }
 

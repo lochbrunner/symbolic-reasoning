@@ -1,4 +1,5 @@
 use crate::context::PyContext;
+use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_verbose};
 use core::Symbol;
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
@@ -12,6 +13,22 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+
+/// Python Wrapper for core::dumper::Decoration
+#[pyclass(name=Decoration,subclass)]
+pub struct PyDecoration {
+    pub path: Vec<usize>,
+    pub pre: String,
+    pub post: String,
+}
+
+#[pymethods]
+impl PyDecoration {
+    #[new]
+    fn py_new(obj: &PyRawObject, path: Vec<usize>, pre: String, post: String) {
+        obj.init({ PyDecoration { path, pre, post } });
+    }
+}
 
 /// Python Wrapper for core::Symbol
 #[pyclass(name=Symbol,subclass)]
@@ -217,7 +234,7 @@ impl PySymbol {
     /// LaTeX representation of that node
     #[getter]
     fn latex(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, None))
+        Ok(dump_latex(&self.inner, vec![]))
     }
 
     /// The node as a tree
@@ -294,6 +311,38 @@ impl PySymbol {
         }
         new_symbol.fix_depth();
         Ok(PySymbol::new(new_symbol))
+    }
+
+    #[text_signature = "($self, decorations, /)"]
+    fn latex_with_deco(&self, decorations: Vec<&PyDecoration>) -> PyResult<String> {
+        let decorations = decorations
+            .iter()
+            .map(|deco| Decoration {
+                path: &deco.path,
+                pre: &deco.pre,
+                post: &deco.post,
+            })
+            .collect::<Vec<_>>();
+        return Ok(dump_latex(&self.inner, decorations));
+    }
+
+    #[text_signature = "($self, decorations, /)"]
+    fn latex_with_colors(&self, colors: Vec<(String, Vec<usize>)>) -> PyResult<String> {
+        // Storing the color strings
+        let colors_code = colors
+            .iter()
+            .map(|(color, _)| format!("\\textcolor{{{}}}{{", color))
+            .collect::<Vec<_>>();
+        let decorations = colors
+            .iter()
+            .zip(colors_code.iter())
+            .map(|((_, path), color)| Decoration {
+                path,
+                pre: color,
+                post: "}",
+            })
+            .collect::<Vec<_>>();
+        return Ok(dump_latex(&self.inner, decorations));
     }
 }
 

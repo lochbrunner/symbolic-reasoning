@@ -3,26 +3,28 @@ use crate::Symbol;
 use std::collections::{HashMap, HashSet};
 
 pub struct FormatingLocation {
-    depth: usize,
-    on_track: bool,
+    path: Vec<usize>,
 }
 
 impl FormatingLocation {
     pub fn new() -> FormatingLocation {
-        FormatingLocation {
-            depth: 0,
-            on_track: true,
-        }
+        FormatingLocation { path: vec![] }
     }
-    pub fn deeper(&self, child_id: usize, path: &[usize]) -> FormatingLocation {
+    /// Appends the child id and returns a new location
+    pub fn deeper(&self, child_id: usize) -> FormatingLocation {
         FormatingLocation {
-            depth: self.depth + 1,
-            on_track: path.len() > self.depth && self.on_track && path[self.depth] == child_id,
+            path: [&self.path[..], &[child_id]].concat(),
         }
     }
 
-    pub fn on_track(&self, path: &[usize]) -> bool {
-        self.on_track && self.depth == path.len()
+    pub fn select_decoration<'a>(
+        &self,
+        decorations: &'a [Decoration<'a>],
+    ) -> Option<&'a Decoration<'a>> {
+        decorations.iter().find(|deco| {
+            deco.path.len() == self.path.len()
+                && deco.path.iter().zip(&self.path).all(|(a, b)| a == b)
+        })
     }
 }
 
@@ -34,7 +36,7 @@ pub enum FormatItem {
 pub struct FormatContext<'a> {
     pub operators: Operators<'a>,
     pub formats: SpecialFormatRules,
-    pub decoration: Option<Decoration<'a>>,
+    pub decoration: Vec<Decoration<'a>>,
 }
 
 impl<'a> FormatContext<'a> {}
@@ -53,23 +55,14 @@ pub struct Operators<'a> {
 
 pub struct Decoration<'a> {
     pub path: &'a [usize],
-    pub pre: &'static str,
-    pub post: &'static str,
+    pub pre: &'a str,
+    pub post: &'a str,
 }
-
-const EMPTY_VEC: &[usize] = &[];
 
 const P_HIGHEST: Precedence = Precedence::PFaculty;
 impl<'a> FormatContext<'a> {
     pub fn get<'b>(&self, key: &'b str) -> &'b str {
         self.formats.symbols.get(key).unwrap_or(&key)
-    }
-
-    pub fn get_decoration_path(&self) -> &[usize] {
-        match &self.decoration {
-            Some(deco) => deco.path,
-            None => &EMPTY_VEC,
-        }
     }
 
     pub fn format_function(
@@ -84,17 +77,10 @@ impl<'a> FormatContext<'a> {
                     match rule {
                         FormatItem::Tag(tag) => code.push_str(tag),
                         FormatItem::Child(index) => {
-                            let path = self.get_decoration_path();
                             let child = symbol.childs.get(*index).expect("");
                             let bracket = child.depth > 1
                                 && !self.formats.functions.contains_key(&child.ident[..]);
-                            dump_atomic(
-                                self,
-                                child,
-                                bracket,
-                                location.deeper(*index, &path),
-                                &mut code,
-                            );
+                            dump_atomic(self, child, bracket, location.deeper(*index), &mut code);
                         }
                     }
                 }
@@ -134,12 +120,7 @@ pub fn dump_base(
     location: FormatingLocation,
     mut string: &mut String,
 ) {
-    let path = context.get_decoration_path();
-    let actual_decoration = if location.on_track(path) {
-        &context.decoration
-    } else {
-        &None
-    };
+    let actual_decoration = location.select_decoration(&context.decoration);
     if let Some(decoration) = actual_decoration {
         string.push_str(decoration.pre);
     }
@@ -163,7 +144,7 @@ pub fn dump_base(
                         context,
                         child,
                         pre_child < &P_HIGHEST,
-                        location.deeper(0, path),
+                        location.deeper(0),
                         string,
                     );
                 }
@@ -182,7 +163,7 @@ pub fn dump_base(
                         context,
                         left,
                         pre_left < pre_root,
-                        location.deeper(0, path),
+                        location.deeper(0),
                         string,
                     );
                     string.push_str(context.get(&symbol.ident));
@@ -196,7 +177,7 @@ pub fn dump_base(
                                     .operators
                                     .non_associative
                                     .contains(&symbol.ident[..])),
-                        location.deeper(1, path),
+                        location.deeper(1),
                         string,
                     );
                 }
@@ -210,7 +191,7 @@ pub fn dump_base(
                 if !first {
                     string.push_str(", ");
                 }
-                dump_base(context, child, location.deeper(i, path), string);
+                dump_base(context, child, location.deeper(i), string);
                 first = false;
             }
             string.push_str(context.get(")"));

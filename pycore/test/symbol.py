@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycore import Context, Symbol
+from pycore import Context, Symbol, Decoration
 
 from typing import List
 import unittest
@@ -32,6 +32,20 @@ class TestSymbol(unittest.TestCase):
         self.assertEqual(str(symbol), 'a/b')
         self.assertEqual(symbol.ident, '/')
         self.assertEqual(str(symbol.at([1])), 'b')
+
+    def test_dumping_with_decoration(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, "a+b")
+        latex = symbol.latex_with_deco([Decoration([], '<C>', '</C>'),
+                                        Decoration([0], '<A>', '</A>'),
+                                        Decoration([1], '<B>', '</B>')])
+        self.assertEqual(latex, '<C><A>a</A>+<B>b</B></C>')
+
+    def test_dumping_with_colors(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, "a+b")
+        latex = symbol.latex_with_colors([('red', [0])])
+        self.assertEqual(latex, '\\textcolor{red}{a}+b')
 
     def test_unroll(self):
 
