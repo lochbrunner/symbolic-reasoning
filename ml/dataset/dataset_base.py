@@ -72,7 +72,7 @@ class DatasetBase(Dataset):
     @property
     def tag_size(self):
         # One additional for no tag
-        return len(self.patterns) + 1
+        return len(self.patterns)
 
     @property
     def label_weight(self):

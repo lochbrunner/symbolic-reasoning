@@ -6,8 +6,34 @@
     float: left;
 }
 
+.gt-container {
+    float: left;
+    width: 100%;
+}
+.gt-container > div {
+    float: left;
+}
+
+
 #selector {
     float: left;
     width: 100%;
     margin-bottom: -10px;
+}
+
+.katex {
+    font-size: 2.5em !important;
+    margin: 70px 30px;
+    display: block;
+}
+#rule-name {
+    margin-top: 30px;
+    font-size: 1.5em;
+    text-align: center;
+}
+
+#gt-rule-name {
+    margin-top: 30px;
+    font-size: 1.5em;
+    text-align: center;
 }

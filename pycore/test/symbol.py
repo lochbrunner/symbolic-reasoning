@@ -48,7 +48,6 @@ class TestSymbol(unittest.TestCase):
         self.assertEqual(latex, '\\textcolor{red}{a}+b')
 
     def test_unroll(self):
-
         context = Context.standard()
 
         a = Symbol.parse(context, 'a+b')

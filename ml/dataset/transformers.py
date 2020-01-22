@@ -107,8 +107,8 @@ class Embedder:
 
     @staticmethod
     def legend(params):
-        depth = params.depth
-        spread = params.spread
+        depth = params.max_depth if hasattr(params, 'max_depth') else params.depth
+        spread = params.max_spread if hasattr(params, 'max_spread') else params.spread
         builder = SymbolBuilder()
         for _ in range(depth):
             builder.add_level_uniform(spread)

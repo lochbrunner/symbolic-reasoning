@@ -1,5 +1,6 @@
 torch
 dash
+dash_katex
 pylint
 autopep8
 argcomplete

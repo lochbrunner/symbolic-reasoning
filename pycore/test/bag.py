@@ -41,7 +41,13 @@ class TestBag(unittest.TestCase):
         a.label = 12
 
         b = a
+        # for rule in bag.meta.rules:
+        #     print(f'rule {rule.name}: {rule.condition}')
 
         self.assertEqual(b.label, 12)
         a.label = 15
         self.assertEqual(b.label, 15)
+
+
+if __name__ == '__main__':
+    unittest.main()

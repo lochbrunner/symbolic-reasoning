@@ -11,6 +11,7 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 import dash_html_components as html
 import dash_core_components as dcc
+from dash_katex import DashKatex
 
 # numpy
 import numpy as np
@@ -49,11 +50,8 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
     return all_scores, all_paths
 
 
-dataset, model, _, scenario_params = io.load('../snapshots/segmenter_3_2.sp', transform=Compose([]))
+dataset, model, _, scenario_params = io.load('../snapshots/cnn_tree_bag.sp', transform=Compose([]))
 model.eval()
-
-transform = Compose(
-    [Padder(depth=scenario_params.depth, spread=scenario_params.spread), SegEmbedder(), Uploader()])
 
 
 def create_node(idents):
@@ -76,15 +74,13 @@ def ground_truth_path(node):
 
 
 @torch.no_grad()
-def predict_path_and_label(model, node):
-    x, y, s = transform(node, 2)
-    x = torch.unsqueeze(x, 0)
-    y = torch.unsqueeze(y, 0)
-    s = torch.as_tensor(s).squeeze(0)
-    x = model(x, s)
+def predict_path_and_label(model, x, y, m):
+
+    x = model(x)
 
     x = x.squeeze()
     x = x.cpu().numpy()
+    scores = x
     # print(np.array2string(x, precision=2, separator=',',  suppress_small=True))
     mask = Embedder.leaf_mask(scenario_params)
     mask_indices = np.squeeze(np.argwhere(mask == 1))
@@ -97,7 +93,7 @@ def predict_path_and_label(model, node):
 
     paths = paths[mask_indices]
 
-    return prediction, paths, x
+    return prediction, paths, x, scores
 
 
 def predict(model, node):
@@ -106,7 +102,8 @@ def predict(model, node):
     return i.item()
 
 
-app = dash.Dash(__name__)
+mathjax = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML'
+app = dash.Dash(__name__, external_scripts=[mathjax])
 app.title = 'Tree Segmenter Visualization'
 
 
@@ -115,17 +112,29 @@ app.layout = html.Div([
     html.Div(style={}, className='tree-container', children=[
         tree_dash_component.TreeDashComponent(
             id='symbol',
-            symbol=dataset[0][0].as_dict()
+            symbol=dataset.get_node(0).as_dict()
         ),
         tree_dash_component.TreeDashComponent(
             id='pattern-1',
             symbol=Node('?').as_dict()
-        )
+        ),
+        DashKatex(expression=dataset.raw_samples[0][0].latex, id='initial'),
+        html.Div(id='rule-container', children=[
+            html.Div(dataset.get_rule_raw(0).name, id='rule-name'),
+            DashKatex(expression=dataset.get_rule_raw(0).latex, id='pattern')
+        ]),
+        html.Div(id='gt-container', children=[
+            html.Div(dataset.get_rule_of_sample(0).name, id='gt-rule-name'),
+            DashKatex(expression=dataset.get_rule_of_sample(0).latex, id='gt-rule')
+        ])
+
     ]),
+    dcc.Slider(id='rule-selector', min=0, max=dataset.tag_size, value=3, step=1),
     dcc.Slider(id='selector', min=0, max=len(dataset)-1, value=3, step=1),
     html.Button('Prev', id='prev', style={'marginRight': '10px'}),
     html.Button('Next', id='next'),
-    html.Span(dataset[0][1], id='tag', style={'paddingLeft': 10}),
+    # go.Figure(layout=go.Layout(data=[], xaxis=dict(title=r'\LaTeX'))),
+    html.Span(f'rule: {dataset[0][1][1]}', id='tag', style={'paddingLeft': 10}),
     html.Div([
         html.P('-', id='tag_prediction'),
         dcc.Dropdown(id='activation-selector', options=[
@@ -151,16 +160,27 @@ def pagination(next_clicked, prev_clicked, value):
 
 
 @app.callback(
-    [Output(component_id='symbol', component_property='symbol'),
-     Output(component_id='pattern-1', component_property='symbol'),
-     Output(component_id='tag', component_property='children'),
-     Output(component_id='tag_prediction', component_property='children'),
-     Output(component_id='prediction-heat',  component_property='figure')
-     ],
-    [Input(component_id='selector', component_property='value'),
-     Input(component_id='activation-selector', component_property='value')]
+    [
+        Output(component_id='symbol', component_property='symbol'),
+        Output(component_id='pattern-1', component_property='symbol'),
+        Output(component_id='tag', component_property='children'),
+        Output(component_id='tag_prediction', component_property='children'),
+        Output(component_id='prediction-heat', component_property='figure'),
+        Output(component_id='initial', component_property='expression'),
+        Output(component_id='pattern', component_property='expression'),
+        Output(component_id='rule-name', component_property='children'),
+        Output(component_id='gt-rule', component_property='expression'),
+        Output(component_id='gt-rule-name', component_property='children')
+
+
+    ],
+    [
+        Input(component_id='selector', component_property='value'),
+        Input(component_id='rule-selector', component_property='value'),
+        Input(component_id='activation-selector', component_property='value')
+    ]
 )
-def update_selection(sample_id, activation_name):
+def update_selection(sample_id, rule_id, activation_name):
     # Tag
     use_tag = False
     if use_tag:
@@ -172,23 +192,42 @@ def update_selection(sample_id, activation_name):
         pattern = Node('-')
         x = None
     else:
-        sample, _ = dataset[sample_id]
+        x, y, m = dataset[sample_id]
+        x = x.unsqueeze(0)
+        y = y.unsqueeze(0)
+        m = m.unsqueeze(0)
+        sample = dataset.get_node(sample_id)
         gp, gl = ground_truth_path(sample)
         ground = f'Ground truth: {gl} @ {gp}'
-        prediction, paths, tag_scores = predict_path_and_label(model, sample)
+        prediction, paths, tag_scores, scores = predict_path_and_label(model, x, y, m)
         prediction = f'Predict arg-max: {prediction}'
-        pattern = dataset.patterns[gl-1]
-        pattern = create_node(pattern)
-        x = list([str(i) for i in range(dataset.tag_size)])
+        pattern = Node('?')
+        x = [f'$${rule.latex}$$' for rule in dataset.get_rules_raw()]
 
         def stringify(path):
             return '@' + '/'.join(str(i) for i in path)
         paths = [stringify(path) for path in paths]
 
-    trace = go.Heatmap(y=paths, z=tag_scores, x=x, colorscale='Electric', colorbar={
-                       'title': 'Score'}, showscale=True)
+        legend = Embedder.legend(dataset)
+        rule_scores = scores[rule_id, :]
+        rule_scores = (rule_scores - rule_scores.min()) / (rule_scores.max() - rule_scores.min())*255
 
-    return sample.as_dict(), pattern.as_dict(), ground, prediction, {'data': [trace]}
+        def create_color(value):
+            v = int(value)
+            return "#{0:0{1}x}0000".format(v, 2)
+
+        colors = [(create_color(score), path)
+                  for path, score in zip(legend, rule_scores)]
+
+        initial = dataset.raw_samples[sample_id][0].latex_with_colors(colors)
+        rule = dataset.get_rule_raw(rule_id)
+
+        gt_rule = dataset.get_rule_of_sample(sample_id)
+
+    trace = go.Heatmap(y=paths, z=tag_scores, x=x, colorscale='Electric', colorbar={
+        'title': 'Score'}, showscale=True)
+
+    return sample.as_dict(), pattern.as_dict(), ground, prediction, {'data': [trace]}, initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
 
 
 if __name__ == '__main__':
