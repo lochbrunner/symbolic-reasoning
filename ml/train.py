@@ -33,10 +33,35 @@ class ExecutionParameter:
         self.tensorboard = tensorboard
 
 
+class Ratio:
+    def __init__(self):
+        self.true = 0
+        self.false = 0
+
+    def __float__(self):
+        return float(self.true) / max(1, float(self.true + self.false))
+
+    def __str__(self):
+        v = (1. - float(self)) * 100.
+        return f'{v:.1f}%'
+
+    def update(self, mask, predict, truth):
+        p = predict[mask]
+        t = truth[mask]
+
+        self.true += np.sum(p == t)
+        self.false += np.sum(p != t)
+
+
+class Error:
+    def __init__(self, with_padding=None, wo_padding=None):
+        self.with_padding = with_padding or Ratio()
+        self.wo_padding = wo_padding or Ratio()
+
+
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: data.DataLoader):
-    true = 0
-    false = 0
+    error = Error()
 
     for x, y, m in dataloader:
         x = x.to(model.device)
@@ -54,14 +79,11 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
         for i in range(batch_size):
             predict = np.argmax(x[i, :, :], axis=0)
             truth = y[i, :]
-            mask = m[i, :]
-            mask = mask == 1
-            predict = predict[mask]
-            truth = truth[mask]
 
-            true += np.sum(predict == truth)
-            false += np.sum(predict != truth)
-    return float(true) / max(1, float(true + false))
+            error.with_padding.update((truth > -1), predict, truth)
+            error.wo_padding.update((truth > 0), predict, truth)
+
+    return error
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -143,9 +165,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             timer.pause()
             error = validate(model, validation_dataloader)
             clearProgressBar()
-            error = (1. - error) * 100.
             loss = learn_params.batch_size * epoch_loss
-            logging.info(f'#{epoch} Loss: {loss:.3f}  Error: {error:.1f}%')
+            logging.info(f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (wo padding: {error.wo_padding})')
             timer.resume()
         printProgressBar(epoch, learn_params.num_epochs)
     clearProgressBar()
