@@ -10,5 +10,6 @@ lstm
 .vscode/tags
 pycore.so
 perf.*
+*.prof
 flame*.svg
 runs

@@ -25,27 +25,21 @@ class DatasetBase(Dataset):
         # pad
         x, (path, label) = self.unpack_sample(sample)
         builder = Padder.create_mask(x)
-        m = Padder.create_mask(x, 1).symbol
         builder.set_label_at(path, label)
-        y = builder.symbol
+        y = builder.symbol_ref
         x = Padder.pad(x, spread=self._max_spread, depth=self._max_depth)
 
         def factory():
             return Node(label=-1, childs=[])
         y = Padder.pad(y, factory=factory, spread=self._max_spread, depth=self._max_depth)
 
-        def factory_m():
-            return Node(label=0, childs=[])
-        m = Padder.pad(m, factory=factory_m, spread=self._max_spread, depth=self._max_depth)
         # unroll
         x = [ident_to_id(n, self._idents) for n in Embedder.unroll(x)] + [0]
         y = [n.label or 0 for n in Embedder.unroll(y)] + [-1]
-        m = [n.label or 0 for n in Embedder.unroll(m)] + [0]
         # torchify
         x = torch.as_tensor(x, dtype=torch.long)
         y = torch.as_tensor(y, dtype=torch.long)
-        m = torch.as_tensor(m, dtype=torch.long)
-        return x, y, m
+        return x, y
 
     @property
     def max_spread(self):

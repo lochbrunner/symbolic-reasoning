@@ -4,6 +4,7 @@ from pycore import Bag
 from .symbol_builder import SymbolBuilder
 from .dataset_base import DatasetBase
 from node import Node
+from common.utils import printProgressBar, clearProgressBar
 
 
 class BagDataset(DatasetBase):
@@ -39,7 +40,14 @@ class BagDataset(DatasetBase):
         self.label_builder = builder
 
         if preprocess:
-            self.samples = [self._process_sample(sample) for sample in self.raw_samples]
+            def progress(i, sample):
+                if i % 50 == 0:
+                    printProgressBar(i, len(self.raw_samples), suffix='loading')
+                return sample
+            self.samples = [progress(i, self._process_sample(sample)) for i, sample in enumerate(self.raw_samples)]
+            clearProgressBar()
+        else:
+            self.samples = self.raw_samples
 
     def get_node(self, index):
         return Node.from_rust(self.raw_samples[index][0])

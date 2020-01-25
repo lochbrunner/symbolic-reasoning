@@ -63,10 +63,9 @@ class Error:
 def validate(model: torch.nn.Module, dataloader: data.DataLoader):
     error = Error()
 
-    for x, y, m in dataloader:
+    for x, y in dataloader:
         x = x.to(model.device)
         y = y.to(model.device)
-        m = m.to(model.device)
         # Dimensions
         # x: batch * label * length
         # y: batch * length
@@ -75,7 +74,6 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
         batch_size = x.size(0)
         x = x.cpu().numpy()
         y = y.cpu().numpy()
-        m = m.cpu().numpy()
         for i in range(batch_size):
             predict = np.argmax(x[i, :, :], axis=0)
             truth = y[i, :]
@@ -148,12 +146,11 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
-        for x, y, m in training_dataloader:
+        for x, y in training_dataloader:
             x = x.to(device)
             y = y.to(device)
-            m = m.to(device)
             optimizer.zero_grad()
-            x = model(x, m)
+            x = model(x)
             # batch x tags
             loss = loss_function(x, y)
             loss.backward()

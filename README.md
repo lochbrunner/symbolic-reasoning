@@ -92,8 +92,24 @@ cargo t --workspace --exclude pycore
 
 ## Profiling
 
+### Rust
+
 ```zsh
 perf record -g cargo bench no_variable_deep --workspace --exclude pycore
 perf script | stackcollapse-perf.pl | rust-unmangle | flamegraph.pl > flame_no_variable_deep.svg
 firefox flame_no_variable_deep.svg
 ```
+
+### Python
+
+```zsh
+cd ml
+# recording
+python -m cProfile -o ../train.prof ./train.py -v -d cpu --bag-filename ../out/generator/bag-2-2-2.bin --scenario bag -r 1
+# visualization
+snakeviz ../train.prof
+```
+
+### Pytorch
+
+See [torch.utils.bottleneck](https://pytorch.org/docs/stable/bottleneck.html)

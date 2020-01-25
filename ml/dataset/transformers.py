@@ -172,7 +172,6 @@ class Padder:
             return Node(PAD_TOKEN, [])
         if factory is None:
             factory = default_factory
-            # Rust version of Symbol
         if type(n).__name__ == 'Node':
             builder = SymbolBuilder(n)
             for path, node in builder.traverse_bfs_path():
@@ -180,7 +179,8 @@ class Padder:
                     nc = len(node.childs)
                     for _ in range(nc, spread):
                         node.childs.append(factory())
-            return builder.symbol
+            return builder.symbol_ref
+        # Rust version of Symbol
         elif type(n).__name__ == 'Symbol':
             return n.create_padded(PAD_TOKEN, spread, depth)
         else:
