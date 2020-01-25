@@ -87,8 +87,9 @@ class TreeCnnSegmenter(nn.Module):
         # Config
         self.config = {
             'max_spread': 2,
-            'embedding_size': 16,
+            'embedding_size': 32,
             'spread': 2,
+            'layer': 3
         }
         self.config.update(hyper_parameter)
 
@@ -101,13 +102,16 @@ class TreeCnnSegmenter(nn.Module):
             padding_idx=pad_token
         )
 
-        self.cnn = TreeCnnLayer(spread, depth, embedding_size, tagset_size)
+        self.cnn = [TreeCnnLayer(spread, depth, embedding_size, embedding_size) for _ in range(self.config['layer'])]
+        self.to_tag = TreeCnnLayer(spread, depth, embedding_size, tagset_size)
 
     def forward(self, x, *args):
         x = self.embedding(x)
-        y = self.cnn(x)
+        for cnn in self.cnn:
+            x = self.cnn(x)
+        x = self.to_tag(x)
         # j must be second index: b,j,...
-        y = F.log_softmax(y, dim=2)
+        y = F.log_softmax(x, dim=2)
         return torch.transpose(y, 1, 2)
 
     def activation_names(self):

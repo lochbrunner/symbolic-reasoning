@@ -35,22 +35,33 @@ class ExecutionParameter:
 
 class Ratio:
     def __init__(self):
-        self.true = 0
-        self.false = 0
+        self.first = 0
+        self.second = 0
+        self.sum = 0
 
     def __float__(self):
-        return float(self.true) / max(1, float(self.true + self.false))
+        return float(self.first) / max(1, float(self.sum))
+
+    def top_2(self):
+        return float(self.first + self.second) / max(1, float(self.sum))
 
     def __str__(self):
         v = (1. - float(self)) * 100.
-        return f'{v:.1f}%'
+        vs = (1. - self.top_2()) * 100.
+        return f'{v:.1f}% ({vs:.1f}%)'
 
-    def update(self, mask, predict, truth):
-        p = predict[mask]
+    def update(self, mask, x, truth):
+        predict = (-x).argsort(axis=0)
+
+        pf = predict[0]
+        pf = pf[mask]
+        ps = predict[1]
+        ps = ps[mask]
         t = truth[mask]
 
-        self.true += np.sum(p == t)
-        self.false += np.sum(p != t)
+        self.first += np.sum(pf == t)
+        self.second += np.sum(ps == t)
+        self.sum += np.sum(mask == True)
 
 
 class Error:
@@ -75,11 +86,10 @@ def validate(model: torch.nn.Module, dataloader: data.DataLoader):
         x = x.cpu().numpy()
         y = y.cpu().numpy()
         for i in range(batch_size):
-            predict = np.argmax(x[i, :, :], axis=0)
             truth = y[i, :]
 
-            error.with_padding.update((truth > -1), predict, truth)
-            error.wo_padding.update((truth > 0), predict, truth)
+            error.with_padding.update((truth > -1), x[i, :, :], truth)
+            error.wo_padding.update((truth > 0), x[i, :, :], truth)
 
     return error
 
@@ -109,6 +119,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     model.train()
 
+    validation_ratio = 0.1
+    validation_size = int(len(dataset) * validation_ratio)
+    trainings_size = len(dataset) - validation_size
+
+    train_set, val_set = torch.utils.data.random_split(dataset, [trainings_size, validation_size])
+
     # Loading data
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
@@ -117,8 +133,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
                               'num_workers': 0}
-    training_dataloader = data.DataLoader(dataset, **train_loader_params)
-    validation_dataloader = data.DataLoader(dataset, **validate_loader_params)
+    training_dataloader = data.DataLoader(train_set, **train_loader_params)
+    validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
     weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
     loss_function = nn.NLLLoss(reduction='mean', weight=weight, ignore_index=-1)
