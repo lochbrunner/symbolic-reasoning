@@ -3,29 +3,34 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from common.terminal_utils import printHistogram
+
 
 class Ratio:
-    def __init__(self):
-        self.first = 0
-        self.second = 0
-        self.third = 0
+    def __init__(self, size=3):
+        self.tops = np.zeros(size, dtype=np.uint16)
         self.sum = 0
+        self.size = size
+
+    def topk(self, k):
+        nom = np.sum(self.tops[:k])
+        return float(nom) / max(1, float(self.sum))
 
     def __float__(self):
-        return float(self.first) / max(1, float(self.sum))
+        return self.topk(1)
 
     def top_2(self):
         '''Relevant for beam size'''
-        return float(self.first + self.second) / max(1, float(self.sum))
+        return self.topk(2)
 
     def top_3(self):
         '''Relevant for beam size'''
-        return float(self.first + self.second + self.third) / max(1, float(self.sum))
+        return self.topk(3)
 
     def __str__(self):
-        v = (1. - float(self)) * 100.
-        vs = (1. - self.top_2()) * 100.
-        vt = (1. - self.top_3()) * 100.
+        v = (1. - self.topk(1)) * 100.
+        vs = (1. - self.topk(2)) * 100.
+        vt = (1. - self.topk(3)) * 100.
         return f'{v:.1f}% ({vs:.1f}%, {vt:.1f}%)'
 
     def update(self, mask, predict, truth):
@@ -38,18 +43,13 @@ class Ratio:
         '''
 
         predict = (-predict).argsort(axis=0)
-
-        pf = predict[0]
-        pf = pf[mask]
-        ps = predict[1]
-        ps = ps[mask]
-        pt = predict[2]
-        pt = pt[mask]
+        predict = predict[:, mask]
         t = truth[mask]
 
-        self.first += np.sum(pf == t)
-        self.second += np.sum(ps == t)
-        self.third += np.sum(pt == t)
+        for i in range(self.size):
+            p = predict[i]
+            self.tops[i] += np.sum(p == t)
+
         self.sum += np.sum(mask)
 
     def update_global(self, mask, predict, truth):
@@ -70,15 +70,13 @@ class Ratio:
         truth_rule_id = truth[truth_path]
         encoded_id = truth_rule_id * n + truth_path
         top = np.where(predict == encoded_id)[0][0]
-        print(f'top: {top}')
 
-        if top == 0:
-            self.first += 1
-        elif top == 1:
-            self.second += 1
-        elif top == 2:
-            self.third += 1
+        if top < self.size:
+            self.tops[top] += 1
         self.sum += 1
+
+    def printHistogram(self):
+        printHistogram(self.tops, range(self.size), self.sum)
 
 
 class Error:
@@ -90,7 +88,7 @@ class Error:
 
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader):
-    error = Error()
+    error = Error(exact=Ratio(20))
 
     for x, y in dataloader:
         x = x.to(model.device)

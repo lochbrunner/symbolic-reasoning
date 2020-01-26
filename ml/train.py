@@ -16,7 +16,7 @@ from dataset import create_scenario, scenarios_choices, ScenarioParameter
 from models import create_model, all_models
 
 from common.timer import Timer
-from common.utils import printProgressBar, clearProgressBar
+from common.terminal_utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
 from common import io
 from common.validation import validate
@@ -125,6 +125,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
 
     signal.signal(signal.SIGINT, original_sigint_handler)
+    if logging.INFO >= logging.root.level:
+        error = validate(model, validation_dataloader)
+        error.exact.printHistogram()
 
     save_snapshot()
 

@@ -4,7 +4,7 @@ from pycore import Bag
 from .symbol_builder import SymbolBuilder
 from .dataset_base import DatasetBase
 from common.node import Node
-from common.utils import printProgressBar, clearProgressBar
+from common.terminal_utils import printProgressBar, clearProgressBar
 
 
 class BagDataset(DatasetBase):
