@@ -4,7 +4,7 @@ import unittest
 from torch.utils.data import Dataset
 
 from common.utils import memoize
-from node import Node
+from common.node import Node
 from .generate import generate_idents
 from .symbol_builder import SymbolBuilder
 

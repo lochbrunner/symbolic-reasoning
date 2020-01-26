@@ -77,7 +77,7 @@ class TreeCnnLayer(nn.Module):
         # 3. expand and add bias
         y = torch.matmul(torch.flatten(x, 2, 3), torch.flatten(self.mask, 0, 1)) + \
             self.bias[None, None, -1].expand(b, l, -1)
-        return F.relu(y)
+        return F.leaky_relu(y)
 
 
 class TreeCnnSegmenter(nn.Module):
@@ -86,12 +86,12 @@ class TreeCnnSegmenter(nn.Module):
         super(TreeCnnSegmenter, self).__init__()
         # Config
         self.config = {
-            'max_spread': 2,
             'embedding_size': 32,
-            'spread': 2,
-            'layer': 3
+            'layers': 2
         }
         self.config.update(hyper_parameter)
+        self.spread = spread
+        self.depth = depth
 
         embedding_size = self.config['embedding_size']
 
@@ -102,14 +102,14 @@ class TreeCnnSegmenter(nn.Module):
             padding_idx=pad_token
         )
 
-        self.cnn = [TreeCnnLayer(spread, depth, embedding_size, embedding_size) for _ in range(self.config['layer'])]
-        self.to_tag = TreeCnnLayer(spread, depth, embedding_size, tagset_size)
+        self.cnn_hidden = nn.Sequential(*[TreeCnnLayer(spread, depth, embedding_size, embedding_size)
+                                          for _ in range(self.config['layers'])])
+        self.cnn_end = TreeCnnLayer(spread, depth, embedding_size, tagset_size)
 
     def forward(self, x, *args):
         x = self.embedding(x)
-        for cnn in self.cnn:
-            x = self.cnn(x)
-        x = self.to_tag(x)
+        x = self.cnn_hidden(x)
+        x = self.cnn_end(x)
         # j must be second index: b,j,...
         y = F.log_softmax(x, dim=2)
         return torch.transpose(y, 1, 2)

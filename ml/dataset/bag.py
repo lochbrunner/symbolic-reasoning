@@ -3,7 +3,7 @@ from pycore import Bag
 
 from .symbol_builder import SymbolBuilder
 from .dataset_base import DatasetBase
-from node import Node
+from common.node import Node
 from common.utils import printProgressBar, clearProgressBar
 
 
@@ -19,7 +19,7 @@ class BagDataset(DatasetBase):
 
         meta = bag.meta
 
-        self._idents = meta.idents
+        self.idents = meta.idents
         self.label_distribution = meta.rule_distribution
         self._rule_map = [rule for rule in meta.rules]
 

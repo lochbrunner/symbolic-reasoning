@@ -5,7 +5,8 @@ from dataset.embedded_pattern import *
 from dataset.permutation import *
 from dataset.symbol_builder import *
 from dataset.generate import *
-from node import *
+from common.node import *
+from common.validation import *
 # from common.parameter_search_specs import *
 
 import unittest

@@ -97,7 +97,7 @@ fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Opti
 }
 
 #[pyfunction]
-#[text_signature = "(outer, variable_creator, orig, rule /)"]
+#[text_signature = "(outer, variable_creator, orig, rule, /)"]
 fn fit_and_apply(
     py: Python,
     variable_creator: PyObject,
@@ -127,7 +127,7 @@ fn fit_and_apply(
 }
 
 #[pyfunction]
-#[text_signature = "(outer, variable_creator, orig, rule, path /)"]
+#[text_signature = "(variable_creator, orig, rule, path, /)"]
 fn fit_at_and_apply(
     py: Python,
     variable_creator: PyObject,

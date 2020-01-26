@@ -4,6 +4,13 @@ from pycore import Bag
 
 import argparse
 
+
+def print_info(name, value, c1, c2):
+    name = name.ljust(c1)
+    value = str(value).rjust(c2)
+    print(f'{name} {value}')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('baginfo')
     parser.add_argument('filename')
@@ -11,19 +18,16 @@ if __name__ == '__main__':
 
     bag = Bag.load(args.filename)
 
-    max_name_length = max([len(rule.name) for rule in bag.meta.rules])+2
-    max_count_length = max(len(str(dist)) for dist in bag.meta.rule_distribution)
+    c1 = max([len(rule.name) for rule in bag.meta.rules])+2
+    c2 = max(len(str(dist)) for dist in bag.meta.rule_distribution)
 
     rules_tuple = list(zip(bag.meta.rules, bag.meta.rule_distribution))
     rules_tuple.sort(key=lambda r: r[1], reverse=True)
 
     for (rule, count) in rules_tuple:
-        rule_name = f'{rule.name}:'.ljust(max_name_length)
-        count = str(count).rjust(max_count_length)
-        print(f'{rule_name} {count}')
+        print_info(f'{rule.name}:', count, c1, c2)
 
-    print('-'*(max_name_length+max_count_length+1))
+    print('-'*(c1+c2+1))
     total = sum(bag.meta.rule_distribution[1:])
-    rule_name = 'total:'.ljust(max_name_length)
-    count = str(total).rjust(max_count_length)
-    print(f'{rule_name} {count}')
+    print_info('total:', total, c1, c2)
+    print_info('idents:', len(bag.meta.idents), c1, c2)

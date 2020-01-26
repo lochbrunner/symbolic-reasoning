@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 
 from common.utils import memoize
-from node import Node
+from common.node import Node
 from .symbol_builder import SymbolBuilder
 from .transformers import Padder, Embedder, ident_to_id
 
@@ -14,7 +14,7 @@ class DatasetBase(Dataset):
         self._max_depth = -1
         self._max_spread = -1
         self.samples = []
-        self._idents = []
+        self.idents = []
         self.label_distribution = []
         self.patterns = []
 
@@ -34,7 +34,7 @@ class DatasetBase(Dataset):
         y = Padder.pad(y, factory=factory, spread=self._max_spread, depth=self._max_depth)
 
         # unroll
-        x = [ident_to_id(n, self._idents) for n in Embedder.unroll(x)] + [0]
+        x = [ident_to_id(n, self.idents) for n in Embedder.unroll(x)] + [0]
         y = [n.label or 0 for n in Embedder.unroll(y)] + [-1]
         # torchify
         x = torch.as_tensor(x, dtype=torch.long)
@@ -61,7 +61,7 @@ class DatasetBase(Dataset):
 
     @property
     def vocab_size(self):
-        return len(self._idents)
+        return len(self.idents)
 
     @property
     def tag_size(self):

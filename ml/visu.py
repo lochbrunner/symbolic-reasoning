@@ -20,11 +20,10 @@ import numpy as np
 import torch
 
 # local
-from node import Node
+from common.node import Node
 from common.utils import Compose
 from common import io
-from dataset.transformers import ident_to_id
-from dataset.transformers import SegEmbedder, Uploader, Padder, Embedder
+from dataset.transformers import Embedder, ident_to_id
 from dataset.generate import SymbolBuilder
 
 
@@ -81,7 +80,6 @@ def predict_path_and_label(model, x, y, m):
     x = x.squeeze()
     x = x.cpu().numpy()
     scores = x
-    # print(np.array2string(x, precision=2, separator=',',  suppress_small=True))
     mask = Embedder.leaf_mask(scenario_params)
     mask_indices = np.squeeze(np.argwhere(mask == 1))
     x = x[:, mask_indices]
@@ -102,8 +100,7 @@ def predict(model, node):
     return i.item()
 
 
-mathjax = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML'
-app = dash.Dash(__name__, external_scripts=[mathjax])
+app = dash.Dash(__name__)
 app.title = 'Tree Segmenter Visualization'
 
 
@@ -133,7 +130,6 @@ app.layout = html.Div([
     dcc.Slider(id='selector', min=0, max=len(dataset)-1, value=3, step=1),
     html.Button('Prev', id='prev', style={'marginRight': '10px'}),
     html.Button('Next', id='next'),
-    # go.Figure(layout=go.Layout(data=[], xaxis=dict(title=r'\LaTeX'))),
     html.Span(f'rule: {dataset[0][1][1]}', id='tag', style={'paddingLeft': 10}),
     html.Div([
         html.P('-', id='tag_prediction'),
@@ -192,6 +188,7 @@ def update_selection(sample_id, rule_id, activation_name):
         pattern = Node('-')
         x = None
     else:
+        initial = dataset.raw_samples[sample_id][0]
         x, y, m = dataset[sample_id]
         x = x.unsqueeze(0)
         y = y.unsqueeze(0)
@@ -204,9 +201,12 @@ def update_selection(sample_id, rule_id, activation_name):
         pattern = Node('?')
         x = [f'$${rule.latex}$$' for rule in dataset.get_rules_raw()]
 
-        def stringify(path):
-            return '@' + '/'.join(str(i) for i in path)
-        paths = [stringify(path) for path in paths]
+        # def stringify(path):
+        #     return '@' + '/'.join(str(i) for i in path)
+        green = '#22ff22'
+        # paths = [f'@ $${initial.latex_with_colors([(green, path)])}$$' for path in paths]
+        paths = [f'@ $${initial.at(path).latex}$$' for path in paths]
+        print(paths)
 
         legend = Embedder.legend(dataset)
         rule_scores = scores[rule_id, :]
@@ -219,7 +219,7 @@ def update_selection(sample_id, rule_id, activation_name):
         colors = [(create_color(score), path)
                   for path, score in zip(legend, rule_scores)]
 
-        initial = dataset.raw_samples[sample_id][0].latex_with_colors(colors)
+        colored_initial = initial.latex_with_colors(colors)
         rule = dataset.get_rule_raw(rule_id)
 
         gt_rule = dataset.get_rule_of_sample(sample_id)
@@ -227,7 +227,7 @@ def update_selection(sample_id, rule_id, activation_name):
     trace = go.Heatmap(y=paths, z=tag_scores, x=x, colorscale='Electric', colorbar={
         'title': 'Score'}, showscale=True)
 
-    return sample.as_dict(), pattern.as_dict(), ground, prediction, {'data': [trace]}, initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+    return sample.as_dict(), pattern.as_dict(), ground, prediction, {'data': [trace]}, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
 
 
 if __name__ == '__main__':

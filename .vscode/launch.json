@@ -57,6 +57,22 @@
             "justMyCode": false
         },
         {
+            "name": "solve",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/solve.py",
+            "args": [
+                "-v",
+                "-m",
+                "${workspaceFolder}/snapshots/cnn_tree_bag.sp",
+                "--scenario",
+                "${workspaceFolder}/real_world_problems/basics/dataset.yaml"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/ml",
+            "justMyCode": false
+        },
+        {
             "name": "visu",
             "type": "python",
             "request": "launch",

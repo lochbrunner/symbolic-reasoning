@@ -113,3 +113,8 @@ snakeviz ../train.prof
 ### Pytorch
 
 See [torch.utils.bottleneck](https://pytorch.org/docs/stable/bottleneck.html)
+
+```zsh
+cd ml
+python -m torch.utils.bottleneck ./train.py -v -d cpu --bag-filename ../out/generator/bag-2-2.bin --scenario bag -r 10 -n 10
+```

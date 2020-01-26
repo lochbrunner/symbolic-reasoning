@@ -76,7 +76,7 @@ class EmbPatternDataset(DatasetBase):
 
     def __init__(self, params, transform=None, preprocess=False):
         super(EmbPatternDataset, self).__init__(transform, preprocess)
-        self.samples, self._idents, self.patterns, self.label_distribution = place_patterns_in_noise(
+        self.samples, self.idents, self.patterns, self.label_distribution = place_patterns_in_noise(
             depth=params.depth, spread=params.spread, max_size=params.max_size,
             pattern_depth=1, num_labels=params.num_labels)
 

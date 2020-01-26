@@ -4,7 +4,7 @@ from copy import deepcopy
 from collections import deque
 import unittest
 
-from node import Node
+from common.node import Node
 
 
 class SymbolBuilder:

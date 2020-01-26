@@ -4,7 +4,7 @@ from typing import List, Set, Dict, Tuple, Optional
 
 import torch
 
-from node import Node
+from common.node import Node
 from .symbol_builder import SymbolBuilder
 
 PAD_TOKEN = '<PAD>'
@@ -106,9 +106,11 @@ class Embedder:
         return legend
 
     @staticmethod
-    def legend(params):
-        depth = params.max_depth if hasattr(params, 'max_depth') else params.depth
-        spread = params.max_spread if hasattr(params, 'max_spread') else params.spread
+    def legend(spread=None, depth=None, params=None):
+        if depth is None:
+            depth = params.max_depth if hasattr(params, 'max_depth') else params.depth
+        if spread is None:
+            spread = spread or params.max_spread if hasattr(params, 'max_spread') else params.spread
         builder = SymbolBuilder()
         for _ in range(depth):
             builder.add_level_uniform(spread)

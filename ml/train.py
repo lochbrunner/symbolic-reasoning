@@ -5,22 +5,21 @@ import argparse
 import signal
 import sys
 
-import numpy as np
 
 import torch
+from torch import nn
 import torch.optim as optim
 from torch.utils import data
-from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from dataset import create_scenario, scenarios_choices, ScenarioParameter
-from dataset.transformers import Embedder
 from models import create_model, all_models
 
 from common.timer import Timer
 from common.utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
 from common import io
+from common.validation import validate
 
 
 class ExecutionParameter:
@@ -31,67 +30,6 @@ class ExecutionParameter:
         self.save_model = save_model or update_model
         self.device = device
         self.tensorboard = tensorboard
-
-
-class Ratio:
-    def __init__(self):
-        self.first = 0
-        self.second = 0
-        self.sum = 0
-
-    def __float__(self):
-        return float(self.first) / max(1, float(self.sum))
-
-    def top_2(self):
-        return float(self.first + self.second) / max(1, float(self.sum))
-
-    def __str__(self):
-        v = (1. - float(self)) * 100.
-        vs = (1. - self.top_2()) * 100.
-        return f'{v:.1f}% ({vs:.1f}%)'
-
-    def update(self, mask, x, truth):
-        predict = (-x).argsort(axis=0)
-
-        pf = predict[0]
-        pf = pf[mask]
-        ps = predict[1]
-        ps = ps[mask]
-        t = truth[mask]
-
-        self.first += np.sum(pf == t)
-        self.second += np.sum(ps == t)
-        self.sum += np.sum(mask == True)
-
-
-class Error:
-    def __init__(self, with_padding=None, wo_padding=None):
-        self.with_padding = with_padding or Ratio()
-        self.wo_padding = wo_padding or Ratio()
-
-
-@torch.no_grad()
-def validate(model: torch.nn.Module, dataloader: data.DataLoader):
-    error = Error()
-
-    for x, y in dataloader:
-        x = x.to(model.device)
-        y = y.to(model.device)
-        # Dimensions
-        # x: batch * label * length
-        # y: batch * length
-        x = model(x)
-        assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'
-        batch_size = x.size(0)
-        x = x.cpu().numpy()
-        y = y.cpu().numpy()
-        for i in range(batch_size):
-            truth = y[i, :]
-
-            error.with_padding.update((truth > -1), x[i, :, :], truth)
-            error.wo_padding.update((truth > 0), x[i, :, :], truth)
-
-    return error
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -179,7 +117,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             error = validate(model, validation_dataloader)
             clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
-            logging.info(f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (wo padding: {error.wo_padding})')
+            logging.info(
+                f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact}')
             timer.resume()
         printProgressBar(epoch, learn_params.num_epochs)
     clearProgressBar()
@@ -212,7 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
     parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
     parser.add_argument('-m', '--model', choices=all_models,
-                        default='FullyConnectedSegmenter', dest='model_name')
+                        default='TreeCnnSegmenter', dest='model_name')
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,
