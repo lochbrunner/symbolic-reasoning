@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Tests LLDB",
+            "name": "pycore test",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/deps/core-e1c2cdf2ab37368b",
             "args": [
                 "--test",
-                "generator_issue_1",
+                "double_super_script_2",
                 "--nocapture"
             ],
             "sourceLanguages": [

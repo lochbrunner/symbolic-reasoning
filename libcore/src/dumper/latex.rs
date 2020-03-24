@@ -33,8 +33,9 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>) -> String {
             symbols: hashmap! {"(" => "\\left( ", ")" => "\\right) ", "*" => "\\cdot "},
             functions: hashmap! {
                 "^" => vec![
+                    FormatItem::Tag("{"),
                     FormatItem::Child(0),
-                    FormatItem::Tag("^{"),
+                    FormatItem::Tag("}^{"),
                     FormatItem::Child(1),
                     FormatItem::Tag("}"),
                 ],
@@ -169,10 +170,17 @@ mod e2e {
     }
 
     #[test]
-    fn double_super_script() {
+    fn double_super_script_outer() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a^b^c").unwrap();
-        assert_eq!(dump_latex(&term, vec![]), String::from("a^{b^{c}}"));
+        assert_eq!(dump_latex(&term, vec![]), String::from("{a}^{{b}^{c}}"));
+    }
+
+    #[test]
+    fn double_super_script_inner() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "(a^b)^c").unwrap();
+        assert_eq!(dump_latex(&term, vec![]), String::from("{{a}^{b}}^{c}"));
     }
 
     #[test]
@@ -181,7 +189,7 @@ mod e2e {
         let term = Symbol::parse(&context, "(a+b)^c").unwrap();
         assert_eq!(
             dump_latex(&term, vec![]),
-            String::from("\\left( a+b\\right) ^{c}")
+            String::from("{\\left( a+b\\right) }^{c}")
         );
     }
 
