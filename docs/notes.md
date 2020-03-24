@@ -13,3 +13,12 @@
 
 * [Tree LSTM in pytorch][https://github.com/dasguptar/treelstm.pytorch]
 
+## CNN
+
+### Indexed Convolution
+
+ * Not used but could be cited: https://github.com/IndexedConv/IndexedConv
+
+## Competiter
+
+ * [Using neural networks to solve advanced mathematics equations](https://ai.facebook.com/blog/using-neural-networks-to-solve-advanced-mathematics-equations/)

@@ -7,38 +7,43 @@ import torch.nn.functional as F
 from dataset.symbol_builder import SymbolBuilder
 from dataset.transformers import Embedder
 
+from iconv import IConv
 
-class TreeCnnLayer(nn.Module):
-    def _create_index_tensor(self, spread, depth):
-        '''This tensor returns the k indices for node of index l'''
-        builder = SymbolBuilder.create(spread=spread, depth=depth)
 
-        index_table = {}
-        # Use the embedder unroll method as single source of truth for the indices
-        for c, node in enumerate(Embedder.unroll(builder.symbol_ref)):
-            index_table[id(node)] = c
+def _create_index_tensor(spread, depth):
+    '''This tensor returns the k indices for node of index l'''
+    builder = SymbolBuilder.create(spread=spread, depth=depth)
 
-        index_table[id(None)] = len(index_table)
+    index_table = {}
+    # Use the embedder unroll method as single source of truth for the indices
+    for c, node in enumerate(Embedder.unroll(builder.symbol_ref)):
+        index_table[id(node)] = c
 
-        mask_index_table = np.zeros([len(index_table), spread+2])
-        # Each entries mask are [parent, self, *childs]
-        # If parent or childs do not exist use padding at the end
-        for node in builder.traverse_bfs():
-            self_index = index_table[id(node)]
-            parent_index = index_table[id(node.parent)]
-            if len(node.childs) != 0:
-                child_indices = [index_table[id(c)] for c in node.childs]
-            else:
-                child_indices = [index_table[id(None)] for _ in range(spread)]
-            mask_index_table[self_index] = [self_index, parent_index] + child_indices
+    index_table[id(None)] = len(index_table)
 
-        return torch.as_tensor(mask_index_table, dtype=torch.long)
+    mask_index_table = np.zeros([len(index_table), spread+2])
+    # Each entries mask are [parent, self, *childs]
+    # If parent or childs do not exist use padding at the end
+    for node in builder.traverse_bfs():
+        self_index = index_table[id(node)]
+        parent_index = index_table[id(node.parent)]
+        if len(node.childs) != 0:
+            child_indices = [index_table[id(c)] for c in node.childs]
+        else:
+            child_indices = [index_table[id(None)] for _ in range(spread)]
+        mask_index_table[self_index] = [self_index, parent_index] + child_indices
 
-    def __init__(self, spread, depth, in_size, out_size):
-        super(TreeCnnLayer, self).__init__()
+    return torch.as_tensor(mask_index_table, dtype=torch.long)
 
-        self.register_buffer('index_tensor', self._create_index_tensor(spread, depth))
-        mask = torch.Tensor(spread+2, in_size, out_size)
+
+class PyIconv(nn.Module):
+
+    def __init__(self, in_size, out_size, index_tensor):
+        super(PyIconv, self).__init__()
+
+        self.register_buffer('index_tensor', index_tensor)
+        k = index_tensor.size(1)
+        mask = torch.Tensor(k, in_size, out_size)
         stdv = 0.5
         nn.init.uniform_(mask, -stdv, stdv)
         self.mask = nn.Parameter(mask)
@@ -46,7 +51,7 @@ class TreeCnnLayer(nn.Module):
 
     def forward(self, x, *args):
         # m: mask (k,i,j)
-        # s: index map (l -> k,l)
+        # s: index map (l,k -> l)
         # x: input (b,l,i)
         # => b(s) (b,k,l,i)
         # -- indices
@@ -76,8 +81,8 @@ class TreeCnnLayer(nn.Module):
         # 2. perform matmul
         # 3. expand and add bias
         y = torch.matmul(torch.flatten(x, 2, 3), torch.flatten(self.mask, 0, 1)) + \
-            self.bias[None, None, -1].expand(b, l, -1)
-        return F.leaky_relu(y)
+            self.bias[None, None, :].expand(b, l, -1)
+        return y
 
 
 class TreeCnnSegmenter(nn.Module):
@@ -102,9 +107,16 @@ class TreeCnnSegmenter(nn.Module):
             padding_idx=pad_token
         )
 
-        self.cnn_hidden = nn.Sequential(*[TreeCnnLayer(spread, depth, embedding_size, embedding_size)
-                                          for _ in range(self.config['layers'])])
-        self.cnn_end = TreeCnnLayer(spread, depth, embedding_size, tagset_size)
+        index_tensor = _create_index_tensor(spread, depth)
+
+        klass = PyIconv
+
+        def create_layer():
+            return klass(embedding_size, embedding_size, index_tensor)
+
+        self.cnn_hidden = nn.Sequential(*[layer for _ in range(self.config['layers'])
+                                          for layer in [create_layer(), nn.LeakyReLU(inplace=True)]])
+        self.cnn_end = klass(embedding_size, tagset_size, index_tensor)
 
     def forward(self, x, *args):
         x = self.embedding(x)
