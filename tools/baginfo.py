@@ -7,8 +7,9 @@ import argparse
 
 class Table:
     class Row:
-        def __init__(self, columns):
+        def __init__(self, columns, ratio=None):
             self.columns = columns
+            self.ratio = ratio
 
     class Seperator:
         pass
@@ -19,8 +20,8 @@ class Table:
     def add_sep(self):
         self.rows.append(Table.Seperator())
 
-    def add_row(self, name, value):
-        self.rows.append(Table.Row([str(name), str(value)]))
+    def add_row(self, name, value, ratio=None):
+        self.rows.append(Table.Row([str(name), str(value)], ratio=ratio))
 
     def print(self, args):
         if args.format == 'plain':
@@ -70,10 +71,17 @@ class Table:
 
             for row in self.rows:
                 if type(row) is Table.Row:
-                    html += f'''<tr>
-                        <td>{row.columns[0]}</td>
-                        <td>{row.columns[1]}</td>
-                    </tr>'''
+                    if row.ratio is None:
+                        html += f'''<tr>
+                            <td>{row.columns[0]}</td>
+                            <td>{row.columns[1]}</td>
+                        </tr>'''
+                    else:
+                        p = f'{(row.ratio*100):.2f}'
+                        html += f'''<tr>
+                            <td style="background: linear-gradient(to right, rgba(100, 100, 100, 0.3) {p}%, rgba(100, 100, 100, 0.0) {p}%)">{row.columns[0]}</td>
+                            <td>{row.columns[1]}</td>
+                        </tr>'''
                 else:
                     html += '''<tr>
                         <td colspan="2"><hr/></td>
@@ -91,9 +99,11 @@ def main(args):
 
     rules_tuple = list(zip(bag.meta.rules, bag.meta.rule_distribution))
     rules_tuple.sort(key=lambda r: r[1], reverse=True)
+    max_count = max(bag.meta.rule_distribution[1:])
 
-    for (rule, count) in rules_tuple:
-        table.add_row(f'{rule.name}:', count)
+    table.add_row('padding:', rules_tuple[0][1])
+    for (rule, count) in rules_tuple[1:]:
+        table.add_row(f'{rule.name}:', count, count/max_count)
 
     table.add_sep()
     total = sum(bag.meta.rule_distribution[1:])
