@@ -5,12 +5,12 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-#[macro_use]
 extern crate clap;
 use clap::{App, Arg};
 
 mod variable_generator;
 use variable_generator::*;
+mod configuration;
 mod iter_extensions;
 mod rose;
 mod svg;
@@ -196,27 +196,18 @@ fn deduce<'a>(
     print_statistics(&rules_distribution);
     trace
 }
-}
 
 fn main() {
     let matches = App::new("Sample data generator")
         .version("0.2.0")
         .author("Matthias Lochbrunner <matthias_lochbrunner@web.de>")
         .arg(
-            Arg::with_name("stages")
-                .long("stages")
-                .help("numbers of fits (per rule) to use for each stage")
-                .multiple(true)
+            Arg::with_name("config")
+                .short("c")
+                .long("configuration-filename")
+                .help("file containing the configuration")
                 .takes_value(true)
-                .default_value("1"),
-        )
-        .arg(
-            Arg::with_name("scenario")
-                .short("s")
-                .long("scenario-filename")
-                .help("file containing the declarations")
-                .takes_value(true)
-                .default_value("./real_world_problems/basics/dataset.yaml"),
+                .default_value("./real_world_problems/basics/generation.yaml"),
         )
         .arg(
             Arg::with_name("rose")
@@ -233,12 +224,10 @@ fn main() {
         )
         .get_matches();
 
-    let stages = values_t!(matches, "stages", usize)
-        .unwrap()
-        .into_iter()
-        .collect::<Vec<usize>>();
-    let declaration_filename = matches.value_of("scenario").unwrap();
-    let scenario = Scenario::load_from_yaml(declaration_filename).unwrap();
+    let config_filename = matches.value_of("config").unwrap();
+    let config = configuration::Configuration::load(config_filename).unwrap();
+
+    let scenario = Scenario::load_from_yaml(&config.scenario).unwrap();
 
     let rules = scenario
         .rules
@@ -246,7 +235,8 @@ fn main() {
         .map(|(k, v)| (k.clone(), v.reverse()))
         .collect::<Vec<_>>();
 
-    let postfix = stages
+    let postfix = config
+        .stages
         .iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
@@ -254,14 +244,14 @@ fn main() {
     let out_filename = format!("out/generator/bag-{}.bin", postfix);
 
     let alphabet = create_alphabet();
-    let mut context = Context::load(declaration_filename)
-        .unwrap_or_else(|_| panic!("Loading declarations from {}", declaration_filename));
+    let mut context = Context::load(&config.scenario)
+        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config.scenario));
     context.register_standard_operators();
 
     let traces = scenario
         .premises
         .iter()
-        .map(|initial| deduce(&alphabet, initial, &rules, &stages))
+        .map(|initial| deduce(&alphabet, initial, &rules, &config.stages))
         .collect::<Vec<_>>();
 
     if let Some(dir) = matches.value_of("rose") {
@@ -276,6 +266,7 @@ fn main() {
         }
     }
 
+    println!("Converting to bag");
     let bag = Bag::from_traces(&traces);
 
     println!("Writing bag file to \"{}\" ...", out_filename);

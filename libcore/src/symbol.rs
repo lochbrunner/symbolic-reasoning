@@ -169,20 +169,13 @@ impl Symbol {
     /// Later on it will depend on the context if function is fixed or not.
     /// For instance "G" could stand for another variable, but not the constant of gravitation.
     /// Remove this later when predicates are implemented
+    #[inline]
     pub fn fixed(&self) -> bool {
         self.flags & symbol_flags::FIXED != 0
     }
-
-    pub fn parts(&self) -> SymbolIter {
-        SymbolIter::new(self)
-    }
-
-    pub fn parts_with_path(&self) -> SymbolAndPathIter {
-        SymbolAndPathIter::new(self)
-    }
-
-    pub fn parts_with_path_mut(&mut self) -> SymbolAndPathIter {
-        SymbolAndPathIter::new(self)
+    #[inline]
+    pub fn operator(&self) -> bool {
+        self.childs.len() > 0
     }
 
     fn print_tree_impl(&self, buffer: &mut String, indent: usize) {
@@ -205,6 +198,19 @@ impl Symbol {
         let mut code = String::new();
         self.print_tree_impl(&mut code, 0);
         code
+    }
+
+    /// Traverse depth first order
+    pub fn parts(&self) -> SymbolIter {
+        SymbolIter::new(self)
+    }
+
+    pub fn parts_with_path(&self) -> SymbolAndPathIter {
+        SymbolAndPathIter::new(self)
+    }
+
+    pub fn parts_with_path_mut(&mut self) -> SymbolAndPathIter {
+        SymbolAndPathIter::new(self)
     }
 
     /// Iterates all the childs of a specified level
