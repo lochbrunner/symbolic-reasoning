@@ -20,6 +20,39 @@ use core::bag::Bag;
 use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 
+#[macro_use]
+extern crate serde_derive;
+
+fn density(symbol: &Symbol) -> f32 {
+    let spread: i32 = 2;
+    let size = symbol.parts().map(|_| 1).sum::<i32>();
+    let max_size = (0..symbol.depth).map(|i| spread.pow(i)).sum::<i32>();
+    size as f32 / max_size as f32
+}
+
+fn gini(distribution: &[usize]) -> f64 {
+    let sum = distribution.iter().sum::<usize>();
+    let nom: isize = distribution
+        .iter()
+        .enumerate()
+        .map(|(i, xi)| {
+            distribution[i..]
+                .iter()
+                .map(|xj| (*xi as isize - *xj as isize).abs())
+                .sum::<isize>()
+        })
+        .sum();
+    nom as f64 / (2 * distribution.len() * sum) as f64
+}
+
+fn print_statistics(distribution: &[usize]) {
+    let sum = distribution.iter().sum::<usize>();
+    println!("sum: {}", sum);
+    let min = distribution.iter().min().unwrap();
+    println!("min: {}", min);
+    println!("gini: {}", gini(distribution));
+}
+
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
     fit(initial, &rule.condition)
         .iter()
@@ -43,30 +76,67 @@ fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec
         .collect()
 }
 
+/// Filters out non sense symbols in the sene of e.g. a^0^0^0^0^0 ...
+fn filter_interest<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
+    // Filter out when a pattern repeats directly
+    for sub in apply.deduced.iter_bfs() {
+        if sub.operator() {
+            for child in sub.childs.iter() {
+                if child.childs.len() == sub.childs.len() {
+                    let a = sub.childs.iter().map(|s| &s.ident);
+                    let b = child.childs.iter().map(|s| &s.ident);
+                    if a.eq(b) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    true
+}
+
 fn deduce_impl<'a>(
     alphabet: &'a [Symbol],
     initial: &Symbol,
     rules: &'a [(String, Rule)],
     stages: &[usize],
     stage_index: usize,
+    rules_distribution: &mut Vec<usize>,
 ) -> Vec<TraceStep<'a>> {
     if stages.len() == stage_index {
         return vec![];
     }
+    let max_stage_size = stages[stage_index];
     let mut stage = vec![];
     // How to reduce for all rules in sum
-    for (_, rule) in rules.iter() {
-        stage.extend(
-            deduce_once(alphabet, initial, rule)
-                .pick(Strategy::Random(true))
-                .take(stages[stage_index])
-                .cloned()
-                .map(|a| TraceStep {
-                    successors: deduce_impl(alphabet, &a.deduced, rules, stages, stage_index + 1),
-                    info: a,
-                })
-                .collect::<Vec<TraceStep>>(),
-        );
+    for (rule_id, (_, rule)) in rules.iter().enumerate() {
+        let max_rule = rules_distribution
+            .iter()
+            .cloned()
+            .fold(0, usize::max)
+            .max(100) as usize;
+        // max_stage_size*(1- rules_distribution[rule_id] / max_rule)^2
+        let rel = 1. - rules_distribution[rule_id] as f64 / max_rule as f64;
+        let stage_size = (max_stage_size as f64 * rel.powf(3.)) as usize;
+        let new_calcs = deduce_once(alphabet, initial, rule)
+            .pick(Strategy::Random(true))
+            .filter(filter_interest)
+            .take(stage_size)
+            .cloned()
+            .map(|a| TraceStep {
+                successors: deduce_impl(
+                    alphabet,
+                    &a.deduced,
+                    rules,
+                    stages,
+                    stage_index + 1,
+                    rules_distribution,
+                ),
+                info: a,
+            })
+            .collect::<Vec<TraceStep>>();
+        rules_distribution[rule_id] += new_calcs.len();
+        stage.extend(new_calcs);
     }
     stage
 }
@@ -114,14 +184,18 @@ fn deduce<'a>(
         }
     }
 
-    Trace {
+    let mut rules_distribution = vec![0; rules.len()];
+    let trace = Trace {
         meta: Meta {
             used_idents,
             rules: rules.to_vec(),
         },
         initial,
-        stages: deduce_impl(alphabet, initial, rules, stages, 0),
-    }
+        stages: deduce_impl(alphabet, initial, rules, stages, 0, &mut rules_distribution),
+    };
+    print_statistics(&rules_distribution);
+    trace
+}
 }
 
 fn main() {
