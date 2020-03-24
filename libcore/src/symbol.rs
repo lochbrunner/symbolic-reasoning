@@ -1,5 +1,7 @@
 use std::str;
 
+use std::collections::VecDeque;
+
 type FlagType = u32;
 
 mod symbol_flags {
@@ -114,6 +116,34 @@ impl<'a> Iterator for SymbolLevelIter<'a> {
     }
 }
 
+pub struct SymbolBfsIter<'a> {
+    pub queue: VecDeque<&'a Symbol>,
+}
+
+impl<'a> SymbolBfsIter<'a> {
+    pub fn new(symbol: &'a Symbol) -> SymbolBfsIter<'a> {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back(symbol);
+        SymbolBfsIter { queue }
+    }
+}
+
+impl<'a> Iterator for SymbolBfsIter<'a> {
+    type Item = &'a Symbol;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.queue.pop_front() {
+            None => None,
+            Some(current) => {
+                for child in current.childs.iter() {
+                    self.queue.push_back(child);
+                }
+                Some(current)
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub struct Symbol {
     pub ident: String,
@@ -205,6 +235,25 @@ impl Symbol {
             stack: vec![(0, self)],
             level,
         }
+    }
+
+    /// Traverse all the childs in breath first order
+    /// # Example
+    ///```
+    /// use core::Symbol;
+    ///
+    /// let a = Symbol::new_variable("a", false);
+    /// let b = Symbol::new_variable("b", false);
+    /// let root = Symbol::new_operator("c", true, false, vec![a,b]);
+    ///
+    /// let actual = root.iter_bfs()
+    ///     .map(|s| &s.ident)
+    ///     .collect::<Vec<_>>();
+    /// let expected = ["c", "a", "b"];
+    /// assert_eq!(actual, expected);
+    ///```
+    pub fn iter_bfs(&self) -> SymbolBfsIter {
+        SymbolBfsIter::new(self)
     }
 
     /// Returns the item at the specified path
