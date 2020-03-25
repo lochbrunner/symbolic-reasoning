@@ -1,3 +1,0 @@
-scenario: real_world_problems/basics/dataset.yaml
-stages: [4,4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
-dump-filename: out/generator/bag-basic.bin

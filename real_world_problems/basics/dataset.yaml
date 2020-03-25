@@ -14,7 +14,7 @@ rules:
   de-counting 2: 2-1 => 1
   de-counting 3: 3-1 => 2
   de-counting 4: 4-1 => 3
-  doubling: a+a <=> 2*a
+  doubling: a+a => 2*a
   # others
   commutative property 1: a*b <=> b*a
   commutative property 2: a+b <=> b+a
@@ -33,20 +33,41 @@ rules:
   trivial exponent: a^0 => 1
   # equations
   equation 1: a - b = 0 => a = b
-  equation 2: x + a = 0 => x = -a
   equation 3: a / b = 1 => a = b
 premises:
  - x = y
  - x = 0
  - x = 1
  - x = y + z
+ - x = y^2
+ - x = y / z
 problems:
- one step: 3/3 => 1
- two steps: 3/(1+2) => 1
- # binomial formula (a+b)(a+b) => (a+b)*a + (a+b)*b => a*a+b*a + (a+b)*b => a*a+b*a + a*b+b*b
- three steps: (a+b)(a+b) => a*a+b*a + a*b+b*b
- four steps: (a+b)^2 => a*a+b*a + a*b+b*b
- five steps: (a+b)^2 => a*a+b*a + b*a+b*b
- six steps: (a+b)^2 => a*a + 2*b*a + b*b
- seven steps: (a+b)^2 => a^2 + 2*b*a + b*b
- eight steps: (a+b)^2 => a^2 + 2*b*a + b^2
+  one step: 3/3 => 1
+  two steps: 3/(1+2) => 1
+  # binomial formula (a+b)(a+b) => (a+b)*a + (a+b)*b => a*a+b*a + (a+b)*b => a*a+b*a + a*b+b*b
+  three steps: (a+b)(a+b) => a*a+b*a + a*b+b*b
+  four steps: (a+b)^2 => a*a+b*a + a*b+b*b
+  five steps: (a+b)^2 => a*a+b*a + b*a+b*b
+  six steps: (a+b)^2 => a*a + 2*b*a + b*b
+  seven steps: (a+b)^2 => a^2 + 2*b*a + b*b
+  eight steps: (a+b)^2 => a^2 + 2*b*a + b^2
+files:
+  trainings-data: &bag out/generator/bag-basic.bin
+generation:
+  # stages: [4,4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  stages: [2,2,2,2,2,2,2]
+  max-depth: 9
+training:
+  save-model: snapshots/bag-basic.sp
+  device: cpu
+  # Learning
+  num-epochs: 30
+  batch-size: 32
+  learning-rate: 0.1 # Not needed here
+  gradient-clipping: 0.1
+  model: TreeCnnSegmenter
+  # Scenario
+  scenario: bag
+  filename: *bag
+
+evaluation: {}

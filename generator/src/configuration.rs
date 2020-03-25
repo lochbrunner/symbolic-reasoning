@@ -1,23 +1,41 @@
 use std::fs::File;
 extern crate serde_yaml;
 
-#[derive(Serialize, Deserialize)]
-pub struct Configuration {
-    pub scenario: String,
+#[derive(Deserialize)]
+struct Files {
+    #[serde(rename = "trainings-data")]
+    pub trainings_data: String,
+}
+
+#[derive(Deserialize)]
+struct Generation {
     pub stages: Vec<usize>,
-    #[serde(rename = "dump-filename")]
+    #[serde(rename = "max-depth")]
+    pub max_depth: u32,
+}
+
+#[derive(Deserialize)]
+struct Dataset {
+    pub files: Files,
+    pub generation: Generation,
+}
+
+pub struct Configuration {
+    pub stages: Vec<usize>,
     pub dump_filename: String,
+    pub max_depth: u32,
 }
 
 impl Configuration {
     pub fn load(filename: &str) -> Result<Configuration, String> {
-        let file = match File::open(filename) {
-            Ok(f) => f,
-            Err(msg) => return Err(msg.to_string()),
-        };
-        match serde_yaml::from_reader(file) {
-            Ok(r) => Ok(r),
-            Err(msg) => Err(msg.to_string()),
-        }
+        let file = File::open(filename).map_err(|msg| msg.to_string())?;
+        let dataset: Dataset = serde_yaml::from_reader(file).map_err(|msg| msg.to_string())?;
+        let Dataset { files, generation } = dataset;
+
+        Ok(Configuration {
+            stages: generation.stages,
+            max_depth: generation.max_depth,
+            dump_filename: files.trainings_data,
+        })
     }
 }

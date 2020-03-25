@@ -15,6 +15,8 @@ mod iter_extensions;
 mod rose;
 mod svg;
 
+use configuration::Configuration;
+
 use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
 use core::bag::Bag;
 use core::scenario::Scenario;
@@ -22,13 +24,6 @@ use core::{apply_batch, fit, Context, Rule, Symbol};
 
 #[macro_use]
 extern crate serde_derive;
-
-fn density(symbol: &Symbol) -> f32 {
-    let spread: i32 = 2;
-    let size = symbol.parts().map(|_| 1).sum::<i32>();
-    let max_size = (0..symbol.depth).map(|i| spread.pow(i)).sum::<i32>();
-    size as f32 / max_size as f32
-}
 
 fn gini(distribution: &[usize]) -> f64 {
     let sum = distribution.iter().sum::<usize>();
@@ -96,6 +91,7 @@ fn filter_interest<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
 }
 
 fn deduce_impl<'a>(
+    config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &Symbol,
     rules: &'a [(String, Rule)],
@@ -120,11 +116,13 @@ fn deduce_impl<'a>(
         let stage_size = (max_stage_size as f64 * rel.powf(3.)) as usize;
         let new_calcs = deduce_once(alphabet, initial, rule)
             .pick(Strategy::Random(true))
+            .filter(|a| a.deduced.depth <= config.max_depth)
             .filter(filter_interest)
             .take(stage_size)
             .cloned()
             .map(|a| TraceStep {
                 successors: deduce_impl(
+                    config,
                     alphabet,
                     &a.deduced,
                     rules,
@@ -161,6 +159,7 @@ fn extract_idents_from_rules(rules: &[Rule]) -> HashSet<String> {
 }
 
 fn deduce<'a>(
+    config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &'a Symbol,
     rules: &'a [(String, Rule)],
@@ -191,7 +190,15 @@ fn deduce<'a>(
             rules: rules.to_vec(),
         },
         initial,
-        stages: deduce_impl(alphabet, initial, rules, stages, 0, &mut rules_distribution),
+        stages: deduce_impl(
+            config,
+            alphabet,
+            initial,
+            rules,
+            stages,
+            0,
+            &mut rules_distribution,
+        ),
     };
     print_statistics(&rules_distribution);
     trace
@@ -207,7 +214,7 @@ fn main() {
                 .long("configuration-filename")
                 .help("file containing the configuration")
                 .takes_value(true)
-                .default_value("./real_world_problems/basics/generation.yaml"),
+                .default_value("./real_world_problems/basics/dataset.yaml"),
         )
         .arg(
             Arg::with_name("rose")
@@ -225,9 +232,9 @@ fn main() {
         .get_matches();
 
     let config_filename = matches.value_of("config").unwrap();
-    let config = configuration::Configuration::load(config_filename).unwrap();
+    let config = Configuration::load(config_filename).unwrap();
 
-    let scenario = Scenario::load_from_yaml(&config.scenario).unwrap();
+    let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
 
     let rules = scenario
         .rules
@@ -235,23 +242,15 @@ fn main() {
         .map(|(k, v)| (k.clone(), v.reverse()))
         .collect::<Vec<_>>();
 
-    let postfix = config
-        .stages
-        .iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("-");
-    let out_filename = format!("out/generator/bag-{}.bin", postfix);
-
     let alphabet = create_alphabet();
-    let mut context = Context::load(&config.scenario)
-        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config.scenario));
+    let mut context = Context::load(&config_filename)
+        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config_filename));
     context.register_standard_operators();
 
     let traces = scenario
         .premises
         .iter()
-        .map(|initial| deduce(&alphabet, initial, &rules, &config.stages))
+        .map(|initial| deduce(&config, &alphabet, initial, &rules, &config.stages))
         .collect::<Vec<_>>();
 
     if let Some(dir) = matches.value_of("rose") {
@@ -269,8 +268,8 @@ fn main() {
     println!("Converting to bag");
     let bag = Bag::from_traces(&traces);
 
-    println!("Writing bag file to \"{}\" ...", out_filename);
-    let writer = BufWriter::new(File::create(out_filename).unwrap());
+    println!("Writing bag file to \"{}\" ...", &config.dump_filename);
+    let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
     bag.write_bincode(writer).expect("Writing bin file");
 
     if let Some(dir) = matches.value_of("tex") {
