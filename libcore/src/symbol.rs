@@ -175,7 +175,15 @@ impl Symbol {
     }
     #[inline]
     pub fn operator(&self) -> bool {
-        self.childs.len() > 0
+        !self.childs.is_empty()
+    }
+
+    /// Assumes a spread of 2
+    pub fn density(&self) -> f32 {
+        let spread: i32 = 2;
+        let size = self.parts().map(|_| 1).sum::<i32>();
+        let max_size = (0..self.depth).map(|i| spread.pow(i)).sum::<i32>();
+        size as f32 / max_size as f32
     }
 
     fn print_tree_impl(&self, buffer: &mut String, indent: usize) {

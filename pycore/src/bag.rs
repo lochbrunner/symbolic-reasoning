@@ -130,8 +130,7 @@ impl PyBag {
         let file =
             File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
         let reader = BufReader::new(file);
-        let bag = bag::Bag::read_bincode(reader)
-            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+        let bag = bag::Bag::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
 
         let meta_data = Rc::new(bag.meta);
         let samples_data = bag

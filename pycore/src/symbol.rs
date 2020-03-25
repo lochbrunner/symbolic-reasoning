@@ -163,7 +163,7 @@ impl PyIterProtocol for PySymbolAndPathDfsIter {
                 let symbol = s
                     .parent
                     .at(&path)
-                    .expect(&format!("part at path: {:?}", path))
+                    .unwrap_or_else(|| panic!("part at path: {:?}", path))
                     .clone();
                 for (i, _) in symbol.childs.iter().enumerate() {
                     s.stack.push([&path[..], &[i]].concat());
@@ -179,8 +179,7 @@ impl PySymbol {
     #[staticmethod]
     #[text_signature = "(context, code, /)"]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
-        let inner =
-            Symbol::parse(&context.inner, &code).map_err(|msg| PyErr::new::<TypeError, _>(msg))?;
+        let inner = Symbol::parse(&context.inner, &code).map_err(PyErr::new::<TypeError, _>)?;
         Ok(PySymbol::new(inner))
     }
 
@@ -258,6 +257,12 @@ impl PySymbol {
         Ok(self.inner.depth)
     }
 
+    /// Assumes spread of 2.
+    #[getter]
+    fn density(&self) -> PyResult<f32> {
+        Ok(self.inner.density())
+    }
+
     #[getter]
     fn fixed(&self) -> PyResult<bool> {
         Ok(self.inner.fixed())
@@ -323,7 +328,7 @@ impl PySymbol {
                 post: &deco.post,
             })
             .collect::<Vec<_>>();
-        return Ok(dump_latex(&self.inner, decorations));
+        Ok(dump_latex(&self.inner, decorations))
     }
 
     #[text_signature = "($self, decorations, /)"]
@@ -342,7 +347,7 @@ impl PySymbol {
                 post: "}",
             })
             .collect::<Vec<_>>();
-        return Ok(dump_latex(&self.inner, decorations));
+        Ok(dump_latex(&self.inner, decorations))
     }
 }
 

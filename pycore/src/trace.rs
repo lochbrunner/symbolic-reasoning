@@ -247,8 +247,7 @@ impl PyTrace {
         let file =
             File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
         let reader = BufReader::new(file);
-        let inner = DenseTrace::read_bincode(reader)
-            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+        let inner = DenseTrace::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
         let inner = Rc::new(inner);
         Ok(PyTrace { inner })
     }

@@ -43,14 +43,8 @@ impl Context {
     }
 
     pub fn load(filename: &str) -> Result<Context, String> {
-        let file = match File::open(filename) {
-            Ok(f) => f,
-            Err(msg) => return Err(msg.to_string()),
-        };
-        match serde_yaml::from_reader(file) {
-            Ok(r) => Ok(r),
-            Err(msg) => Err(msg.to_string()),
-        }
+        let file = File::open(filename).map_err(|msg| msg.to_string())?;
+        serde_yaml::from_reader(file).map_err(|msg| msg.to_string())
     }
 
     pub fn register_standard_operators(&mut self) {

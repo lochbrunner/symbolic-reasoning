@@ -63,7 +63,7 @@ impl Bag {
             }
             for step in trace.all_steps() {
                 // Reverse rules
-                let rule_id = rule_map.get(&step.rule).expect("Rule").clone();
+                let rule_id = *rule_map.get(&step.rule).expect("Rule");
                 let fitinfo = FitInfo {
                     path: step.path.clone(),
                     rule_id,
@@ -104,6 +104,7 @@ impl Bag {
             .map(|depth| {
                 let samples = initials
                     .iter()
+                    .filter(|(initial, _)| initial.depth == depth)
                     .map(|(initial, fits)| Sample {
                         initial: (*initial).clone(),
                         fits: fits.to_vec(),
