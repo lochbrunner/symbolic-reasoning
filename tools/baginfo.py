@@ -79,7 +79,7 @@ class Table:
                     else:
                         p = f'{(row.ratio*100):.2f}'
                         html += f'''<tr>
-                            <td style="background: linear-gradient(to right, rgba(100, 100, 100, 0.3) {p}%, rgba(100, 100, 100, 0.0) {p}%)">{row.columns[0]}</td>
+                            <td style="background: linear-gradient(to right, rgba(128, 128, 128, 0.25) {p}%, rgba(128, 128, 100, 0.0) {p}%)">{row.columns[0]}</td>
                             <td>{row.columns[1]}</td>
                         </tr>'''
                 else:

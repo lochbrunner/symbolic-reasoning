@@ -8,6 +8,7 @@ import argparse
 
 def main(args):
     bag = Bag.load(args.bagfile)
+    print(f'Writing file {args.texfile} ...')
     with open(args.texfile, 'w') as f:
         date = datetime.now().strftime('%a %b %d %Y')
         f.write(f'''\\documentclass{{scrartcl}}
@@ -30,12 +31,14 @@ def main(args):
 \\section{{Symbols}}
 ''')
 
-        for i, container in enumerate(bag.samples):
-            f.write(f'\n\\subsection{{Container {i}}}\n\n')
+        for container in bag.samples:
+            f.write(f'\n\\subsection{{Container {container.max_depth}}}\n\n')
+            f.write(f'Max depth {container.max_depth}\n')
+            f.write(f'Max spread {container.max_spread}\n')
             for sample in container.samples:
                 # sample.initial
                 f.write('\\begin{align}\n')
-                f.write(f'{sample.initial.latex}\n')
+                f.write(f'$${sample.initial.latex}$$\n')
                 f.write('\\end{align}\n')
 
         f.write('\end{document}\n')
