@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import logging
-import argparse
 import signal
 import sys
+import yaml
 
 
 import torch
@@ -16,6 +16,7 @@ from dataset import create_scenario, scenarios_choices, ScenarioParameter
 from models import create_model, all_models
 
 from common.timer import Timer
+from common.config_and_arg_parser import Parser as ArgumentParser
 from common.terminal_utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
 from common import io
@@ -66,7 +67,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     # Loading data
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
-                           'num_workers': 0}
+                           'num_workers': 1}
 
     validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
@@ -132,8 +133,16 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     save_snapshot()
 
 
+def load_config(filename):
+    with open(filename, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        return config['training']
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('deep training')
+
+    parser = ArgumentParser('-c', '--config-file', loader=load_config,
+                            prog='deep training')
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
 
@@ -152,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
-    parser.add_argument('-c', '--gradient-clipping', type=float, default=0.1)
+    parser.add_argument('-g', '--gradient-clipping', type=float, default=0.1)
     parser.add_argument('-m', '--model', choices=all_models,
                         default='TreeCnnSegmenter', dest='model_name')
 

@@ -6,13 +6,14 @@ from .dataset_base import DatasetBase
 from common.node import Node
 from common.terminal_utils import printProgressBar, clearProgressBar
 
+import logging
+
 
 class BagDataset(DatasetBase):
     '''Loads samples from a bag file'''
 
     def __init__(self, params, preprocess=False):
         super(BagDataset, self).__init__(preprocess)
-
         bag = Bag.load(params.filename)
 
         self.patterns = [rule.condition for rule in bag.meta.rules]
@@ -33,6 +34,9 @@ class BagDataset(DatasetBase):
 
         self.raw_samples = [feature for sample in self.container.samples
                             for feature in create_features(sample)]
+
+        logging.info(f'#samples: {len(self.raw_samples)}')
+        logging.info(f'max depth: {self._max_depth}')
 
         builder = SymbolBuilder()
         for _ in range(self._max_depth):
