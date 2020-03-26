@@ -1,6 +1,6 @@
 use crate::context::PyContext;
 use core::dumper::Decoration;
-use core::dumper::{dump_latex, dump_verbose};
+use core::dumper::{dump_latex, dump_symbol_plain};
 use core::Symbol;
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
@@ -227,13 +227,19 @@ impl PySymbol {
     /// Dumps the verbose order of operators with equal precedence
     #[getter]
     fn verbose(&self) -> PyResult<String> {
-        Ok(dump_verbose(&self.inner))
+        Ok(dump_symbol_plain(&self.inner, true))
     }
 
     /// LaTeX representation of that node
     #[getter]
     fn latex(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, vec![]))
+        Ok(dump_latex(&self.inner, vec![], false))
+    }
+
+    /// LaTeX representation of that node with brackets everywhere
+    #[getter]
+    fn latex_verbose(&self) -> PyResult<String> {
+        Ok(dump_latex(&self.inner, vec![], true))
     }
 
     /// The node as a tree
@@ -328,7 +334,7 @@ impl PySymbol {
                 post: &deco.post,
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations))
+        Ok(dump_latex(&self.inner, decorations, false))
     }
 
     #[text_signature = "($self, decorations, /)"]
@@ -347,7 +353,7 @@ impl PySymbol {
                 post: "}",
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations))
+        Ok(dump_latex(&self.inner, decorations, false))
     }
 }
 

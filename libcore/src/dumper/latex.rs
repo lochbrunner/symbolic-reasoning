@@ -12,7 +12,7 @@ pub trait LaTeX {
         W: std::io::Write;
 }
 
-pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>) -> String {
+pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>, verbose: bool) -> String {
     let context = FormatContext {
         operators: Operators {
             infix: hashmap! {
@@ -27,7 +27,11 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>) -> String {
             },
             postfix: hashset! {"!"},
             prefix: hashset! {"-"},
-            non_associative: hashset! {"-","/"},
+            non_associative: if verbose {
+                hashset! {"-","/", "+", "*", "^"}
+            } else {
+                hashset! {"-","/"}
+            },
         },
         formats: SpecialFormatRules {
             symbols: hashmap! {"(" => "\\left( ", ")" => "\\right) ", "*" => "\\cdot "},
@@ -51,7 +55,7 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>) -> String {
         decoration,
     };
     let mut string = String::new();
-    dump_base(&context, symbol, FormatingLocation::new(), &mut string);
+    dump_base(&context, symbol, FormattingLocation::new(), &mut string);
     string
 }
 
@@ -73,7 +77,8 @@ impl Symbol {
                     path,
                     pre: "\\mathbin{\\textcolor{red}{",
                     post: "}}",
-                }]
+                },],
+                false
             )
         )
     }
@@ -84,14 +89,14 @@ impl LaTeX for Symbol {
     where
         W: std::io::Write,
     {
-        write!(writer, "{}", dump_latex(self, vec![]))
+        write!(writer, "{}", dump_latex(self, vec![], false))
     }
 
     fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
     where
         W: std::io::Write,
     {
-        writeln!(writer, "{}", dump_latex(self, vec![]))
+        writeln!(writer, "{}", dump_latex(self, vec![], false))
     }
 }
 
@@ -103,8 +108,8 @@ impl LaTeX for Rule {
         write!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, vec![]),
-            dump_latex(&self.conclusion, vec![])
+            dump_latex(&self.condition, vec![], false),
+            dump_latex(&self.conclusion, vec![], false)
         )
     }
 
@@ -115,8 +120,8 @@ impl LaTeX for Rule {
         writeln!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, vec![]),
-            dump_latex(&self.conclusion, vec![])
+            dump_latex(&self.condition, vec![], false),
+            dump_latex(&self.conclusion, vec![], false)
         )
     }
 }
@@ -146,7 +151,10 @@ mod e2e {
     fn fraction_simple() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/b").unwrap();
-        assert_eq!(dump_latex(&term, vec![]), String::from("\\frac{a}{b}"));
+        assert_eq!(
+            dump_latex(&term, vec![], false),
+            String::from("\\frac{a}{b}")
+        );
     }
 
     #[test]
@@ -154,7 +162,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a/(b/c)").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![]),
+            dump_latex(&term, vec![], false),
             String::from("\\frac{a}{\\frac{b}{c}}")
         );
     }
@@ -164,7 +172,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a*(b+c)").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![]),
+            dump_latex(&term, vec![], false),
             String::from("a\\cdot \\left( b+c\\right) ")
         );
     }
@@ -173,14 +181,20 @@ mod e2e {
     fn double_super_script_outer() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "a^b^c").unwrap();
-        assert_eq!(dump_latex(&term, vec![]), String::from("{a}^{{b}^{c}}"));
+        assert_eq!(
+            dump_latex(&term, vec![], false),
+            String::from("{a}^{{b}^{c}}")
+        );
     }
 
     #[test]
     fn double_super_script_inner() {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "(a^b)^c").unwrap();
-        assert_eq!(dump_latex(&term, vec![]), String::from("{{a}^{b}}^{c}"));
+        assert_eq!(
+            dump_latex(&term, vec![], false),
+            String::from("{{a}^{b}}^{c}")
+        );
     }
 
     #[test]
@@ -188,7 +202,7 @@ mod e2e {
         let context = create_context(vec![]);
         let term = Symbol::parse(&context, "(a+b)^c").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![]),
+            dump_latex(&term, vec![], false),
             String::from("{\\left( a+b\\right) }^{c}")
         );
     }
@@ -204,7 +218,7 @@ mod e2e {
             post: ">",
         }];
 
-        assert_eq!(dump_latex(&term, deco), String::from("<a>"));
+        assert_eq!(dump_latex(&term, deco, false), String::from("<a>"));
     }
 
     #[test]
@@ -218,7 +232,7 @@ mod e2e {
             post: ">",
         }];
 
-        assert_eq!(dump_latex(&term, deco), String::from("<a>+b"));
+        assert_eq!(dump_latex(&term, deco, false), String::from("<a>+b"));
     }
 
     #[test]
@@ -247,7 +261,7 @@ mod e2e {
         ];
 
         assert_eq!(
-            dump_latex(&term, deco),
+            dump_latex(&term, deco, false),
             String::from("<C><A>a</A>+<B>b</B></C>")
         );
     }

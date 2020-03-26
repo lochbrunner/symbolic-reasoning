@@ -2,17 +2,17 @@ use crate::parser::Precedence;
 use crate::Symbol;
 use std::collections::{HashMap, HashSet};
 
-pub struct FormatingLocation {
+pub struct FormattingLocation {
     path: Vec<usize>,
 }
 
-impl FormatingLocation {
-    pub fn new() -> FormatingLocation {
-        FormatingLocation { path: vec![] }
+impl FormattingLocation {
+    pub fn new() -> FormattingLocation {
+        FormattingLocation { path: vec![] }
     }
     /// Appends the child id and returns a new location
-    pub fn deeper(&self, child_id: usize) -> FormatingLocation {
-        FormatingLocation {
+    pub fn deeper(&self, child_id: usize) -> FormattingLocation {
+        FormattingLocation {
             path: [&self.path[..], &[child_id]].concat(),
         }
     }
@@ -68,7 +68,7 @@ impl<'a> FormatContext<'a> {
     pub fn format_function(
         &self,
         symbol: &Symbol,
-        location: &FormatingLocation,
+        location: &FormattingLocation,
         mut code: &mut String,
     ) -> Option<()> {
         match self.formats.functions.get::<str>(&symbol.ident) {
@@ -101,7 +101,7 @@ fn dump_atomic(
     context: &FormatContext,
     symbol: &Symbol,
     bracket: bool,
-    location: FormatingLocation,
+    location: FormattingLocation,
     string: &mut String,
 ) {
     if bracket {
@@ -117,7 +117,7 @@ fn dump_atomic(
 pub fn dump_base(
     context: &FormatContext,
     symbol: &Symbol,
-    location: FormatingLocation,
+    location: FormattingLocation,
     mut string: &mut String,
 ) {
     let actual_decoration = location.select_decoration(&context.decoration);

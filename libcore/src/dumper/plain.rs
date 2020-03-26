@@ -3,7 +3,7 @@ use crate::parser::Precedence;
 use crate::Symbol;
 use std::fmt;
 
-pub fn dump_simple(symbol: &Symbol) -> String {
+pub fn dump_symbol_plain(symbol: &Symbol, verbose: bool) -> String {
     let context = FormatContext {
         operators: Operators {
             infix: hashmap! {
@@ -18,35 +18,11 @@ pub fn dump_simple(symbol: &Symbol) -> String {
             },
             postfix: hashset! {"!"},
             prefix: hashset! {"-"},
-            non_associative: hashset! {"-","/"},
-        },
-        formats: SpecialFormatRules {
-            symbols: hashmap! {},
-            functions: hashmap! {},
-        },
-        decoration: vec![],
-    };
-    let mut string = String::new();
-    dump_base(&context, symbol, FormatingLocation::new(), &mut string);
-    string
-}
-
-pub fn dump_verbose(symbol: &Symbol) -> String {
-    let context = FormatContext {
-        operators: Operators {
-            infix: hashmap! {
-                "+" => Precedence::PSum,
-                "-" => Precedence::PSum,
-                "*" => Precedence::PProduct,
-                "/" => Precedence::PProduct,
-                "^" => Precedence::PPower,
-                "=" => Precedence::PEquals,
-                "==" => Precedence::PEquals,
-                "!=" => Precedence::PEquals,
+            non_associative: if verbose {
+                hashset! {"-","/", "+", "*", "^"}
+            } else {
+                hashset! {"-","/"}
             },
-            postfix: hashset! {"!"},
-            prefix: hashset! {"-"},
-            non_associative: hashset! {"-","/", "+", "*", "^"},
         },
         formats: SpecialFormatRules {
             symbols: hashmap! {},
@@ -55,13 +31,13 @@ pub fn dump_verbose(symbol: &Symbol) -> String {
         decoration: vec![],
     };
     let mut string = String::new();
-    dump_base(&context, symbol, FormatingLocation::new(), &mut string);
+    dump_base(&context, symbol, FormattingLocation::new(), &mut string);
     string
 }
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", dump_simple(self))
+        write!(f, "{}", dump_symbol_plain(self, false))
     }
 }
 
@@ -89,13 +65,13 @@ mod e2e {
     fn test(code: &str) {
         let context = create_context(&[]);
         let term = Symbol::parse(&context, code).unwrap();
-        assert_eq!(dump_simple(&term), String::from(code));
+        assert_eq!(dump_symbol_plain(&term, false), String::from(code));
     }
 
     fn test_with_function(function_names: &[&str], code: &str) {
         let context = create_context(function_names);
         let term = Symbol::parse(&context, code).unwrap();
-        assert_eq!(dump_simple(&term), String::from(code));
+        assert_eq!(dump_symbol_plain(&term, false), String::from(code));
     }
 
     #[test]
