@@ -90,6 +90,17 @@ fn filter_interest<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
     true
 }
 
+fn filter_out_blacklist<'a>(config: &Configuration, apply: &'a &ApplyInfo<'_>) -> bool {
+    for sub in apply.deduced.iter_bfs() {
+        for black in config.blacklist_pattern.iter() {
+            if black == sub {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn deduce_impl<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
@@ -113,10 +124,13 @@ fn deduce_impl<'a>(
             .max(100) as usize;
         // max_stage_size*(1- rules_distribution[rule_id] / max_rule)^2
         let rel = 1. - rules_distribution[rule_id] as f64 / max_rule as f64;
-        let stage_size = (max_stage_size as f64 * rel.powf(3.)) as usize;
+        let stage_size =
+            (max_stage_size as f64 * rel.powf(config.distribution_suppression_exponent)) as usize;
         let new_calcs = deduce_once(alphabet, initial, rule)
             .pick(Strategy::Random(true))
             .filter(|a| a.deduced.depth <= config.max_depth)
+            .filter(|a| filter_out_blacklist(config, a))
+            .filter(|a| a.deduced.density() >= config.min_working_density)
             .filter(filter_interest)
             .take(stage_size)
             .cloned()
@@ -232,7 +246,7 @@ fn main() {
         .get_matches();
 
     let config_filename = matches.value_of("config").unwrap();
-    let config = Configuration::load(config_filename).unwrap();
+    let config = Configuration::load(config_filename).expect("load config");
 
     let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
 
@@ -266,7 +280,7 @@ fn main() {
     }
 
     println!("Converting to bag");
-    let bag = Bag::from_traces(&traces);
+    let bag = Bag::from_traces(&traces, &|s| s.density() >= config.min_result_density);
 
     println!("Writing bag file to \"{}\" ...", &config.dump_filename);
     let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());

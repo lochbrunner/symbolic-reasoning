@@ -43,8 +43,7 @@ impl Bag {
     /// TODO:
     ///  * select each step and remove duplicates
     ///  * create statistics
-    ///  * order by size (depth & spread)
-    pub fn from_traces(traces: &[trace::Trace]) -> Bag {
+    pub fn from_traces(traces: &[trace::Trace], filter: &dyn Fn(&Symbol) -> bool) -> Bag {
         let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
         let mut rules: Vec<(String, Rule)> = Vec::new();
         rules.push(("padding".to_string(), Default::default()));
@@ -61,13 +60,14 @@ impl Bag {
                     rules.push((name.to_string(), rule.clone()));
                 }
             }
-            for step in trace.all_steps() {
+            for step in trace.all_steps().filter(|s| filter(&s.deduced)) {
                 // Reverse rules
                 let rule_id = *rule_map.get(&step.rule).expect("Rule");
                 let fitinfo = FitInfo {
                     path: step.path.clone(),
                     rule_id,
                 };
+                // TODO: add filter hook
                 match initials.get_mut(&step.deduced) {
                     None => {
                         initials.insert(&step.deduced, vec![fitinfo]);

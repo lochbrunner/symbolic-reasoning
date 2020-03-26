@@ -29,9 +29,8 @@
                 "--bin",
                 "generator",
                 "--",
-                "--stages",
-                "2",
-                "2"
+                "-c",
+                "real_world_problems/basics/dataset.yaml"
             ],
             "sourceLanguages": [
                 "rust"
