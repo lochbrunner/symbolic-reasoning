@@ -38,12 +38,17 @@ impl Scenario {
         declarations.register_standard_operators();
 
         let parse_rule = |(name, code): (&String, &String)| -> Vec<Result<(String, Rule), String>> {
+            let postfix = vec!["", " (i)", " (ii)"];
             match Rule::parse(&declarations, code) {
                 Err(msg) => vec![Err(msg)],
-                Ok(rules) => rules
-                    .into_iter()
-                    .map(|r| Ok((name.to_string(), r)))
-                    .collect::<Vec<_>>(),
+                Ok(rules) => {
+                    let offset = if rules.len() > 1 { 1 } else { 0 };
+                    rules
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, r)| Ok((format!("{}{}", name, postfix[offset + i]), r)))
+                        .collect::<Vec<_>>()
+                }
             }
         };
 

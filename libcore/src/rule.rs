@@ -50,6 +50,15 @@ impl Rule {
                 condition,
             }]);
         }
+        let mut parts = code.split("<=").collect::<Vec<&str>>();
+        if parts.len() == 2 {
+            let condition = Symbol::parse(context, parts.pop().expect("Condition"))?;
+            let conclusion = Symbol::parse(context, parts.pop().expect("Conclusion"))?;
+            return Ok(vec![Rule {
+                conclusion,
+                condition,
+            }]);
+        }
         let mut parts = code.split(":=").collect::<Vec<&str>>();
         if parts.len() == 2 {
             let conclusion = Symbol::parse(context, parts.pop().expect("Conclusion"))?;
