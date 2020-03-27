@@ -202,7 +202,7 @@ mod specs {
             },
         ];
 
-        let actual = Bag::from_traces(&traces);
+        let actual = Bag::from_traces(&traces, &|_| true);
 
         let expected = Bag {
             meta: Meta {

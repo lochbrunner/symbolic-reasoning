@@ -43,16 +43,12 @@
             "request": "launch",
             "program": "${workspaceFolder}/ml/train.py",
             "args": [
-                "-v",
-                "-d",
-                "cpu",
-                "--bag-filename",
-                "${workspaceFolder}/out/generator/bag-2-2.bin",
-                "--scenario",
-                "bag"
+                "-c",
+                "real_world_problems/basics/dataset.yaml",
+                "-v"
             ],
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/ml",
+            "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
         {

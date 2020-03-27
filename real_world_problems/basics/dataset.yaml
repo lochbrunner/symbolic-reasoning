@@ -1,3 +1,4 @@
+name: basic
 declarations:
   f:
     is_fixed: true
@@ -52,7 +53,10 @@ problems:
   seven steps: (a+b)^2 => a^2 + 2*b*a + b*b
   eight steps: (a+b)^2 => a^2 + 2*b*a + b^2
 files:
-  trainings-data: &bag out/generator/bag-basic.bin
+  working-folder: experiments
+  trainings-data: &bag experiments/bag-basic.bin
+  model: &model experiments/bag-basic.sp
+  training-statistics: &training-statistics experiments/training-statistics.yaml
 generation:
   # stages: [4,4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
   stages: [4,4,4,4,4,4,4,4,4,4,4,4]
@@ -66,7 +70,7 @@ generation:
     - 0-(0-0)
     - (1^1)^(1^1)
 training:
-  save-model: snapshots/bag-basic.sp
+  save-model: *model
   device: cpu
   # Learning
   num-epochs: 30
@@ -77,5 +81,6 @@ training:
   # Scenario
   scenario: bag
   filename: *bag
+  statistics: *training-statistics
 
 evaluation: {}

@@ -25,12 +25,22 @@ from common.validation import validate
 
 class ExecutionParameter:
     def __init__(self, report_rate: int = 10, update_model: str = None, load_model: str = None,
-                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, **kwargs):
+                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, statistics: str = None, **kwargs):
         self.report_rate = report_rate
         self.load_model = load_model or update_model
         self.save_model = save_model or update_model
         self.device = device
         self.tensorboard = tensorboard
+        self.statistics = statistics
+
+
+def dump_statistics(params: ExecutionParameter, error):
+    '''Dumps statistics '''
+    with open(params.statistics, 'w') as f:
+        yaml.dump({'exact': {'tops': error.exact.tops.tolist(), 'total': error.exact.sum},
+                   'when-rule': error.when_rule.tops.tolist(),
+                   'with-padding': error.with_padding.tops.tolist()
+                   }, f)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -126,10 +136,11 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
 
     signal.signal(signal.SIGINT, original_sigint_handler)
+    error = validate(model, validation_dataloader)
     if logging.INFO >= logging.root.level:
-        error = validate(model, validation_dataloader)
         error.exact.printHistogram()
 
+    dump_statistics(exe_params, error)
     save_snapshot()
 
 
@@ -156,6 +167,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--report-rate', type=int, default=20)
     parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
     parser.add_argument('--tensorboard', action='store_true', default=False)
+    parser.add_argument('--statistics', default=None)
 
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)

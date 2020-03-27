@@ -60,3 +60,9 @@ class TestApply(unittest.TestCase):
         self.assertEqual(str(orig), 'a')
         self.assertEqual(str(target), 'c*d')
         self.assertEqual(str(s), 'b*0=e')
+
+    def test_next_exponent(self):
+        initial = Symbol.parse(self.context, 'x*x^1')
+        rule = Rule.parse(self.context, 'a*a^n => a^(n+1)')
+        deduced, _ = fit_and_apply(self.variable_creator, initial, rule)[0]
+        self.assertEqual(str(deduced), 'x^(1+1)')

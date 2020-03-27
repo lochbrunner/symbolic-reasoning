@@ -11,7 +11,7 @@ class Parser(argparse.ArgumentParser):
         self.loader = loader
 
     def parse_args(self, **kwargs):
-        config_file_parser = argparse.ArgumentParser(add_help=False, parents=[self])
+        config_file_parser = argparse.ArgumentParser(add_help=False)
         config_file_parser.add_argument(*self.config_option_strings,
                                         dest='config_file')
         args, remaining_argv = config_file_parser.parse_known_args(**kwargs)
