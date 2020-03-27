@@ -37,9 +37,10 @@ class ExecutionParameter:
 def dump_statistics(params: ExecutionParameter, error):
     '''Dumps statistics '''
     with open(params.statistics, 'w') as f:
-        yaml.dump({'exact': {'tops': error.exact.tops.tolist(), 'total': error.exact.sum},
-                   'when-rule': error.when_rule.tops.tolist(),
-                   'with-padding': error.with_padding.tops.tolist()
+        yaml.dump({'exact': error.exact.as_dict(),
+                   'exact-no-padding': error.exact_no_padding.as_dict(),
+                   'when-rule': error.when_rule.as_dict(),
+                   'with-padding': error.with_padding.as_dict(),
                    }, f)
 
 
@@ -129,7 +130,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
             logging.info(
-                f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact}')
+                f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding}')
             timer.resume()
         printProgressBar(epoch, learn_params.num_epochs)
     clearProgressBar()
@@ -139,6 +140,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     error = validate(model, validation_dataloader)
     if logging.INFO >= logging.root.level:
         error.exact.printHistogram()
+        error.exact_no_padding.printHistogram()
 
     dump_statistics(exe_params, error)
     save_snapshot()

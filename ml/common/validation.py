@@ -43,14 +43,16 @@ class Ratio:
         '''
 
         predict = (-predict).argsort(axis=0)
-        predict = predict[:, mask]
-        t = truth[mask]
+        if mask is not None:
+            predict = predict[:, mask]
+            truth = truth[mask]
+            self.sum += np.sum(mask).item()
+        else:
+            self.sum += truth.shape[0]
 
         for i in range(self.size):
             p = predict[i]
-            self.tops[i] += np.sum(p == t)
-
-        self.sum += np.sum(mask)
+            self.tops[i] += np.sum(p == truth)
 
     def update_global(self, mask, predict, truth):
         '''
@@ -60,12 +62,13 @@ class Ratio:
         truth: n
         predict: r, n
         '''
+        if mask is not None:
+            predict = predict[:, mask]
+            truth = truth[mask]
         # Find
-        predict = predict[:, mask]
         n = predict.shape[1]
         predict = (-predict).flatten().argsort()
 
-        truth = truth[mask]
         truth_path = np.argmax(truth)
         truth_rule_id = truth[truth_path]
         encoded_id = truth_rule_id * n + truth_path
@@ -78,17 +81,21 @@ class Ratio:
     def printHistogram(self):
         printHistogram(self.tops, range(self.size), self.sum)
 
+    def as_dict(self):
+        return {'tops': self.tops.tolist(), 'total': self.sum}
+
 
 class Error:
-    def __init__(self, with_padding=None, when_rule=None, exact=None):
+    def __init__(self, with_padding=None, when_rule=None, exact=None, exact_no_padding=None):
         self.with_padding = with_padding or Ratio()
         self.when_rule = when_rule or Ratio()
         self.exact = exact or Ratio()
+        self.exact_no_padding = exact_no_padding or Ratio()
 
 
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader):
-    error = Error(exact=Ratio(20))
+    error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
 
     for x, y in dataloader:
         x = x.to(model.device)
@@ -104,10 +111,13 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
         for i in range(batch_size):
             truth = y[i, :]
             predict = x[i, :, :]
+            predicted_padding = np.copy(predict)
+            predicted_padding[0, :] = np.finfo('f').min
 
-            error.with_padding.update((truth > -1), predict, truth)
+            error.with_padding.update(None, predict, truth)
             error.when_rule.update((truth > 0), predict, truth)
-            error.exact.update_global((truth > -1), predict, truth)
+            error.exact.update_global(None, predict, truth)
+            error.exact_no_padding.update_global(None, predicted_padding, truth)
 
     return error
 

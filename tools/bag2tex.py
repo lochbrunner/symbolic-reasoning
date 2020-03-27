@@ -29,17 +29,12 @@ def density_histogram(f, container, scenario):
     f.write('\\\\\n')
 
 
-def training_statistics(f, scenario):
-    with open(scenario['files']['training-statistics'], 'r') as sf:
-        statistics = yaml.load(sf, Loader=yaml.FullLoader)
-
-    f.write('\n\\section{Training Statistics}\n')
-    f.write('\n\\subsection{Tops}\n')
-    total = statistics['exact']['total']
-    exact_tops = statistics['exact']['tops']
+def tops(f, ratio, title):
+    total = ratio['total']
+    exact_tops = ratio['tops']
     exact_tops = [t/total for t in exact_tops]
 
-    plt.title('Exact matches')
+    plt.title(title)
     ax = plt.gca()
     ax.bar(range(1, len(exact_tops)+1), exact_tops)
     ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
@@ -48,7 +43,7 @@ def training_statistics(f, scenario):
     plt.clf()
     f.write('\\\\')
 
-    plt.title('Exact matches accumulated')
+    plt.title(f'{title} accumulated')
     cum_exact_tops = np.cumsum(exact_tops)
     ax = plt.gca()
     ax.bar(range(1, len(exact_tops)+1), cum_exact_tops)
@@ -61,8 +56,18 @@ def training_statistics(f, scenario):
     f.write(f'Remaining: {(1. - sum(exact_tops))*100:.2f}\\%')
     f.write('\\\\')
 
+
+def training_statistics(f, scenario):
+    with open(scenario['files']['training-statistics'], 'r') as sf:
+        statistics = yaml.load(sf, Loader=yaml.FullLoader)
+
+    f.write('\n\\section{Training Statistics}\n')
+    f.write('\n\\subsection{Tops}\n')
+    # tops(f, statistics['exact'], 'Exact matches')
+    tops(f, statistics['exact-no-padding'], 'Exact matches (no padding)')
+
     # When rule
-    when_rule_tops = statistics['when-rule']
+    when_rule_tops = statistics['when-rule']['tops']
     plt.bar(range(1, len(when_rule_tops)+1), when_rule_tops)
     plt.title('When rule')
     tikzplotlib.clean_figure()
@@ -71,7 +76,7 @@ def training_statistics(f, scenario):
     f.write('\\\\')
 
     # When rule
-    with_padding = statistics['with-padding']
+    with_padding = statistics['with-padding']['tops']
     plt.bar(range(1, len(with_padding)+1), with_padding)
     plt.title('With padding')
     tikzplotlib.clean_figure()
