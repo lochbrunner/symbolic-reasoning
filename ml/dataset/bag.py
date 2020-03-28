@@ -14,6 +14,7 @@ class BagDataset(DatasetBase):
 
     def __init__(self, params, preprocess=False):
         super(BagDataset, self).__init__(preprocess)
+        logging.info(f'Loading samples from {params.filename}')
         bag = Bag.load(params.filename)
 
         self.patterns = [rule.condition for rule in bag.meta.rules]
@@ -22,20 +23,20 @@ class BagDataset(DatasetBase):
 
         self.idents = meta.idents
         self.label_distribution = meta.rule_distribution
-        self._rule_map = [rule for rule in meta.rules]
+        self._rule_map = list(meta.rules)
 
-        # Only use largest
-        self.container = bag.samples[-1]
-        self._max_spread = self.container.max_spread
-        self._max_depth = self.container.max_depth
+        # Merge use largest
+        self.container = [sample for container in bag.samples for sample in container.samples]
+        self._max_spread = bag.samples[-1].max_spread
+        self._max_depth = bag.samples[-1].max_depth
 
         def create_features(c):
             return [(c.initial, fit) for fit in c.fits]
 
-        self.raw_samples = [feature for sample in self.container.samples
+        self.raw_samples = [feature for sample in self.container
                             for feature in create_features(sample)]
 
-        logging.info(f'#samples: {len(self.raw_samples)}')
+        logging.info(f'number of samples: {len(self.raw_samples)}')
         logging.info(f'max depth: {self._max_depth}')
 
         builder = SymbolBuilder()

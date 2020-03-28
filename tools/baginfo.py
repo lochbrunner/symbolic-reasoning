@@ -3,6 +3,7 @@
 from pycore import Bag
 
 import argparse
+from os import path
 
 
 class Table:
@@ -37,8 +38,9 @@ class Table:
                     print('-'*(c1+c2+1))
 
         elif args.format == 'html':
+            rel_path = path.relpath(args.filename, path.join(path.dirname(__file__), '..'))
             html = ''
-            html += f'<h2>file: {args.filename}</h2>'
+            html += f'<h2>file: {rel_path}</h2>'
             html += '<table style="width:100%">'
             html += '''<style>
                 table,

@@ -11,7 +11,7 @@ import numpy as np
 import tikzplotlib
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.ticker import PercentFormatter
+from matplotlib.ticker import PercentFormatter, MultipleLocator
 from flavor import Flavors
 matplotlib.use('Agg')
 
@@ -23,10 +23,63 @@ def density_histogram(f, container, scenario):
     bins = int((1. - min_r) * 20)
     plt.hist(densities, bins=bins, range=(min_r, 1))
     plt.title('Density Distribution')
-    tikzplotlib.clean_figure()
+    # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='6cm'))
     plt.clf()
     f.write('\\\\\n')
+
+
+def container_size(f, containers):
+    f.write('\\\\')
+    sizes = [len(container.samples) for container in containers]
+
+    plt.title('Depth Distribution')
+    ax = plt.gca()
+    ax.set_xlabel('depth')
+    x_pos = np.arange(len(sizes))
+    ax.bar(x_pos, sizes)
+
+    # tikzplotlib.clean_figure()
+    f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='6cm'))
+    plt.clf()
+    f.write('\\\\')
+    f.write(f'Sum: {sum([len(c.samples) for c in containers])}')
+    f.write('\\\\')
+
+
+def gini(distribution):
+    total = sum(distribution)
+    nom = sum([sum([abs(xi-xj) for xj in distribution[i:]])
+               for (i, xi) in enumerate(distribution)])
+    return nom / (2.*len(distribution)*total)
+
+
+def rule_usage(f, meta):
+    f.write('\\subsection{Rule Distribution}\n')
+
+    rules_tuple = list(zip(meta.rules[1:], meta.rule_distribution[1:]))
+    rules_tuple.sort(key=lambda r: r[1], reverse=True)
+    labels = [rule.name for (rule, _) in rules_tuple]
+    counts = [count for (_, count) in rules_tuple]
+    y_pos = np.arange(len(labels))
+
+    plt.title('Rule usage')
+    ax = plt.gca()
+    ax.barh(y_pos, counts, align='center')
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels)
+    ax.invert_yaxis()
+    ax.set_xlabel('count')
+
+    height = int(len(counts)/1.8)
+
+    # tikzplotlib.clean_figure()
+    f.write(tikzplotlib.get_tikz_code(axis_width='12cm', axis_height=f'{height}cm'))
+    plt.clf()
+    f.write('\\\\\n')
+    dist = meta.rule_distribution[1:]
+    f.write(f'Total number of usage: {sum(dist)} \\\\\n')
+    f.write(f'Gini: {gini(dist):.2f}')
 
 
 def tops(f, ratio, title):
@@ -38,7 +91,7 @@ def tops(f, ratio, title):
     ax = plt.gca()
     ax.bar(range(1, len(exact_tops)+1), exact_tops)
     ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
-    tikzplotlib.clean_figure()
+    # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
     f.write('\\\\')
@@ -48,7 +101,7 @@ def tops(f, ratio, title):
     ax = plt.gca()
     ax.bar(range(1, len(exact_tops)+1), cum_exact_tops)
     ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
-    tikzplotlib.clean_figure()
+    # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
 
@@ -70,7 +123,7 @@ def training_statistics(f, scenario):
     when_rule_tops = statistics['when-rule']['tops']
     plt.bar(range(1, len(when_rule_tops)+1), when_rule_tops)
     plt.title('When rule')
-    tikzplotlib.clean_figure()
+    # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
     f.write('\\\\')
@@ -79,7 +132,7 @@ def training_statistics(f, scenario):
     with_padding = statistics['with-padding']['tops']
     plt.bar(range(1, len(with_padding)+1), with_padding)
     plt.title('With padding')
-    tikzplotlib.clean_figure()
+    # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
 
@@ -180,11 +233,16 @@ def main(args):
         training_statistics(f, scenario)
 
         f.write('\\section{Trainings Data}\n')
+        rule_usage(f, bag.meta)
+        container_size(f, bag.samples)
 
         for container in bag.samples:
+            if len(container.samples) == 0:
+                continue
             f.write(f'\n\\subsection{{Container {container.max_depth}}}\n\n')
             f.write(f'Max depth {container.max_depth}\n')
             f.write(f'Max spread {container.max_spread}\n')
+            f.write(f'Size {len(container.samples)}\n')
 
             if len(container.samples) > 0:
                 density_histogram(f, container, scenario)

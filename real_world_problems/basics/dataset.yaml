@@ -59,11 +59,11 @@ files:
   training-statistics: &training-statistics experiments/training-statistics.yaml
 generation:
   # stages: [4,4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
-  stages: [4,4,4,4,4,4,4,4,4,4,4,4]
+  stages: [8,8,4,4,4,4,4,4,4,4,4,4,4,4,4]
   max-depth: 9
   min-working-density: 0.3
   min-result-density: 0.4
-  distribution-suppression-exponent: 3.
+  distribution-suppression-exponent: 2.5
   blacklist-pattern:
     - (1*1)*(1*1)
     - (0+0)+(0+0)

@@ -139,7 +139,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     signal.signal(signal.SIGINT, original_sigint_handler)
     error = validate(model, validation_dataloader)
     if logging.INFO >= logging.root.level:
-        error.exact.printHistogram()
         error.exact_no_padding.printHistogram()
 
     dump_statistics(exe_params, error)

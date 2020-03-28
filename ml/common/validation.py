@@ -7,10 +7,12 @@ from common.terminal_utils import printHistogram
 
 
 class Ratio:
-    def __init__(self, size=3):
+    def __init__(self, size=10, count_print=3):
+        assert size >= count_print
         self.tops = np.zeros(size, dtype=np.uint16)
         self.sum = 0
         self.size = size
+        self.count_print = count_print
 
     def topk(self, k):
         nom = np.sum(self.tops[:k])
@@ -19,19 +21,11 @@ class Ratio:
     def __float__(self):
         return self.topk(1)
 
-    def top_2(self):
-        '''Relevant for beam size'''
-        return self.topk(2)
-
-    def top_3(self):
-        '''Relevant for beam size'''
-        return self.topk(3)
-
     def __str__(self):
-        v = (1. - self.topk(1)) * 100.
-        vs = (1. - self.topk(2)) * 100.
-        vt = (1. - self.topk(3)) * 100.
-        return f'{v:.1f}% ({vs:.1f}%, {vt:.1f}%)'
+        v = [(1. - self.topk(i+1)) * 100 for i in range(self.count_print)]
+        v = [f'{i:.1f}%' for i in v]
+        remaining = ', '.join(v[1:])
+        return f'{v[0]}% ({remaining})%)'
 
     def update(self, mask, predict, truth):
         '''
@@ -137,7 +131,7 @@ class TestRatio(unittest.TestCase):
         truth = np.array([1, 1])
         ratio.update(mask, predict, truth)
         self.assertEqual(float(ratio), 0.75)
-        self.assertEqual(ratio.top_2(), 1)
+        self.assertEqual(ratio.topk(2), 1)
 
         truth = np.array([0, 1])
         ratio.update(mask, predict, truth)
