@@ -58,7 +58,7 @@ impl Configuration {
             max_depth: generation.max_depth,
             min_working_density: generation.min_working_density,
             min_result_density: generation.min_result_density,
-            blacklist_pattern: blacklist_pattern,
+            blacklist_pattern,
             distribution_suppression_exponent: generation.distribution_suppression_exponent,
             dump_filename: files.trainings_data,
         })

@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
+use std::vec;
 
 extern crate clap;
 use clap::{App, Arg};
@@ -71,19 +72,48 @@ fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec
         .collect()
 }
 
+/// Check for e.g. 1*(1*1) or (1*1)*1 (or (1*1)*(1*1))
+fn check_trivial_subtree(sub: &Symbol) -> bool {
+    if sub.depth == 3 {
+        let op = &sub.ident;
+        let mut var: Option<&str> = None;
+        for c in sub.iter_bfs() {
+            if c.operator() {
+                if c.ident != *op {
+                    return true;
+                }
+            } else {
+                if let Some(v) = var {
+                    if v != c.ident {
+                        return true;
+                    }
+                } else {
+                    var = Some(&c.ident);
+                }
+            }
+        }
+        return false;
+    }
+    return true;
+}
+
 /// Filters out non sense symbols in the sene of e.g. a^0^0^0^0^0 ...
 fn filter_interest<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
     // Filter out when a pattern repeats directly
     for sub in apply.deduced.iter_bfs() {
         if sub.operator() {
+            // Check for trivial repetition
             for child in sub.childs.iter() {
+                let b = child.childs.iter().map(|s| &s.ident);
                 if child.childs.len() == sub.childs.len() {
                     let a = sub.childs.iter().map(|s| &s.ident);
-                    let b = child.childs.iter().map(|s| &s.ident);
                     if a.eq(b) {
                         return false;
                     }
                 }
+            }
+            if !check_trivial_subtree(sub) {
+                return false;
             }
         }
     }
@@ -109,10 +139,15 @@ fn deduce_impl<'a>(
     stages: &[usize],
     stage_index: usize,
     rules_distribution: &mut Vec<usize>,
+    prev_symbols: &[u64],
 ) -> Vec<TraceStep<'a>> {
     if stages.len() == stage_index {
         return vec![];
     }
+    let soft_min = |min: f32, value: f32| -> bool {
+        let progress = stage_index as f32 / stages.len() as f32;
+        value >= min * progress
+    };
     let max_stage_size = stages[stage_index];
     let mut stage = vec![];
     // How to reduce for all rules in sum
@@ -129,9 +164,10 @@ fn deduce_impl<'a>(
         let new_calcs = deduce_once(alphabet, initial, rule)
             .pick(Strategy::Random(true))
             .filter(|a| a.deduced.depth <= config.max_depth)
+            .filter(|a| soft_min(config.min_working_density, a.deduced.density()))
             .filter(|a| filter_out_blacklist(config, a))
-            .filter(|a| a.deduced.density() >= config.min_working_density)
             .filter(filter_interest)
+            .filter(|a| !prev_symbols.iter().any(|p| *p == a.deduced.get_hash()))
             .take(stage_size)
             .cloned()
             .map(|a| TraceStep {
@@ -143,6 +179,7 @@ fn deduce_impl<'a>(
                     stages,
                     stage_index + 1,
                     rules_distribution,
+                    &([&prev_symbols[..], &[a.deduced.get_hash()]]).concat(),
                 ),
                 info: a,
             })
@@ -212,6 +249,7 @@ fn deduce<'a>(
             stages,
             0,
             &mut rules_distribution,
+            &[initial.get_hash()],
         ),
     };
     print_statistics(&rules_distribution);

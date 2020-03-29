@@ -1,3 +1,5 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::str;
 
 use std::collections::VecDeque;
@@ -369,6 +371,12 @@ impl Symbol {
 
     pub fn calc_depth(childs: &[Symbol]) -> u32 {
         childs.iter().map(|c| c.depth).max().unwrap_or(0) + 1
+    }
+
+    pub fn get_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 }
 

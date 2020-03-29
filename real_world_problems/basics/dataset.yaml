@@ -16,12 +16,13 @@ rules:
   de-counting 3: 3-1 => 2
   de-counting 4: 4-1 => 3
   doubling: a+a <= 2*a
+  double negative: a-(0-b) => a+b
   # others
-  commutative property 1: a*b <=> b*a
-  commutative property 2: a+b <=> b+a
-  associative property: a*(b*c) => (a*b)*c 
-  distributive property 1: a*(b+c) => a*b+a*c
-  distributive property 2: a*(b-c) => a*b-a*c
+  commutative property 1: a*b => b*a
+  commutative property 2: a+b => b+a
+  associative property: a*(b*c) <=> (a*b)*c 
+  distributive property 1: a*(b+c) <= a*b+a*c
+  distributive property 2: a*(b-c) <= a*b-a*c
   # neutrals
   neutral sum: a+0 => a
   neutral subtraction: a-0 => a
@@ -39,9 +40,13 @@ premises:
  - x = y
  - x = 0
  - x = 1
+ - x = 2
  - x = y + z
+ - x = y - z
+ - x = y * z
  - x = y^2
  - x = y / z
+ - x = 2y + z + 1
 problems:
   one step: 3/3 => 1
   two steps: 3/(1+2) => 1
@@ -58,12 +63,11 @@ files:
   model: &model experiments/bag-basic.sp
   training-statistics: &training-statistics experiments/training-statistics.yaml
 generation:
-  # stages: [4,4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
-  stages: [8,8,4,4,4,4,4,4,4,4,4,4,4,4,4]
-  max-depth: 9
-  min-working-density: 0.3
-  min-result-density: 0.4
-  distribution-suppression-exponent: 2.5
+  stages: [12,12,8,8,8,7,6,6,6,6,6,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
+  max-depth: 10
+  min-working-density: 0.2
+  min-result-density: 0.25
+  distribution-suppression-exponent: 1.8
   blacklist-pattern:
     - (1*1)*(1*1)
     - (0+0)+(0+0)
