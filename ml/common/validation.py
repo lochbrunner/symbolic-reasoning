@@ -86,6 +86,13 @@ class Error:
         self.exact = exact or Ratio()
         self.exact_no_padding = exact_no_padding or Ratio()
 
+    def as_dict(self):
+        return {'exact': self.exact.as_dict(),
+                'exact-no-padding': self.exact_no_padding.as_dict(),
+                'when-rule': self.when_rule.as_dict(),
+                'with-padding': self.with_padding.as_dict(),
+                }
+
 
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader):

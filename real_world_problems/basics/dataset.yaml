@@ -78,6 +78,7 @@ training:
   device: cpu
   # Learning
   num-epochs: 100
+  report-rate: 5
   batch-size: 32
   learning-rate: 0.1 # Not needed here
   gradient-clipping: 0.1

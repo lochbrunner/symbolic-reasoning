@@ -110,17 +110,40 @@ def tops(f, ratio, title):
     f.write('\\\\')
 
 
+def tops_progress(f, key, title, statistics):
+    total = statistics[0]['error'][key]['total']
+    x = np.array([record['epoch'] for record in statistics])
+    y = np.array([record['error'][key]['tops'][:8] for record in statistics], dtype=np.float32)
+
+    y = np.transpose(y)
+    y /= total
+
+    plt.title(title)
+    ax = plt.gca()
+    ax.stackplot(x, y, labels=[f'top {(i+1)}' for i in range(y.shape[0])])
+    ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
+    ax.legend(loc='lower right')
+    ax.set_xlabel('epoch')
+
+    tikzplotlib.clean_figure()
+    f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
+    plt.clf()
+    f.write('\\\\')
+
+
 def training_statistics(f, scenario):
     with open(scenario['files']['training-statistics'], 'r') as sf:
         statistics = yaml.load(sf, Loader=yaml.FullLoader)
 
     f.write('\n\\section{Training Statistics}\n')
     f.write('\n\\subsection{Tops}\n')
-    # tops(f, statistics['exact'], 'Exact matches')
-    tops(f, statistics['exact-no-padding'], 'Exact matches (no padding)')
+    last_error = statistics[-1]['error']
+    tops(f, last_error['exact-no-padding'], 'Exact matches (no padding)')
+
+    tops_progress(f, 'exact-no-padding', 'Progress of exact Matches', statistics)
 
     # When rule
-    when_rule_tops = statistics['when-rule']['tops']
+    when_rule_tops = last_error['when-rule']['tops']
     plt.bar(range(1, len(when_rule_tops)+1), when_rule_tops)
     plt.title('When rule')
     # tikzplotlib.clean_figure()
@@ -129,7 +152,7 @@ def training_statistics(f, scenario):
     f.write('\\\\')
 
     # When rule
-    with_padding = statistics['with-padding']['tops']
+    with_padding = last_error['with-padding']['tops']
     plt.bar(range(1, len(with_padding)+1), with_padding)
     plt.title('With padding')
     # tikzplotlib.clean_figure()
