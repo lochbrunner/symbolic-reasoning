@@ -73,6 +73,9 @@ $$F(a,b) \rightarrow G(a)$$
 
 $$D\left( x^n\right), x) \Rightarrow n\cdot x^{n-1} $$
 
+## Prerequisites
+
+* fast [CPU indexed convolution](https://github.com/lochbrunner/iconv)
 
 ## Implementation
 

@@ -36,10 +36,11 @@ def _create_index_tensor(spread, depth):
     return torch.as_tensor(mask_index_table, dtype=torch.long)
 
 
-class PyIconv(nn.Module):
+class PyIConv(nn.Module):
+    '''Deprecated'''
 
     def __init__(self, in_size, out_size, index_tensor):
-        super(PyIconv, self).__init__()
+        super(PyIConv, self).__init__()
 
         self.register_buffer('index_tensor', index_tensor)
         k = index_tensor.size(1)
@@ -109,14 +110,12 @@ class TreeCnnSegmenter(nn.Module):
 
         index_tensor = _create_index_tensor(spread, depth)
 
-        klass = PyIconv
-
         def create_layer():
-            return klass(embedding_size, embedding_size, index_tensor)
+            return IConv(embedding_size, embedding_size, index_tensor)
 
         self.cnn_hidden = nn.Sequential(*[layer for _ in range(self.config['layers'])
                                           for layer in [create_layer(), nn.LeakyReLU(inplace=True)]])
-        self.cnn_end = klass(embedding_size, tagset_size, index_tensor)
+        self.cnn_end = IConv(embedding_size, tagset_size, index_tensor)
 
     def forward(self, x, *args):
         x = self.embedding(x)
@@ -126,7 +125,8 @@ class TreeCnnSegmenter(nn.Module):
         y = F.log_softmax(x, dim=2)
         return torch.transpose(y, 1, 2)
 
-    def activation_names(self):
+    @staticmethod
+    def activation_names():
         return []
 
     @property

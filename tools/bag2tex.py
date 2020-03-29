@@ -110,10 +110,10 @@ def tops(f, ratio, title):
     f.write('\\\\')
 
 
-def tops_progress(f, key, title, statistics):
+def tops_progress(f, key, title, statistics, count=8):
     total = statistics[0]['error'][key]['total']
     x = np.array([record['epoch'] for record in statistics])
-    y = np.array([record['error'][key]['tops'][:8] for record in statistics], dtype=np.float32)
+    y = np.array([record['error'][key]['tops'][:count] for record in statistics], dtype=np.float32)
 
     y = np.transpose(y)
     y /= total
@@ -158,6 +158,41 @@ def training_statistics(f, scenario):
     # tikzplotlib.clean_figure()
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
+
+
+class Namespace:
+    def __init__(self, d):
+        self.name = None
+        self.initial_latex = None
+        self.fit_results = None
+        self.fit_tries = None
+        self.success = None
+        self.__dict__ = d
+
+
+def evaluation_results(f, scenario):
+    f.write('\n\\section{Evaluation Results}\n')
+
+    f.write('\\subsection{Problems}\n')
+    beam_size = scenario['evaluation']['beam-size']
+    f.write(f'Beam size: {beam_size}\\\n')
+
+    with open(scenario['files']['evaluation-results'], 'r') as sf:
+        results = yaml.load(sf, Loader=yaml.FullLoader)
+
+    for problem in results['problems']:
+        problem = Namespace(problem)
+        f.write(f'\n\\subsubsection{{{problem.name}}}\n')
+        f.write('\\begin{align}\n')
+        f.write(f'{problem.initial_latex}\n')
+        f.write('\\end{align}\n')
+        if not problem.success:
+            f.write('Could not been solved')
+            continue
+        f.write(f'Tried fits: {problem.fit_tries}\\\\\n')
+        f.write(f'Successfull fits: {problem.fit_results}\\\n')
+
+    f.write('\\pagebreak\n')
 
 
 class Package:
@@ -249,11 +284,13 @@ def main(args):
     linkcolor = false,
     colorlinks = false
 }}
-\\tableofcontents\n''')
+\\tableofcontents
+\\pagebreak\n''')
 
         write_config(f, scenario)
 
         training_statistics(f, scenario)
+        evaluation_results(f, scenario)
 
         f.write('\\section{Trainings Data}\n')
         rule_usage(f, bag.meta)

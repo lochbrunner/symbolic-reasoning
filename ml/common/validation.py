@@ -127,7 +127,7 @@ class TestRatio(unittest.TestCase):
     '''Unit tests for python Ratio class'''
 
     def test_update(self):
-        ratio = Ratio()
+        ratio = Ratio(3)
         # n = 2, r = 3
         predict = np.array([[0, 1], [1, 0], [0, 0]])
         truth = np.array([1, 0])

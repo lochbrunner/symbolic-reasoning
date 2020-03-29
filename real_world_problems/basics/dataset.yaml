@@ -62,6 +62,7 @@ files:
   trainings-data: &bag experiments/bag-basic.bin
   model: &model experiments/bag-basic.sp
   training-statistics: &training-statistics experiments/training-statistics.yaml
+  evaluation-results: experiments/evaluation-results.yaml
 generation:
   stages: [12,12,8,8,8,7,6,6,6,6,6,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
   max-depth: 10
@@ -87,5 +88,6 @@ training:
   scenario: bag
   filename: *bag
   statistics: *training-statistics
-
-evaluation: {}
+evaluation:
+  beam-size: 10
+  num_epochs: 5

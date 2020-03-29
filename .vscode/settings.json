@@ -13,6 +13,7 @@
     },
     "cSpell.words": [
         "Deque",
+        "Inferencer",
         "LSTM",
         "PYTHONPATH",
         "Uploader",
@@ -25,6 +26,7 @@
         "isnan",
         "itertools",
         "maplit",
+        "matmul",
         "optim",
         "pyclass",
         "pymethods",
