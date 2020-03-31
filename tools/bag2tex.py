@@ -7,12 +7,12 @@ import argparse
 import os
 import numpy as np
 import math
+import scipy.optimize as optimize
 
 # Graphs
 import tikzplotlib
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.ticker import PercentFormatter, MultipleLocator
 from flavor import Flavors
 matplotlib.use('Agg')
 
@@ -193,6 +193,16 @@ def symbols(trace, stage, current=0):
     return [s for c in trace['childs'] for s in symbols(c, stage, current+1)]
 
 
+def create_parent_map(trace, map=None):
+    '''Returns a map which maps child id to parent id'''
+    if map is None:
+        map = {}
+    for child in trace['childs']:
+        map[id(child)] = id(trace)
+        create_parent_map(child, map)
+    return map
+
+
 def evaluation_results(f, scenario):
     f.write('\n\\section{Evaluation Results}\n')
 
@@ -212,11 +222,11 @@ def evaluation_results(f, scenario):
 
         num_stages = depth_of_trace(problem.trace)
         angles = {}
-        RX = 5.
+        RX = 6.
         RY = 3.
         if num_stages >= 2:
             caption = f'Rose {problem.name}'
-            f.write('''\\begin{figure}
+            f.write('''\\begin{figure}[!htb]
             \\centerline{
                 %\\resizebox{12cm}{!}{
                 \\begin{tikzpicture}[
@@ -224,58 +234,41 @@ def evaluation_results(f, scenario):
                     level/.style={thick, <-},
                 ]\n''')
 
-            for stage in reversed(range(num_stages)):
+            parent_map = create_parent_map(problem.trace)
+
+            # From inner to outer
+            for stage in range(num_stages):
                 symbols_of_stage = symbols(problem.trace, stage)
                 assert symbols_of_stage != []
+                d = math.pi * 2. / len(symbols_of_stage)
+                rx = RX*stage
+                ry = RY*stage
+                # Calculate angles offset
+                if stage == 0:
+                    offset = 0.
+                else:
+                    def dis(a, b):
+                        pi = math.pi * 2.
+                        r = math.fmod(a+pi-b, pi)
+                        return min(r, pi-r)
+                    parent_angles = [angles[parent_map[s.id]] for s in symbols_of_stage]
 
-                # Which symbols are new?
-                # Group leafs
-                leafs = filter(lambda s: len(s.child_ids) == 0, symbols_of_stage)
-                nodes = filter(lambda s: len(s.child_ids) > 0, symbols_of_stage)
-                # Where are the childs?
-                # First place nodes
+                    def y(o):
+                        return sum([(dis(p, i*d+o))**2 for i, p in enumerate(parent_angles)])
+                    result = optimize.minimize(y, 0.0)
+                    offset = result.x[0].item()
 
-                def mean(node):
-                    childs = [angles[c] for c in node.child_ids]
-                    return sum(childs) / len(childs)
-                stage_angles = {n.id: mean(n) for n in nodes}
-                # Place the leafs where is most place
-                used_angles = [stage_angles[k] for k in stage_angles]
-                used_angles.sort()
-
-                def max_space(l):
-                    if len(l) == 0:
-                        # First node is right
-                        return math.pi / 2.0
-                    r = []
-                    pi = math.pi * 2.
-                    for i, _ in enumerate(l):
-                        c = l[i]
-                        p = l[i-1]
-
-                        r.append(math.fmod(c-p+pi, pi))
-                    max_index = r.index(max(r))
-                    if l[max_index-1] < l[max_index]:
-                        return (l[max_index] + l[max_index-1]) / 2.
-                    else:
-                        return math.fmod((l[max_index]+pi + l[max_index-1]) / 2., pi)
-
-                for leaf in leafs:
-                    angle = max_space(used_angles)
-                    stage_angles[leaf.id] = angle
-                    used_angles.append(angle)
-                    used_angles.sort()
-
-                for symbol in symbols_of_stage:
-                    # a = d*i
-                    a = stage_angles[symbol.id]
-                    angles[symbol.id] = a
-                    rx = RX*stage
-                    ry = RY*stage
+                for i, symbol in enumerate(symbols_of_stage):
+                    # Initial guess
+                    a = d*float(i)+offset
                     x = rx*math.sin(a)
                     y = ry*math.cos(a)
-
+                    angles[symbol.id] = a
                     f.write(f'\\node[] at ({x:.3f}cm,{y:.3f}cm) ({symbol.id}) {{${symbol.latex}$}};\n')
+
+            for stage in range(num_stages):
+                symbols_of_stage = symbols(problem.trace, stage)
+                for symbol in symbols_of_stage:
                     for child_id in symbol.child_ids:
                         f.write(f'\\draw[level] ({child_id}) -- ({symbol.id});\n')
 
@@ -286,8 +279,8 @@ def evaluation_results(f, scenario):
             \\end{{figure}}''')
 
         if not problem.success:
-            f.write('Could not been solved')
-            continue
+            f.write('Could not been solved\\\\\n')
+
         f.write(f'Tried fits: {problem.fit_tries}\\\\\n')
         f.write(f'Successfull fits: {problem.fit_results}\\\n')
 
@@ -360,7 +353,7 @@ def main(args):
         usepackages(f, [
             Package('T1', 'fontenc'),
             'lmodern',
-            Package('ngerman', 'babel'),
+            Package('english', 'babel'),
             'amsmath',
             ('pgfplots', 'pgfplotstable'),
             'colortbl',
@@ -418,7 +411,7 @@ def main(args):
                 f.write('\\end{align}\n')
                 f.write(f'Density {sample.initial.density:.3f}')
 
-        f.write('\end{document}\n')
+        f.write('\\end{document}\n')
 
 
 if __name__ == '__main__':

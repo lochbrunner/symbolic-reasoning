@@ -1,9 +1,10 @@
-torch
+argcomplete
+autopep8
 dash
 dash_katex
-pylint
-autopep8
-argcomplete
 matplotlib
+pylint
+scipy
 tensorboard
+torch
 file:/home/matthias/workspace/github/lochbrunner/tree_dash_component/dist/tree_dash_component-0.0.1.tar.gz
