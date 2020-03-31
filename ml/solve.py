@@ -24,6 +24,13 @@ class ApplyInfo:
         self.previous = previous
         self.mapping = mapping
 
+    def as_dict(self):
+        return {
+            'rule-name': self.rule_name,
+            'current': self.current.latex,
+            # 'previous': self.previous.current.latex if self.previous else None,
+        }
+
 
 class Statistics:
     def __init__(self, initial):
@@ -32,9 +39,25 @@ class Statistics:
         self.success = False
         self.fit_tries = 0
         self.fit_results = 0
+        self.trace = Trace(initial)
 
     def __str__(self):
         return f'Performing {self.fit_tries} fits results in {self.fit_results} fitting maps.'
+
+    def as_dict(self):
+        return {
+            'name': self.name,
+            'initial_latex': self.initial_latex,
+            'trace': self.trace.as_dict(),
+            'success': self.success,
+            'fit_tries': self.fit_tries,
+            'fit_results': self.fit_results,
+        }
+
+
+class FullStatistics(Statistics):
+    def __init__(self, initial):
+        super(FullStatistics, self).__init__(initial)
 
 
 class Inferencer:
@@ -78,18 +101,51 @@ class Inferencer:
         return [calc(i) for i in range(count)]
 
 
+class Trace:
+    class Node:
+        def __init__(self, apply_info):
+            self.apply_info = apply_info
+            self.childs = []
+
+    def __init__(self, initial):
+        self.root = Trace.Node(ApplyInfo(
+            rule_name='initial', rule_formula='',
+            current=initial, previous=None, mapping=None))
+        self.current_stage = [self.root]
+        self.current_index = None
+        self.next_stage = []
+
+    def __len__(self):
+        return len(self.current_stage)
+
+    def __getitem__(self, index):
+        self.current_index = index
+        return self.current_stage[index].apply_info
+
+    def close_stage(self):
+        self.current_stage = self.next_stage
+        self.next_stage = []
+        self.current_index = None
+
+    def add(self, apply_info):
+        node = Trace.Node(apply_info)
+        self.current_stage[self.current_index].childs.append(node)
+        self.next_stage.append(node)
+
+    def as_dict_recursive(self, node):
+        return {'apply_info': node.apply_info.as_dict(),
+                'childs': [self.as_dict_recursive(c) for c in node.childs]}
+
+    def as_dict(self):
+        return self.as_dict_recursive(self.root)
+
+
 def beam_search(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, **kwargs):
     seen = set()
     statistics = Statistics(initial)
 
-    traces = [ApplyInfo(
-        rule_name='initial', rule_formula='',
-        current=initial, previous=None, mapping=None)]
-
     for _ in range(num_epochs):
-        prevs = traces.copy()
-        traces.clear()
-        for prev in prevs:
+        for prev in statistics.trace:
             policies = inference(prev.current, beam_size)
             for (rule_id, path) in policies:
                 rule = rule_mapping[rule_id-1]
@@ -108,11 +164,12 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     rule_name=rule.name, rule_formula=str(rule),
                     current=deduced,
                     previous=prev, mapping=mapping)
+                statistics.trace.add(apply_info)
                 if deduced in targets:
                     statistics.success = True
                     return apply_info, statistics
-                else:
-                    traces.append(apply_info)
+
+        statistics.trace.close_stage()
 
     return None, statistics
 
@@ -198,10 +255,11 @@ def main(scenario, model, results_filename, **kwargs):
                     print(f'Initial: {step.current}')
         else:
             logging.warning(f'No solution found for {source} => {target}')
+            # statistic.trace = [s.as_dict() for s in solution]
 
         statistic.name = problem_name
         logging.info(statistic)
-        problem_statistics.append(vars(statistic))
+        problem_statistics.append(statistic.as_dict())
 
     with open(results_filename, 'w') as f:
         yaml.dump({'problems': problem_statistics}, f)

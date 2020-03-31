@@ -6,6 +6,7 @@ import yaml
 import argparse
 import os
 import numpy as np
+import math
 
 # Graphs
 import tikzplotlib
@@ -167,7 +168,29 @@ class Namespace:
         self.fit_results = None
         self.fit_tries = None
         self.success = None
+        self.trace = None
         self.__dict__ = d
+
+
+def depth_of_trace(trace):
+    childs = trace['childs']
+    if len(childs) == 0:
+        return 1
+    return max([depth_of_trace(c) for c in childs]) + 1
+
+
+class Node:
+    def __init__(self, latex, i, childs):
+        self.latex = latex
+        self.id = i
+        self.child_ids = [id(c) for c in childs]
+
+
+def symbols(trace, stage, current=0):
+    if stage == current:
+        return [Node(trace['apply_info']['current'], id(trace), trace['childs'])]
+
+    return [s for c in trace['childs'] for s in symbols(c, stage, current+1)]
 
 
 def evaluation_results(f, scenario):
@@ -186,6 +209,82 @@ def evaluation_results(f, scenario):
         f.write('\\begin{align}\n')
         f.write(f'{problem.initial_latex}\n')
         f.write('\\end{align}\n')
+
+        num_stages = depth_of_trace(problem.trace)
+        angles = {}
+        RX = 5.
+        RY = 3.
+        if num_stages >= 2:
+            caption = f'Rose {problem.name}'
+            f.write('''\\begin{figure}
+            \\centerline{
+                %\\resizebox{12cm}{!}{
+                \\begin{tikzpicture}[
+                    scale=0.5,
+                    level/.style={thick, <-},
+                ]\n''')
+
+            for stage in reversed(range(num_stages)):
+                symbols_of_stage = symbols(problem.trace, stage)
+                assert symbols_of_stage != []
+
+                # Which symbols are new?
+                # Group leafs
+                leafs = filter(lambda s: len(s.child_ids) == 0, symbols_of_stage)
+                nodes = filter(lambda s: len(s.child_ids) > 0, symbols_of_stage)
+                # Where are the childs?
+                # First place nodes
+
+                def mean(node):
+                    childs = [angles[c] for c in node.child_ids]
+                    return sum(childs) / len(childs)
+                stage_angles = {n.id: mean(n) for n in nodes}
+                # Place the leafs where is most place
+                used_angles = [stage_angles[k] for k in stage_angles]
+                used_angles.sort()
+
+                def max_space(l):
+                    if len(l) == 0:
+                        # First node is right
+                        return math.pi / 2.0
+                    r = []
+                    pi = math.pi * 2.
+                    for i, _ in enumerate(l):
+                        c = l[i]
+                        p = l[i-1]
+
+                        r.append(math.fmod(c-p+pi, pi))
+                    max_index = r.index(max(r))
+                    if l[max_index-1] < l[max_index]:
+                        return (l[max_index] + l[max_index-1]) / 2.
+                    else:
+                        return math.fmod((l[max_index]+pi + l[max_index-1]) / 2., pi)
+
+                for leaf in leafs:
+                    angle = max_space(used_angles)
+                    stage_angles[leaf.id] = angle
+                    used_angles.append(angle)
+                    used_angles.sort()
+
+                for symbol in symbols_of_stage:
+                    # a = d*i
+                    a = stage_angles[symbol.id]
+                    angles[symbol.id] = a
+                    rx = RX*stage
+                    ry = RY*stage
+                    x = rx*math.sin(a)
+                    y = ry*math.cos(a)
+
+                    f.write(f'\\node[] at ({x:.3f}cm,{y:.3f}cm) ({symbol.id}) {{${symbol.latex}$}};\n')
+                    for child_id in symbol.child_ids:
+                        f.write(f'\\draw[level] ({child_id}) -- ({symbol.id});\n')
+
+            f.write(f'''\\end{{tikzpicture}}
+                }}
+                %}}
+            \\caption{{{caption}}}
+            \\end{{figure}}''')
+
         if not problem.success:
             f.write('Could not been solved')
             continue
@@ -259,7 +358,6 @@ def main(args):
         f.write('\\documentclass{scrartcl}\n')
 
         usepackages(f, [
-            Package('utf8', 'inputenc'),
             Package('T1', 'fontenc'),
             'lmodern',
             Package('ngerman', 'babel'),
@@ -268,7 +366,9 @@ def main(args):
             'colortbl',
             'xcolor',
             'color',
-            'hyperref'
+            'hyperref',
+            'tikz',
+            Package('hang,small,bf', 'caption')
         ])
         f.write(Flavors.latex.preamble())
 

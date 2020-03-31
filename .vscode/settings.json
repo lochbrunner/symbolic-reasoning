@@ -22,6 +22,7 @@
         "deque",
         "dtype",
         "fitinfo",
+        "fmod",
         "idents",
         "isnan",
         "itertools",

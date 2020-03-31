@@ -89,5 +89,5 @@ training:
   filename: *bag
   statistics: *training-statistics
 evaluation:
-  beam-size: 10
+  beam-size: 40
   num_epochs: 5
