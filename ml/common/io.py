@@ -35,6 +35,11 @@ def load(filename, device=torch.device('cpu'), transform=None):
     return dataset, model, optimizer, scenario_params
 
 
+def load_rules(filename):
+    snapshot = torch.load(filename)
+    return snapshot['rules']
+
+
 def load_model(filename, spread=None, depth=None):
     with Timer(f'Loading snapshot from {filename}'):
         snapshot = torch.load(filename)

@@ -276,6 +276,11 @@ fn main() {
                 .default_value("./out/generator/rose"),
         )
         .arg(
+            Arg::with_name("dump_trace")
+                .long("dump-trace")
+                .help("Dumps the trace"),
+        )
+        .arg(
             Arg::with_name("tex")
                 .long("tex-directory")
                 .help("Directory to place the tex files")
@@ -323,6 +328,23 @@ fn main() {
     println!("Writing bag file to \"{}\" ...", &config.dump_filename);
     let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
     bag.write_bincode(writer).expect("Writing bin file");
+
+    if matches.is_present("dump_trace") {
+        println!("Creating dense traces ...");
+        let dense_traces = traces
+            .iter()
+            .map(DenseTrace::from_trace)
+            .collect::<Vec<_>>();
+        let ext_pos = config.trace_filename.rfind('.').unwrap();
+        let file_stamp = &config.trace_filename[..ext_pos];
+        let extension = &config.trace_filename[ext_pos..];
+        for (i, trace) in dense_traces.iter().enumerate() {
+            let filename = format!("{}_{}{}", file_stamp, i, extension);
+            println!("Writing trace file to \"{}\" ...", filename);
+            let writer = BufWriter::new(File::create(filename).unwrap());
+            trace.write_bincode(writer).expect("Writing trace file");
+        }
+    }
 
     if let Some(dir) = matches.value_of("tex") {
         if !Path::new(dir).is_dir() {

@@ -1,6 +1,7 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
+use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
@@ -43,6 +44,21 @@ impl PyApplyInfo {
     fn get_deduced(&self) -> PyResult<PySymbol> {
         let inner = self.inner.deduced.clone();
         Ok(PySymbol::new(inner))
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyApplyInfo {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        let inner = &self.inner;
+        Ok(format!(
+            "{} -> {} ({} @ {:?})",
+            inner.initial, inner.deduced, inner.rule, inner.path
+        ))
     }
 }
 
@@ -235,7 +251,7 @@ impl PyMeta {
     }
 }
 
-#[pyclass(name=Trace,subclass)]
+#[pyclass(name=Trace,subclass,dict)]
 pub struct PyTrace {
     inner: Rc<DenseTrace>,
 }

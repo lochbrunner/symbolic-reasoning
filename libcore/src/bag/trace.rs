@@ -133,20 +133,16 @@ impl<'a> Trace<'a> {
     where
         W: std::io::Write,
     {
-        match bincode::serialize_into(writer, self) {
-            Ok(_) => Ok(()),
-            Err(msg) => Err(msg.to_string()),
-        }
+        bincode::serialize_into(writer, self).map_err(|msg| msg.to_string())?;
+        Ok(())
     }
 
     pub fn write_yaml<W>(&self, writer: W) -> Result<(), String>
     where
         W: std::io::Write,
     {
-        match serde_yaml::to_writer(writer, self) {
-            Ok(_) => Ok(()),
-            Err(msg) => Err(msg.to_string()),
-        }
+        serde_yaml::to_writer(writer, self).map_err(|msg| msg.to_string())?;
+        Ok(())
     }
 
     pub fn all_steps(&self) -> StepsIter<TraceStep<'a>, Trace<'a>> {

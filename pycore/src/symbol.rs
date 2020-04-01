@@ -394,7 +394,7 @@ impl PyObjectProtocol for PySymbol {
             ))),
         }
     }
-
+    // Could replaced by dict argument in pyclass macro
     fn __setattr__(&'p mut self, name: &'p str, value: PyObject) -> PyResult<()> {
         self.try_release_attribute(name);
         self.attributes.insert(name.to_string(), value);

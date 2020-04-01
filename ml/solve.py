@@ -2,12 +2,13 @@
 
 import logging
 import yaml
+from glob import glob
 
 import numpy as np
 
 import torch
 
-from pycore import Symbol, Scenario, fit, apply, fit_at_and_apply
+from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply
 
 from common import io
 from common.timer import Timer
@@ -39,7 +40,7 @@ class Statistics:
         self.success = False
         self.fit_tries = 0
         self.fit_results = 0
-        self.trace = Trace(initial)
+        self.trace = LocalTrace(initial)
 
     def __str__(self):
         return f'Performing {self.fit_tries} fits results in {self.fit_results} fitting maps.'
@@ -55,19 +56,14 @@ class Statistics:
         }
 
 
-class FullStatistics(Statistics):
-    def __init__(self, initial):
-        super(FullStatistics, self).__init__(initial)
-
-
 class Inferencer:
-    def __init__(self, model, idents):
-        self.model = model
-        self.idents = idents
-        self.spread = model.spread
-        self.depth = model.depth
+    def __init__(self, model_filename, depth=None):
+        self.model, self.idents, _ = io.load_model(model_filename, depth=depth)
+        self.model.eval()
+        self.spread = self.model.spread
+        self.depth = self.model.depth
 
-        self.paths = list(Embedder.legend(spread=model.spread, depth=model.depth)) + [None]
+        self.paths = list(Embedder.legend(spread=self.spread, depth=self.depth)) + [None]
 
     def create_mask(self, node):
         def hash_path(path):
@@ -81,7 +77,7 @@ class Inferencer:
         return np.array([(hash_path(p) in path_ids) for p in self.paths])
 
     def __call__(self, node, count):
-        assert self.depth >= node.depth
+        assert self.depth >= node.depth, f'{self.depth} >= {node.depth}'
         x = Padder.pad(node, spread=self.spread, depth=self.depth)
         x = [ident_to_id(n, self.idents) for n in Embedder.unroll(x)] + [0]
         x = torch.as_tensor(x, dtype=torch.long, device=self.model.device)
@@ -101,14 +97,14 @@ class Inferencer:
         return [calc(i) for i in range(count)]
 
 
-class Trace:
+class LocalTrace:
     class Node:
         def __init__(self, apply_info):
             self.apply_info = apply_info
             self.childs = []
 
     def __init__(self, initial):
-        self.root = Trace.Node(ApplyInfo(
+        self.root = LocalTrace.Node(ApplyInfo(
             rule_name='initial', rule_formula='',
             current=initial, previous=None, mapping=None))
         self.current_stage = [self.root]
@@ -128,7 +124,7 @@ class Trace:
         self.current_index = None
 
     def add(self, apply_info):
-        node = Trace.Node(apply_info)
+        node = LocalTrace.Node(apply_info)
         self.current_stage[self.current_index].childs.append(node)
         self.next_stage.append(node)
 
@@ -174,44 +170,39 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def try_solve(rules, initial, target, variable_generator):
-    '''Deprecated'''
-    seen = set()
-    num_epochs = 2
-    statistics = Statistics()
+def solve_training_problems(training_traces, scenario, model, rule_mapping, **kwargs):
 
-    traces = [ApplyInfo(
-        rule_name='initial', rule_formula='',
-        current=initial, previous=None, mapping=None)]
-    for _ in range(num_epochs):
-        prevs = traces.copy()
-        traces.clear()
-        for prev in prevs:
-            for rule in rules.values():
-                mappings = fit(prev.current, rule.condition)
-                statistics.fit_tries += 1
-                statistics.fit_results += len(mappings)
-                for mapping in mappings:
-                    deduced = apply(mapping, variable_generator, prev.current, rule.conclusion)
-                    s = str(deduced)
-                    if s in seen:
-                        continue
-                    seen.add(s)
-                    apply_info = ApplyInfo(
-                        rule_name=rule.name, rule_formula=str(rule),
-                        current=deduced,
-                        previous=prev, mapping=mapping)
-                    if deduced == target:
-                        return apply_info, statistics
-                    else:
-                        traces.append(apply_info)
+    def variable_generator():
+        return Symbol.parse(scenario.declarations, 'u')
+
+    inferencer = Inferencer(model, depth=9)
+
+    failed = 0
+    succeeded = 0
+    for filename in glob(training_traces):
+        logging.info(f'Evaluating {filename} ...')
+        trace = Trace.load(filename)
+        for calculation in trace.unroll:
+            conclusion = calculation.steps[0].initial
+            condition = calculation.steps[-1].initial
+            solution, _ = beam_search(inferencer, rule_mapping, condition,
+                                      [conclusion], variable_generator, **kwargs)
+            if solution is not None:
+                succeeded += 1
+            else:
+                failed += 1
+            logging.info(f'{succeeded} succeeded out of {succeeded+failed}')
+
+    logging.info(f'{succeeded} of {succeeded+failed} training traces succeeded')
+    return {'succeeded': succeeded, 'failed': failed}
 
 
-def main(scenario, model, results_filename, **kwargs):
+def main(scenario, model, results_filename, training_traces, solve_training, **kwargs):
     with Timer('Loading model'):
         scenario = Scenario.load(scenario)
 
-    model, idents, rules = io.load_model(model)
+    # model, idents, rules = io.load_model(model, depth=9)
+    rules = io.load_rules(model)
     rule_mapping = {}
     used_rules = set()
     for i, model_rule in enumerate(rules[1:]):
@@ -224,7 +215,12 @@ def main(scenario, model, results_filename, **kwargs):
         if str(scenario_rule) not in used_rules:
             logging.warning(f'{scenario_rule} was not in the training of the model')
 
-    model.eval()
+    if solve_training:
+        training_statistics = solve_training_problems(
+            training_traces, scenario, model, rule_mapping, **kwargs)
+    else:
+        training_statistics = {}
+
     problem_statistics = []
 
     def variable_generator():
@@ -239,7 +235,7 @@ def main(scenario, model, results_filename, **kwargs):
         target = problem.conclusion
 
         with Timer('Solving problem'):
-            solution, statistic = beam_search(Inferencer(model, idents), rule_mapping, problem.condition,
+            solution, statistic = beam_search(Inferencer(model), rule_mapping, problem.condition,
                                               [problem.conclusion], variable_generator, **kwargs)
 
         if solution is not None:
@@ -255,14 +251,14 @@ def main(scenario, model, results_filename, **kwargs):
                     print(f'Initial: {step.current}')
         else:
             logging.warning(f'No solution found for {source} => {target}')
-            # statistic.trace = [s.as_dict() for s in solution]
 
         statistic.name = problem_name
         logging.info(statistic)
         problem_statistics.append(statistic.as_dict())
 
     with open(results_filename, 'w') as f:
-        yaml.dump({'problems': problem_statistics}, f)
+        yaml.dump({'problems': problem_statistics,
+                   'training-traces': training_statistics}, f)
 
 
 def load_config(filename):
@@ -270,6 +266,7 @@ def load_config(filename):
         config = yaml.load(f, Loader=yaml.FullLoader)
         return {'model': config['files']['model'],
                 'results-filename': config['files']['evaluation-results'],
+                'training-traces': config['files']['trainings-data-traces'],
                 **config['evaluation']
                 }
 
@@ -283,6 +280,7 @@ if __name__ == '__main__':
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
     parser.add_argument('--beam-size', default=10)
     parser.add_argument('--results-filename')
+    parser.add_argument('--training-traces')
     # Model
     parser.add_argument('-m', '--model', help='Filename of the model snapshot')
     args = parser.parse_args()

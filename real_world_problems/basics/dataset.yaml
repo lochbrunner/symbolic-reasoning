@@ -60,6 +60,7 @@ problems:
 files:
   working-folder: experiments
   trainings-data: &bag experiments/bag-basic.bin
+  trainings-data-traces: experiments/bag-basic_*.tr
   model: &model experiments/bag-basic.sp
   training-statistics: &training-statistics experiments/training-statistics.yaml
   evaluation-results: experiments/evaluation-results.yaml
