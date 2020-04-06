@@ -10,4 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = {version = "0.9.1    ", features = ["extension-module"]}
+numpy = "0.8.0"
+ndarray = "0.13"
 core = { path = "../libcore" }

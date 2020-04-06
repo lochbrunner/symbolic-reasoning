@@ -2,6 +2,8 @@ use crate::context::PyContext;
 use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_symbol_plain};
 use core::Symbol;
+use ndarray::Array;
+use numpy::{IntoPyArray, PyArray1, PyArray2};
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{IndexError, KeyError, NotImplementedError, TypeError};
@@ -16,6 +18,7 @@ use std::rc::Rc;
 
 /// Python Wrapper for core::dumper::Decoration
 #[pyclass(name=Decoration,subclass)]
+#[derive(Clone)]
 pub struct PyDecoration {
     pub path: Vec<usize>,
     pub pre: String,
@@ -25,8 +28,8 @@ pub struct PyDecoration {
 #[pymethods]
 impl PyDecoration {
     #[new]
-    fn py_new(obj: &PyRawObject, path: Vec<usize>, pre: String, post: String) {
-        obj.init({ PyDecoration { path, pre, post } });
+    fn py_new(path: Vec<usize>, pre: String, post: String) -> Self {
+        PyDecoration { path, pre, post }
     }
 }
 
@@ -258,6 +261,32 @@ impl PySymbol {
             .collect())
     }
 
+    /// u16 is not supported by pytorch
+    fn embed(
+        &self,
+        py: Python,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+    ) -> PyResult<(Py<PyArray1<i16>>, Py<PyArray2<i16>>)> {
+        let (embedding, indices) = self.inner.embed(&dict, padding, spread).map_err(|msg| {
+            PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+        })?;
+
+        let indices = Array::from_shape_vec(
+            (indices.len(), indices[0].len()),
+            indices
+                .into_iter()
+                .flat_map(|row| row.into_iter())
+                .collect(),
+        )
+        .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+        let indices = indices.into_pyarray(py).to_owned();
+
+        let embedding = embedding.into_pyarray(py).to_owned();
+        Ok((embedding, indices))
+    }
+
     #[getter]
     fn depth(&self) -> PyResult<u32> {
         Ok(self.inner.depth)
@@ -402,13 +431,12 @@ impl PyObjectProtocol for PySymbol {
     }
 
     fn __getattr__(&'p self, name: &'p str) -> PyResult<&'p PyObject> {
-        match self.attributes.get(name) {
-            Some(value) => Ok(value),
-            None => Err(PyErr::new::<KeyError, _>(format!(
+        self.attributes
+            .get(name)
+            .ok_or(PyErr::new::<KeyError, _>(format!(
                 "No Attribute with key \"{}\" found!",
                 name
-            ))),
-        }
+            )))
     }
 
     fn __delattr__(&mut self, name: &str) -> PyResult<()> {

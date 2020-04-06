@@ -29,6 +29,7 @@
         "maplit",
         "matmul",
         "optim",
+        "pyarray",
         "pyclass",
         "pymethods",
         "pyproto",

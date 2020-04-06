@@ -1,4 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::str;
 
@@ -272,6 +273,57 @@ impl Symbol {
         SymbolBfsIter::new(self)
     }
 
+    pub fn embed(
+        &self,
+        dict: &HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+    ) -> Result<(Vec<i16>, Vec<Vec<i16>>), String> {
+        let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
+        let mut embedded = self
+            .iter_bfs()
+            .enumerate()
+            .map(|(i, s)| {
+                ref_to_index.insert(s, i as i16);
+                dict.get(&s.ident)
+                    .and_then(|i| Some(*i))
+                    .ok_or(format!("Unknown ident {}", s.ident))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let padding_index = embedded.len() as i16;
+        embedded.push(padding);
+
+        // self, ..childs, (parent later)
+        let mut index_map = self
+            .iter_bfs()
+            .enumerate()
+            .map(|(i, s)| {
+                let mut row = Vec::with_capacity(spread + 2);
+                row.push(i as i16);
+                for child in s.childs.iter() {
+                    row.push(ref_to_index[child])
+                }
+                while row.len() < spread + 1 {
+                    row.push(padding_index);
+                }
+                row
+            })
+            .collect::<Vec<Vec<i16>>>();
+
+        // Append parent
+        // root has no parent
+        index_map[0].push(padding_index);
+        for parent in self.iter_bfs() {
+            let parent_index = ref_to_index[parent];
+            for child in parent.childs.iter() {
+                let index = ref_to_index[child] as usize;
+                index_map[index].push(parent_index);
+            }
+        }
+
+        return Ok((embedded, index_map));
+    }
+
     /// Returns the item at the specified path
     pub fn at<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
         let mut current = self;
@@ -383,6 +435,7 @@ impl Symbol {
 #[cfg(test)]
 mod specs {
     use super::*;
+    use crate::context::Context;
 
     #[test]
     fn calc_depth_unary_op() {
@@ -469,5 +522,68 @@ mod specs {
         let expected: Option<&Symbol> = None;
 
         assert_eq!(actual, expected);
+    }
+
+    fn fix_dict(dict: HashMap<&str, i16>) -> HashMap<String, i16> {
+        dict.into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect::<HashMap<String, _>>()
+    }
+
+    #[test]
+    fn embed_full_and_balanced() {
+        let context = Context::standard();
+
+        let symbol = Symbol::parse(&context, "a+b=c*d").unwrap();
+        let padding = 0;
+        let dict = hashmap! {
+            "=" => 1,
+            "+" => 2,
+            "*" => 3,
+            "a" => 4,
+            "b" => 5,
+            "c" => 6,
+            "d" => 7,
+        };
+        let dict = fix_dict(dict);
+        let spread = 2;
+        let (embedding, indices) = symbol.embed(&dict, padding, spread).unwrap();
+
+        assert_eq!(embedding, vec![1, 2, 3, 4, 5, 6, 7, 0]);
+
+        assert_eq!(indices.len(), 7);
+        assert_eq!(indices[0], vec![0, 1, 2, 7]); // *=+
+        assert_eq!(indices[1], vec![1, 3, 4, 0]); // a+b
+        assert_eq!(indices[2], vec![2, 5, 6, 0]); // c*d
+        assert_eq!(indices[3], vec![3, 7, 7, 1]); // a
+        assert_eq!(indices[4], vec![4, 7, 7, 1]); // b
+        assert_eq!(indices[5], vec![5, 7, 7, 2]); // c
+        assert_eq!(indices[6], vec![6, 7, 7, 2]); // d
+    }
+
+    #[test]
+    fn embed_not_full() {
+        let context = Context::standard();
+
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
+        let padding = 0;
+        let dict = hashmap! {
+            "=" => 1,
+            "+" => 2,
+            "a" => 3,
+            "b" => 4,
+            "c" => 5,
+        };
+        let dict = fix_dict(dict);
+        let spread = 3;
+        let (embedding, indices) = symbol.embed(&dict, padding, spread).unwrap();
+
+        assert_eq!(embedding, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
+        assert_eq!(indices.len(), 5);
+        assert_eq!(indices[0], vec![0, 1, 2, 5, 5]); // *=c
+        assert_eq!(indices[1], vec![1, 3, 4, 5, 0]); // a+b
+        assert_eq!(indices[2], vec![2, 5, 5, 5, 0]); // c
+        assert_eq!(indices[3], vec![3, 5, 5, 5, 1]); // a
+        assert_eq!(indices[4], vec![4, 5, 5, 5, 1]); // b
     }
 }

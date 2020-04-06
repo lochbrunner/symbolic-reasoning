@@ -4,6 +4,7 @@ from pycore import Context, Symbol, Decoration
 
 from typing import List
 import unittest
+import numpy.testing as npt
 
 
 class TestSymbol(unittest.TestCase):
@@ -109,3 +110,18 @@ class TestSymbol(unittest.TestCase):
 
         self.assertListEqual([str(p) for p in a.parts_bfs],
                              ['a*b+c*d', 'a*b', 'c*d', 'a', 'b', 'c', 'd'])
+
+    def test_embed(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, 'a+b=c*d')
+        embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
+        embedding, indices = symbol.embed(embed_dict, 0, 2)
+
+        npt.assert_equal(embedding, [1, 2, 3, 4, 5, 6, 7, 0])
+        npt.assert_equal(indices, [[0, 1, 2, 7],
+                                   [1, 3, 4, 0],
+                                   [2, 5, 6, 0],
+                                   [3, 7, 7, 1],
+                                   [4, 7, 7, 1],
+                                   [5, 7, 7, 2],
+                                   [6, 7, 7, 2]])
