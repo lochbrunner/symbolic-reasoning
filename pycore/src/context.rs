@@ -13,16 +13,14 @@ pub struct PyDeclaration {
 #[pymethods]
 impl PyDeclaration {
     #[new]
-    fn py_new(obj: &PyRawObject) {
-        obj.init({
-            PyDeclaration {
-                inner: Declaration {
-                    is_fixed: false,
-                    is_function: false,
-                    only_root: false,
-                },
-            }
-        });
+    fn py_new() -> Self {
+        PyDeclaration {
+            inner: Declaration {
+                is_fixed: false,
+                is_function: false,
+                only_root: false,
+            },
+        }
     }
 
     #[getter]
@@ -75,16 +73,14 @@ pub struct PyContext {
 #[pymethods]
 impl PyContext {
     #[new]
-    fn py_new(obj: &PyRawObject) {
-        obj.init({
-            PyContext {
-                inner: {
-                    core::Context {
-                        declarations: HashMap::new(),
-                    }
-                },
-            }
-        });
+    fn py_new() -> Self {
+        PyContext {
+            inner: {
+                core::Context {
+                    declarations: HashMap::new(),
+                }
+            },
+        }
     }
 
     #[staticmethod]

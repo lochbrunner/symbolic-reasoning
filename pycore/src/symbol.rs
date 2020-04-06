@@ -325,7 +325,7 @@ impl PySymbol {
     }
 
     #[text_signature = "($self, decorations, /)"]
-    fn latex_with_deco(&self, decorations: Vec<&PyDecoration>) -> PyResult<String> {
+    fn latex_with_deco(&self, decorations: Vec<PyDecoration>) -> PyResult<String> {
         let decorations = decorations
             .iter()
             .map(|deco| Decoration {
@@ -384,7 +384,7 @@ impl PyObjectProtocol for PySymbol {
         Ok(state.finish() as isize)
     }
 
-    fn __richcmp__(&'p self, other: &'p PySymbol, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PySymbol, op: CompareOp) -> PyResult<bool> {
         match op {
             CompareOp::Eq => Ok(*self.inner == *other.inner),
             CompareOp::Ne => Ok(*self.inner != *other.inner),

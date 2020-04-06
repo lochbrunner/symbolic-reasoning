@@ -24,12 +24,10 @@ fn create_empty_symbol() -> Symbol {
 #[pymethods]
 impl PySymbolBuilder {
     #[new]
-    fn py_new(obj: &PyRawObject) {
-        obj.init({
-            PySymbolBuilder {
-                inner: create_empty_symbol(),
-            }
-        });
+    fn py_new() -> Self {
+        PySymbolBuilder {
+            inner: create_empty_symbol(),
+        }
     }
 
     /// Adds childs at each arm uniformly

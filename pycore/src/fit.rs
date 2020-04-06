@@ -111,7 +111,7 @@ fn fit_and_apply(
                 &mapping,
                 || {
                     let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
-                    let symbol: &PySymbol = obj.extract(py)?;
+                    let symbol: PySymbol = obj.extract(py)?;
                     Ok((*symbol.inner).clone())
                 },
                 &orig.inner,
@@ -142,7 +142,7 @@ fn fit_at_and_apply(
                 &mapping,
                 || {
                     let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
-                    let symbol: &PySymbol = obj.extract(py)?;
+                    let symbol: PySymbol = obj.extract(py)?;
                     Ok((*symbol.inner).clone())
                 },
                 &orig.inner,
