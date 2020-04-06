@@ -67,8 +67,9 @@ files:
 generation:
   stages: [12,12,8,8,8,7,6,6,6,6,6,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
   max-depth: 10
-  min-working-density: 0.2
-  min-result-density: 0.25
+  max-size: 127
+  min-working-density: 0.1
+  min-result-density: 0.05
   distribution-suppression-exponent: 1.8
   blacklist-pattern:
     - (1*1)*(1*1)

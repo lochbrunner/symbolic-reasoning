@@ -96,6 +96,7 @@ impl PySample {
 pub struct PyContainer {
     pub max_depth: u32,
     pub max_spread: u32,
+    pub max_size: u32,
     pub samples: Vec<PySample>,
 }
 
@@ -109,6 +110,11 @@ impl PyContainer {
     #[getter]
     fn max_spread(&self) -> PyResult<u32> {
         Ok(self.max_spread)
+    }
+
+    #[getter]
+    fn max_size(&self) -> PyResult<u32> {
+        Ok(self.max_size)
     }
 
     #[getter]
@@ -139,6 +145,7 @@ impl PyBag {
             .map(|c| PyContainer {
                 max_depth: c.max_depth,
                 max_spread: c.max_spread,
+                max_size: c.max_size,
                 samples: c
                     .samples
                     .into_iter()

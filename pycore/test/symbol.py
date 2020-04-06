@@ -125,3 +125,9 @@ class TestSymbol(unittest.TestCase):
                                    [4, 7, 7, 1],
                                    [5, 7, 7, 2],
                                    [6, 7, 7, 2]])
+
+    def test_size(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, 'a+b=c*d')
+
+        self.assertEqual(symbol.size, 7)

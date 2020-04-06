@@ -6,7 +6,7 @@ extern crate serde_yaml;
 struct Files {
     #[serde(rename = "trainings-data")]
     pub trainings_data: String,
-    #[serde(rename = "trainings-data-trace")]
+    #[serde(rename = "trainings-data-traces")]
     pub trace_filename: String,
 }
 
@@ -23,6 +23,8 @@ struct Generation {
     pub blacklist_pattern: Vec<String>,
     #[serde(rename = "distribution-suppression-exponent")]
     pub distribution_suppression_exponent: f64,
+    #[serde(rename = "max-size")]
+    pub max_size: u32,
 }
 
 #[derive(Deserialize)]
@@ -40,6 +42,7 @@ pub struct Configuration {
     pub min_result_density: f32,
     pub blacklist_pattern: Vec<Symbol>,
     pub distribution_suppression_exponent: f64,
+    pub max_size: u32,
 }
 
 impl Configuration {
@@ -61,6 +64,7 @@ impl Configuration {
             max_depth: generation.max_depth,
             min_working_density: generation.min_working_density,
             min_result_density: generation.min_result_density,
+            max_size: generation.max_size,
             blacklist_pattern,
             distribution_suppression_exponent: generation.distribution_suppression_exponent,
             dump_filename: files.trainings_data,

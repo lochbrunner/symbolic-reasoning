@@ -189,6 +189,12 @@ impl Symbol {
         size as f32 / max_size as f32
     }
 
+    /// Returns the amount of childs
+    #[inline]
+    pub fn size(&self) -> u32 {
+        self.childs.iter().map(|c| c.size()).sum::<u32>() + 1
+    }
+
     fn print_tree_impl(&self, buffer: &mut String, indent: usize) {
         let ident = if self.ident.is_empty() {
             "?"
@@ -585,5 +591,13 @@ mod specs {
         assert_eq!(indices[2], vec![2, 5, 5, 5, 0]); // c
         assert_eq!(indices[3], vec![3, 5, 5, 5, 1]); // a
         assert_eq!(indices[4], vec![4, 5, 5, 5, 1]); // b
+    }
+
+    #[test]
+    fn size() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
+
+        assert_eq!(symbol.size(), 5);
     }
 }

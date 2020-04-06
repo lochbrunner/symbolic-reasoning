@@ -292,6 +292,11 @@ impl PySymbol {
         Ok(self.inner.depth)
     }
 
+    #[getter]
+    fn size(&self) -> PyResult<u32> {
+        Ok(self.inner.size())
+    }
+
     /// Assumes spread of 2.
     #[getter]
     fn density(&self) -> PyResult<f32> {

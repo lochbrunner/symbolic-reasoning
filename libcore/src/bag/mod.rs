@@ -29,6 +29,7 @@ pub struct Sample {
 pub struct SampleContainer {
     pub max_depth: u32,
     pub max_spread: u32,
+    pub max_size: u32,
     pub samples: Vec<Sample>,
 }
 
@@ -79,9 +80,14 @@ impl Bag {
         // Sort
         let mut max_spread: u32 = 0;
         let mut max_depth = 0;
+        let mut max_size: u32 = 0;
         for initial in initials.keys() {
             if max_depth < initial.depth {
                 max_depth = initial.depth;
+            }
+            let size = initial.size();
+            if max_size < size {
+                max_size = size;
             }
             for part in initial.parts() {
                 if max_spread < part.childs.len() as u32 {
@@ -114,6 +120,7 @@ impl Bag {
                     samples,
                     max_depth: depth,
                     max_spread,
+                    max_size,
                 }
             })
             .collect();
@@ -218,6 +225,7 @@ mod specs {
             samples: vec![SampleContainer {
                 max_depth: 1,
                 max_spread: 2,
+                max_size: 1,
                 samples: vec![
                     Sample {
                         initial: d,

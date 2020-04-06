@@ -323,7 +323,9 @@ fn main() {
     }
 
     println!("Converting to bag");
-    let bag = Bag::from_traces(&traces, &|s| s.density() >= config.min_result_density);
+    let bag = Bag::from_traces(&traces, &|s| {
+        s.density() >= config.min_result_density && s.size() <= config.max_size
+    });
 
     println!("Writing bag file to \"{}\" ...", &config.dump_filename);
     let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
@@ -335,11 +337,8 @@ fn main() {
             .iter()
             .map(DenseTrace::from_trace)
             .collect::<Vec<_>>();
-        let ext_pos = config.trace_filename.rfind('.').unwrap();
-        let file_stamp = &config.trace_filename[..ext_pos];
-        let extension = &config.trace_filename[ext_pos..];
         for (i, trace) in dense_traces.iter().enumerate() {
-            let filename = format!("{}_{}{}", file_stamp, i, extension);
+            let filename = config.trace_filename.replace('*', &i.to_string());
             println!("Writing trace file to \"{}\" ...", filename);
             let writer = BufWriter::new(File::create(filename).unwrap());
             trace.write_bincode(writer).expect("Writing trace file");
