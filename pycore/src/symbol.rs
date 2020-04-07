@@ -1,3 +1,4 @@
+use crate::bag::PyFitInfo;
 use crate::context::PyContext;
 use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_symbol_plain};
@@ -268,10 +269,21 @@ impl PySymbol {
         dict: HashMap<String, i16>,
         padding: i16,
         spread: usize,
-    ) -> PyResult<(Py<PyArray1<i16>>, Py<PyArray2<i16>>)> {
-        let (embedding, indices) = self.inner.embed(&dict, padding, spread).map_err(|msg| {
-            PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
-        })?;
+        fits: Vec<PyFitInfo>,
+    ) -> PyResult<(Py<PyArray1<i64>>, Py<PyArray2<i16>>, Py<PyArray1<i64>>)> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let (embedding, indices, label) =
+            self.inner
+                .embed(&dict, padding, spread, &fits)
+                .map_err(|msg| {
+                    PyErr::new::<KeyError, _>(format!(
+                        "Could not embed {}: \"{}\"",
+                        self.inner, msg
+                    ))
+                })?;
 
         let indices = Array::from_shape_vec(
             (indices.len(), indices[0].len()),
@@ -282,9 +294,9 @@ impl PySymbol {
         )
         .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
         let indices = indices.into_pyarray(py).to_owned();
-
+        let label = label.into_pyarray(py).to_owned();
         let embedding = embedding.into_pyarray(py).to_owned();
-        Ok((embedding, indices))
+        Ok((embedding, indices, label))
     }
 
     #[getter]

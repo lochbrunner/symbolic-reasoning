@@ -41,6 +41,7 @@ def create_samples_permutation(depth=2, spread=1, max_size=120):
 
 
 class PermutationDataset(Dataset):
+    '''Deprecated!'''
 
     def __init__(self, params, transform=None):
         self.transform = transform

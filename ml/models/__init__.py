@@ -13,17 +13,19 @@ from common.parameter_search import LearningParmeter
 from .lstm_tagger import LstmTreeTagger, GruTreeTagger
 from .fcn_tagger import FullyConnectedTagger
 from .fcn_segmenter import FullyConnectedSegmenter
-from .cnn_segmenter import TreeCnnSegmenter
+from .cnn_segmenter import TreeCnnSegmenter, TreeCnnUniqueIndices
 
 all_models = {'LstmTreeTagger': LstmTreeTagger,
               'GruTreeTagger': GruTreeTagger,
               'FullyConnectedTagger': FullyConnectedTagger,
               'FullyConnectedSegmenter': FullyConnectedSegmenter,
               'TreeCnnSegmenter': TreeCnnSegmenter,
+              'TreeCnnUniqueIndices': TreeCnnUniqueIndices
               }
 
 
 def create_model(model_name, **kwargs):
+    logging.info(f'Loading model {model_name}')
     if model_name in all_models:
         model = all_models[model_name](**kwargs)
     else:

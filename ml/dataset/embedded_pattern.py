@@ -72,7 +72,9 @@ def place_patterns_in_noise(depth=4, spread=2, max_size=120, pattern_depth=2, nu
 
 
 class EmbPatternDataset(DatasetBase):
-    '''Embeds different patterns in a noise'''
+    '''Deprected!
+
+    Embeds different patterns in a noise'''
 
     def __init__(self, params, transform=None, preprocess=False):
         super(EmbPatternDataset, self).__init__(transform, preprocess)

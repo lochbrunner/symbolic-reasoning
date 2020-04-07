@@ -98,13 +98,17 @@ class Error:
 def validate(model: torch.nn.Module, dataloader: DataLoader):
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
 
-    for x, y in dataloader:
+    for x, *s, y in dataloader:
         x = x.to(model.device)
         y = y.to(model.device)
         # Dimensions
         # x: batch * label * length
         # y: batch * length
-        x = model(x)
+        if len(s) > 0:
+            s = s[0].to(model.device)
+            x = model(x, s)
+        else:
+            x = model(x)
         assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'
         batch_size = x.size(0)
         x = x.cpu().numpy()

@@ -86,6 +86,60 @@ class PyIConv(nn.Module):
         return y
 
 
+class SequentialByPass(nn.Sequential):
+
+    def forward(self, x, s):
+        for module in self._modules.values():
+            if type(module) is IConv:
+                x = module(x, s)
+            else:
+                x = module(x)
+        return x
+
+
+class TreeCnnUniqueIndices(nn.Module):
+    def __init__(self, vocab_size, tagset_size, pad_token, kernel_size, hyper_parameter, **kwargs):
+        super(TreeCnnUniqueIndices, self).__init__()
+        # Config
+        self.config = {
+            'embedding_size': 32,
+            'hidden_layers': 2
+        }
+        self.config.update(hyper_parameter)
+
+        embedding_size = self.config['embedding_size']
+
+        # Embedding
+        self.embedding = nn.Embedding(
+            num_embeddings=vocab_size+1,
+            embedding_dim=embedding_size,
+            padding_idx=pad_token
+        )
+
+        def create_layer():
+            return IConv(embedding_size, embedding_size, kernel_size=kernel_size)
+
+        self.cnn_hidden = SequentialByPass(*[layer for _ in range(self.config['hidden_layers'])
+                                             for layer in [create_layer(), nn.LeakyReLU(inplace=True)]])
+        self.cnn_end = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
+
+    def forward(self, x, s, *args):
+        x = self.embedding(x)
+        x = self.cnn_hidden(x, s)
+        x = self.cnn_end(x, s)
+        # j must be second index: b,j,...
+        y = F.log_softmax(x, dim=2)
+        return torch.transpose(y, 1, 2)
+
+    @staticmethod
+    def activation_names():
+        return []
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+
 class TreeCnnSegmenter(nn.Module):
 
     def __init__(self, vocab_size, tagset_size, pad_token, spread, depth, hyper_parameter, **kwargs):
@@ -93,7 +147,7 @@ class TreeCnnSegmenter(nn.Module):
         # Config
         self.config = {
             'embedding_size': 32,
-            'layers': 2
+            'hidden_layers': 2
         }
         self.config.update(hyper_parameter)
         self.spread = spread
@@ -111,11 +165,11 @@ class TreeCnnSegmenter(nn.Module):
         index_tensor = _create_index_tensor(spread, depth)
 
         def create_layer():
-            return IConv(embedding_size, embedding_size, index_tensor)
+            return IConv(embedding_size, embedding_size, indices=index_tensor)
 
-        self.cnn_hidden = nn.Sequential(*[layer for _ in range(self.config['layers'])
+        self.cnn_hidden = nn.Sequential(*[layer for _ in range(self.config['hidden_layers'])
                                           for layer in [create_layer(), nn.LeakyReLU(inplace=True)]])
-        self.cnn_end = IConv(embedding_size, tagset_size, index_tensor)
+        self.cnn_end = IConv(embedding_size, tagset_size, indices=index_tensor)
 
     def forward(self, x, *args):
         x = self.embedding(x)

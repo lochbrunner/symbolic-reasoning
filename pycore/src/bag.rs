@@ -56,6 +56,11 @@ impl PyFitInfo {
 
 #[pymethods]
 impl PyFitInfo {
+    #[new]
+    fn py_new(rule_id: u32, path: Vec<usize>) -> Self {
+        PyFitInfo::new(bag::FitInfo { rule_id, path })
+    }
+
     #[getter]
     fn rule(&self) -> PyResult<u32> {
         Ok(self.data.rule_id)

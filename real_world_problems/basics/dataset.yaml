@@ -85,7 +85,7 @@ training:
   batch-size: 32
   learning-rate: 0.1 # Not needed here
   gradient-clipping: 0.1
-  model: TreeCnnSegmenter
+  model-name: TreeCnnUniqueIndices
   # Scenario
   scenario: bag
   filename: *bag

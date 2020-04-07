@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycore import Context, Symbol, Decoration
+from pycore import Context, Symbol, Decoration, FitInfo
 
 from typing import List
 import unittest
@@ -115,7 +115,9 @@ class TestSymbol(unittest.TestCase):
         context = Context.standard()
         symbol = Symbol.parse(context, 'a+b=c*d')
         embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
-        embedding, indices = symbol.embed(embed_dict, 0, 2)
+        fits = [FitInfo(2, [0])]
+        spread = 2
+        embedding, indices, label = symbol.embed(embed_dict, 0, spread, fits)
 
         npt.assert_equal(embedding, [1, 2, 3, 4, 5, 6, 7, 0])
         npt.assert_equal(indices, [[0, 1, 2, 7],
@@ -125,6 +127,7 @@ class TestSymbol(unittest.TestCase):
                                    [4, 7, 7, 1],
                                    [5, 7, 7, 2],
                                    [6, 7, 7, 2]])
+        npt.assert_equal(label, [0, 2, 0, 0, 0, 0, 0, 0])
 
     def test_size(self):
         context = Context.standard()

@@ -8,6 +8,7 @@ from common.node import Node
 from .symbol_builder import SymbolBuilder
 
 PAD_TOKEN = '<PAD>'
+PAD_INDEX = 0
 
 
 def ident_to_id(node: Node, idents: List = None):

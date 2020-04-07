@@ -53,12 +53,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         timer = Timer('Creating fresh workspace')
         dataset = create_scenario(params=scenario_params, device=device, pad_token=pad_token)
         model = create_model(learn_params.model_name,
-                             vocab_size=dataset.vocab_size,
-                             tagset_size=dataset.tag_size,
-                             pad_token=pad_token,
-                             spread=dataset.max_spread,
-                             depth=dataset.max_depth,
-                             hyper_parameter=learn_params.model_hyper_parameter)
+                             hyper_parameter=learn_params.model_hyper_parameter,
+                             **dataset.model_params)
         model.to(device)
 
         optimizer = optim.Adadelta(model.parameters())
@@ -111,11 +107,15 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
-        for x, y in training_dataloader:
+        for x, *s, y in training_dataloader:
             x = x.to(device)
             y = y.to(device)
             optimizer.zero_grad()
-            x = model(x)
+            if len(s) > 0:
+                s = s[0].to(device)
+                x = model(x, s)
+            else:
+                x = model(x)
             # batch x tags
             loss = loss_function(x, y)
             loss.backward()

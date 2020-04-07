@@ -62,16 +62,12 @@ def save(filename, model, optimizer, scenario_params, learn_params, dataset):
     if filename is None:
         return
     logging.info(f'Writing snapshot to {filename}')
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'model_name': model.__class__.__name__,
-        'learning_parameter': learn_params,
-        'scenario_parameter': scenario_params,
-        'tag_size': dataset.tag_size,
-        'vocab_size': dataset.vocab_size,
-        'spread': dataset.max_spread,
-        'depth': dataset.max_depth,
-        'idents': dataset.idents,
-        'rules': [str(rule) for rule in dataset.get_rules_raw()]  # For consistency checks
-    }, filename)
+    state = {'model_state_dict': model.state_dict(),
+             'optimizer_state_dict': optimizer.state_dict(),
+             'model_name': model.__class__.__name__,
+             'learning_parameter': learn_params,
+             'scenario_parameter': scenario_params,
+             'rules': [str(rule) for rule in dataset.get_rules_raw()]  # For consistency checks
+             }
+    state.update(dataset.model_params)
+    torch.save(state, filename)

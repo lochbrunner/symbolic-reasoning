@@ -1,3 +1,4 @@
+use crate::bag::FitInfo;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -279,12 +280,14 @@ impl Symbol {
         SymbolBfsIter::new(self)
     }
 
+    /// Should maybe moved to other location?
     pub fn embed(
         &self,
         dict: &HashMap<String, i16>,
         padding: i16,
         spread: usize,
-    ) -> Result<(Vec<i16>, Vec<Vec<i16>>), String> {
+        fits: &[FitInfo],
+    ) -> Result<(Vec<i64>, Vec<Vec<i16>>, Vec<i64>), String> {
         let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
         let mut embedded = self
             .iter_bfs()
@@ -292,12 +295,12 @@ impl Symbol {
             .map(|(i, s)| {
                 ref_to_index.insert(s, i as i16);
                 dict.get(&s.ident)
-                    .and_then(|i| Some(*i))
+                    .and_then(|i| Some(*i as i64))
                     .ok_or(format!("Unknown ident {}", s.ident))
             })
             .collect::<Result<Vec<_>, String>>()?;
         let padding_index = embedded.len() as i16;
-        embedded.push(padding);
+        embedded.push(padding as i64);
 
         // self, ..childs, (parent later)
         let mut index_map = self
@@ -327,7 +330,17 @@ impl Symbol {
             }
         }
 
-        return Ok((embedded, index_map));
+        // Compute label
+        let mut label = vec![0; embedded.len()];
+        for fit in fits.iter() {
+            let child = self
+                .at(&fit.path)
+                .ok_or(format!("Symbol {} has no element at {:?}", self, fit.path))?;
+            let index = ref_to_index[child] as usize;
+            label[index] = fit.rule_id as i64;
+        }
+
+        return Ok((embedded, index_map, label));
     }
 
     /// Returns the item at the specified path
@@ -553,7 +566,7 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 2;
-        let (embedding, indices) = symbol.embed(&dict, padding, spread).unwrap();
+        let (embedding, indices, _) = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
 
         assert_eq!(embedding, vec![1, 2, 3, 4, 5, 6, 7, 0]);
 
@@ -582,7 +595,7 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 3;
-        let (embedding, indices) = symbol.embed(&dict, padding, spread).unwrap();
+        let (embedding, indices, _) = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
 
         assert_eq!(embedding, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
         assert_eq!(indices.len(), 5);
@@ -591,6 +604,44 @@ mod specs {
         assert_eq!(indices[2], vec![2, 5, 5, 5, 0]); // c
         assert_eq!(indices[3], vec![3, 5, 5, 5, 1]); // a
         assert_eq!(indices[4], vec![4, 5, 5, 5, 1]); // b
+    }
+
+    #[test]
+    fn embed_labels() {
+        let context = Context::standard();
+
+        let symbol = Symbol::parse(&context, "a+b=c*d").unwrap();
+        let padding = 0;
+        let dict = hashmap! {
+            "=" => 1,
+            "+" => 2,
+            "*" => 3,
+            "a" => 4,
+            "b" => 5,
+            "c" => 6,
+            "d" => 7,
+        };
+        let dict = fix_dict(dict);
+        let spread = 2;
+        let (_, _, label) = symbol
+            .embed(
+                &dict,
+                padding,
+                spread,
+                &vec![
+                    FitInfo {
+                        rule_id: 1,
+                        path: vec![0, 0],
+                    },
+                    FitInfo {
+                        rule_id: 2,
+                        path: vec![0, 1],
+                    },
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(label, vec![0, 0, 0, 1, 2, 0, 0, 0,]);
     }
 
     #[test]
