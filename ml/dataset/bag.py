@@ -98,6 +98,44 @@ class BagDatasetSharedIndex(DatasetBase):
             'idents': self.idents
         }
 
+    @property
+    def collate_fn(self):
+        return None
+
+
+def pad(sample, width, pad_token=0):
+    '''Pad in first dimension'''
+    pad_width = width - sample.shape[0]
+    if sample.ndim == 1:
+        return np.pad(sample, (0, pad_width), 'constant', constant_values=(pad_token))
+    elif sample.ndim == 2:
+        return np.pad(sample, ((0, pad_width), (0, 0)), 'constant', constant_values=(pad_token))
+    else:
+        raise NotImplementedError(f'Padding of {sample.ndim} dim tensor not implemented yet!')
+
+
+def stack(samples, width):
+
+    samples = [torch.as_tensor(pad(sample, width)) for sample in samples]
+
+    out = None
+    if torch.utils.data.get_worker_info() is not None:
+        # If we're in a background process, concatenate directly into a
+        # shared memory tensor to avoid an extra copy
+        elem = samples[0]
+        numel = sum([x.numel() for x in samples])
+        storage = elem.storage()._new_shared(numel)
+        out = elem.new(storage)
+    return torch.stack(samples, 0, out=out)
+
+
+def dynamic_width_collate(batch):
+    max_width = max([sample[0].shape[0] for sample in batch])
+    # Transpose them
+    transposed = zip(*batch)
+
+    return [stack(channel, max_width) for channel in transposed]
+
 
 class BagDataset(Dataset):
 
@@ -151,23 +189,7 @@ class BagDataset(Dataset):
     #     return str(self.raw_samples[index][0])
 
     def _process_sample(self, sample):
-        # x, fit = sample
-        x, s, y = sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)
-        padding_index = x.shape[0] - 1
-
-        # TODO: Do padding in collate function
-        # such that we do not need global max size
-        pad_width = self._max_size - x.shape[0]
-        x = np.pad(x, (0, pad_width), 'constant', constant_values=(self.pad_token))
-        pad_width = self._max_size - s.shape[0]
-        s = np.pad(s, ((0, pad_width), (0, 0)), 'constant', constant_values=(padding_index))
-        pad_width = self._max_size - y.shape[0]
-        y = np.pad(y, (0, pad_width), 'constant', constant_values=(self.pad_token))
-
-        x = torch.as_tensor(x)
-        s = torch.as_tensor(s)
-        y = torch.as_tensor(y)
-        return x, s, y
+        return sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)
 
     @property
     def max_depth(self):
@@ -212,3 +234,7 @@ class BagDataset(Dataset):
             'kernel_size': self.spread+2,
             'idents': self.idents
         }
+
+    @property
+    def collate_fn(self):
+        return dynamic_width_collate

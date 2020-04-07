@@ -71,11 +71,13 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     # Loading data
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
-                           'num_workers': 1}
+                           'num_workers': 0,
+                           'collate_fn': dataset.collate_fn}
 
     validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
-                              'num_workers': 0}
+                              'num_workers': 0,
+                              'collate_fn': dataset.collate_fn}
     training_dataloader = data.DataLoader(train_set, **train_loader_params)
     validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
