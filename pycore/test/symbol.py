@@ -111,6 +111,12 @@ class TestSymbol(unittest.TestCase):
         self.assertListEqual([str(p) for p in a.parts_bfs],
                              ['a*b+c*d', 'a*b', 'c*d', 'a', 'b', 'c', 'd'])
 
+    def test_traverse_bfs_with_path(self):
+        context = Context.standard()
+        a = Symbol.parse(context, 'a*b+c*d')
+        paths = [p[0] for p in a.parts_bfs_with_path]
+        self.assertListEqual(paths, [[], [0], [1], [0, 0], [0, 1], [1, 0], [1, 1]])
+
     def test_embed(self):
         context = Context.standard()
         symbol = Symbol.parse(context, 'a+b=c*d')
@@ -126,7 +132,8 @@ class TestSymbol(unittest.TestCase):
                                    [3, 7, 7, 1],
                                    [4, 7, 7, 1],
                                    [5, 7, 7, 2],
-                                   [6, 7, 7, 2]])
+                                   [6, 7, 7, 2],
+                                   [7, 7, 7, 7]])
         npt.assert_equal(label, [0, 2, 0, 0, 0, 0, 0, 0])
 
     def test_size(self):

@@ -654,7 +654,6 @@ mod specs {
         let inner = Symbol::parse(&context, "c").unwrap();
 
         let scenarios = fit(&outer, &inner);
-        println!("Scenarios:\n{}", format_scenarios(&scenarios));
         assert!(scenarios.is_empty(), "No match expected");
     }
 
@@ -666,9 +665,6 @@ mod specs {
         let inner = Symbol::parse(&context, "a+1").unwrap();
 
         let scenarios = fit_at(&outer, &inner, &vec![0]);
-        for scenario in scenarios.iter() {
-            println!("{}", scenario);
-        }
         assert_eq!(scenarios.len(), 1);
         let scenario = scenarios.iter().nth(0).unwrap();
         assert_eq!(format_scenario(scenario), "a => A");

@@ -17,11 +17,13 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+type Path = Vec<usize>;
+
 /// Python Wrapper for core::dumper::Decoration
 #[pyclass(name=Decoration,subclass)]
 #[derive(Clone)]
 pub struct PyDecoration {
-    pub path: Vec<usize>,
+    pub path: Path,
     pub pre: String,
     pub post: String,
 }
@@ -29,7 +31,7 @@ pub struct PyDecoration {
 #[pymethods]
 impl PyDecoration {
     #[new]
-    fn py_new(path: Vec<usize>, pre: String, post: String) -> Self {
+    fn py_new(path: Path, pre: String, post: String) -> Self {
         PyDecoration { path, pre, post }
     }
 }
@@ -148,7 +150,7 @@ impl PyIterProtocol for PySymbolDfsIter {
 #[derive(Clone)]
 pub struct PySymbolAndPathDfsIter {
     pub parent: Rc<Symbol>,
-    pub stack: Vec<Vec<usize>>,
+    pub stack: Vec<Path>,
 }
 
 #[pyproto]
@@ -160,7 +162,7 @@ impl PyIterProtocol for PySymbolAndPathDfsIter {
         })
     }
 
-    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<(Vec<usize>, PySymbol)>> {
+    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<(Path, PySymbol)>> {
         match s.stack.pop() {
             None => Ok(None),
             Some(path) => {
@@ -173,6 +175,48 @@ impl PyIterProtocol for PySymbolAndPathDfsIter {
                     s.stack.push([&path[..], &[i]].concat());
                 }
                 Ok(Some((path, PySymbol::new(symbol))))
+            }
+        }
+    }
+}
+
+#[pyclass(name=SymbolAndPathIter)]
+#[derive(Clone)]
+pub struct PySymbolAndPathBfsIter {
+    pub parent: Rc<Symbol>,
+    pub queue: VecDeque<Path>,
+}
+
+impl PySymbolAndPathBfsIter {
+    pub fn new(symbol: &Rc<Symbol>) -> PySymbolAndPathBfsIter {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back(vec![]);
+        PySymbolAndPathBfsIter {
+            parent: symbol.clone(),
+            queue,
+        }
+    }
+}
+
+#[pyproto]
+impl PyIterProtocol for PySymbolAndPathBfsIter {
+    fn __iter__(s: PyRefMut<Self>) -> PyResult<PySymbolAndPathBfsIter> {
+        Ok(PySymbolAndPathBfsIter::new(&s.parent))
+    }
+
+    fn __next__(mut s: PyRefMut<Self>) -> PyResult<Option<(Path, PySymbol)>> {
+        match s.queue.pop_front() {
+            None => Ok(None),
+            Some(path) => {
+                let current = s
+                    .parent
+                    .at(&path)
+                    .unwrap_or_else(|| panic!("part at path: {:?}", path))
+                    .clone();
+                for (i, _) in current.childs.iter().enumerate() {
+                    s.queue.push_back([&path[..], &[i]].concat());
+                }
+                Ok(Some((path, PySymbol::new(current))))
             }
         }
     }
@@ -200,7 +244,7 @@ impl PySymbol {
     }
 
     #[text_signature = "($self, path, /)"]
-    fn at(&self, path: Vec<usize>) -> PyResult<PySymbol> {
+    fn at(&self, path: Path) -> PyResult<PySymbol> {
         match self.inner.at(&path) {
             None => Err(PyErr::new::<IndexError, _>("Index is out of bound")),
             Some(item) => Ok(PySymbol::new(item.clone())),
@@ -226,6 +270,11 @@ impl PySymbol {
             parent: self.inner.clone(),
             stack: vec![vec![]],
         })
+    }
+
+    #[getter]
+    fn parts_bfs_with_path(&self) -> PyResult<PySymbolAndPathBfsIter> {
+        Ok(PySymbolAndPathBfsIter::new(&self.inner))
     }
 
     /// Dumps the verbose order of operators with equal precedence
@@ -262,6 +311,7 @@ impl PySymbol {
             .collect())
     }
 
+    /// Unrolls the symbol tree using breath first traversing
     /// u16 is not supported by pytorch
     fn embed(
         &self,
@@ -384,7 +434,7 @@ impl PySymbol {
     }
 
     #[text_signature = "($self, decorations, /)"]
-    fn latex_with_colors(&self, colors: Vec<(String, Vec<usize>)>) -> PyResult<String> {
+    fn latex_with_colors(&self, colors: Vec<(String, Path)>) -> PyResult<String> {
         // Storing the color strings
         let colors_code = colors
             .iter()

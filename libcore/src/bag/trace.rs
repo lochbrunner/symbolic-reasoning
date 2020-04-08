@@ -704,8 +704,6 @@ mod specs {
             .map(|l| l.deduced.ident.clone())
             .collect::<Vec<String>>();
 
-        p!(steps);
-
         let expected = [
             "u", "D", "h", "g", "C", "f", "e", "v", "B", "d", "c", "A", "b", "a",
         ]

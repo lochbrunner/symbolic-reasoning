@@ -329,6 +329,7 @@ impl Symbol {
                 index_map[index].push(parent_index);
             }
         }
+        index_map.push(vec![padding_index; spread + 2]);
 
         // Compute label
         let mut label = vec![0; embedded.len()];
@@ -570,7 +571,7 @@ mod specs {
 
         assert_eq!(embedding, vec![1, 2, 3, 4, 5, 6, 7, 0]);
 
-        assert_eq!(indices.len(), 7);
+        assert_eq!(indices.len(), 8);
         assert_eq!(indices[0], vec![0, 1, 2, 7]); // *=+
         assert_eq!(indices[1], vec![1, 3, 4, 0]); // a+b
         assert_eq!(indices[2], vec![2, 5, 6, 0]); // c*d
@@ -578,6 +579,7 @@ mod specs {
         assert_eq!(indices[4], vec![4, 7, 7, 1]); // b
         assert_eq!(indices[5], vec![5, 7, 7, 2]); // c
         assert_eq!(indices[6], vec![6, 7, 7, 2]); // d
+        assert_eq!(indices[7], vec![7, 7, 7, 7]); // d
     }
 
     #[test]
@@ -598,12 +600,13 @@ mod specs {
         let (embedding, indices, _) = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
 
         assert_eq!(embedding, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
-        assert_eq!(indices.len(), 5);
+        assert_eq!(indices.len(), 6);
         assert_eq!(indices[0], vec![0, 1, 2, 5, 5]); // *=c
         assert_eq!(indices[1], vec![1, 3, 4, 5, 0]); // a+b
         assert_eq!(indices[2], vec![2, 5, 5, 5, 0]); // c
         assert_eq!(indices[3], vec![3, 5, 5, 5, 1]); // a
         assert_eq!(indices[4], vec![4, 5, 5, 5, 1]); // b
+        assert_eq!(indices[5], vec![5, 5, 5, 5, 5]); // padding
     }
 
     #[test]
