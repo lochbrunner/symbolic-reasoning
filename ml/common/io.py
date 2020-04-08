@@ -22,11 +22,7 @@ def load(filename, device=torch.device('cpu'), transform=None):
 
         learn_params = snapshot['learning_parameter']
         model = create_model(learn_params.model_name,
-                             vocab_size=dataset.vocab_size,
-                             tagset_size=dataset.tag_size,
-                             pad_token=padding_index,
-                             spread=dataset.max_spread,
-                             depth=dataset.max_depth,
+                             **dataset.model_params,
                              hyper_parameter=learn_params.model_hyper_parameter)
 
         model.load_state_dict(snapshot['model_state_dict'])

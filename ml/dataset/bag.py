@@ -178,15 +178,15 @@ class BagDataset(Dataset):
         else:
             self.samples = self.container
 
-    # def get_node(self, index):
-    #     return Node.from_rust(self.raw_samples[index][0])
+    def get_node(self, index):
+        return Node.from_rust(self.container[index].initial)
 
-    # def get_rule_of_sample(self, index):
-    #     rule_id = self.raw_samples[index][1].rule
-    #     return self.get_rule_raw(rule_id)
+    def get_sample(self, index):
+        return dynamic_width_collate([self[index]])
 
-    # def get_node_string(self, index):
-    #     return str(self.raw_samples[index][0])
+    def get_rule_of_sample(self, index):
+        rule_id = self.container[index].fits[0].rule
+        return self._rule_map[rule_id]
 
     def _process_sample(self, sample):
         return sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)

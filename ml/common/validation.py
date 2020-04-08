@@ -25,7 +25,7 @@ class Ratio:
         v = [(1. - self.topk(i+1)) * 100 for i in range(self.count_print)]
         v = [f'{i:.1f}%' for i in v]
         remaining = ', '.join(v[1:])
-        return f'{v[0]}% ({remaining})%)'
+        return f'{v[0]} ({remaining})'
 
     def update(self, mask, predict, truth):
         '''
