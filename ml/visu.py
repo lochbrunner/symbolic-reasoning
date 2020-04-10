@@ -14,6 +14,7 @@ from dash.dependencies import Input, Output
 import dash_html_components as html
 import dash_core_components as dcc
 from dash_katex import DashKatex
+from activation_dash_component import ActivationDashComponent
 
 # numpy
 import numpy as np
@@ -48,6 +49,15 @@ def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
 def create_ground_truth_string(sample):
     fits = [f'{fit.rule} @ {fit.path}' for fit in sample.fits]
     return ', '.join(fits)
+
+
+def create_ground_truth_rule_indices(sample):
+    parts_path = [p[0] for p in sample.initial.parts_bfs_with_path]
+
+    def get_loc(fit):
+        return [fit.rule, parts_path.index(fit.path)]
+
+    return [get_loc(fit) for fit in sample.fits]
 
 
 @torch.no_grad()
@@ -113,7 +123,7 @@ def main(args):
             dcc.Dropdown(id='activation-selector', options=[
                 {'label': name, 'value': name} for name in model.activation_names()],
                 value='scores'),
-            dcc.Graph(id='prediction-heat')
+            ActivationDashComponent(id='prediction-heat')
         ])
     ])
 
@@ -136,7 +146,7 @@ def main(args):
             Output(component_id='pattern-1', component_property='symbol'),
             Output(component_id='tag', component_property='children'),
             Output(component_id='tag_prediction', component_property='children'),
-            Output(component_id='prediction-heat', component_property='figure'),
+            Output(component_id='prediction-heat', component_property='data'),
             Output(component_id='initial', component_property='expression'),
             Output(component_id='pattern', component_property='expression'),
             Output(component_id='rule-name', component_property='children'),
@@ -159,11 +169,11 @@ def main(args):
         prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, *sample)
         prediction = f'Predict arg-max: {prediction}'
         pattern = Node('?')
-        x_label = [f'${rule.latex}$' for rule in dataset.get_rules_raw()]
-        x_label[0] = 'padding'
-        y_label = [f'@ ${part.latex}$' for part in initial.parts_bfs]
+        x_label = [f'{rule.latex}' for rule in dataset.get_rules_raw()]
+        x_label[0] = '\\text{padding}'
+        y_label = [f'{part.latex}' for part in initial.parts_bfs]
+        y_label.append('\\text{padding}')
 
-        green = '#22ff22'
         parts_path = [p[0] for p in initial.parts_bfs_with_path]
 
         rule_scores = scores[rule_id, :]
@@ -181,10 +191,10 @@ def main(args):
 
         gt_rule = dataset.get_rule_of_sample(sample_id)
 
-        trace = go.Heatmap(y=y_label, z=tag_scores, x=x_label, colorscale='Electric', colorbar={
-            'title': 'Score'}, showscale=True, name='\\LaTeX')
+        rules_coords = create_ground_truth_rule_indices(dataset.container[sample_id])
+        prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': rules_coords}
 
-        return node.as_dict(), pattern.as_dict(), ground_truth, prediction, {'data': [trace]}, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+        return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
 
     app.run_server(debug=True)
 
