@@ -21,11 +21,11 @@ named!(plus_operator<CompleteByteSlice, Token>,
 );
 
 named!(minus_operator<CompleteByteSlice, Token>,
-  do_parse!(tag!("-") >> (Token::Minus))
+  do_parse!(alt!(tag!("-")|tag!("−")) >> (Token::Minus))
 );
 
 named!(multiply_operator<CompleteByteSlice, Token>,
-  do_parse!(tag!("*") >> (Token::Multiply))
+  do_parse!(alt!(tag!("*")|tag!("⋅")) >> (Token::Multiply))
 );
 
 named!(power_operator<CompleteByteSlice, Token>,
@@ -230,6 +230,22 @@ mod specs {
       Token::Power,
       Token::Number(5),
       Token::Faculty,
+      Token::EOF,
+    ];
+
+    assert_eq!(actual, expected);
+  }
+
+  #[test]
+  fn special_operators() {
+    let input = "x−2⋅y".as_bytes();
+    let (_, actual) = lex_tokens(input).unwrap();
+    let expected = vec![
+      Token::Ident("x".to_owned()),
+      Token::Minus,
+      Token::Number(2),
+      Token::Multiply,
+      Token::Ident("y".to_owned()),
       Token::EOF,
     ];
 

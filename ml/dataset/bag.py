@@ -191,6 +191,9 @@ class BagDataset(Dataset):
     def _process_sample(self, sample):
         return sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)
 
+    def embed_custom(self, initial, fits=None):
+        return initial.embed(self._ident_dict, self.pad_token, self.spread, fits or [])
+
     @property
     def max_depth(self):
         return self._max_depth

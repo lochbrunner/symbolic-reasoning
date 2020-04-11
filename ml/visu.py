@@ -10,7 +10,7 @@ import logging
 import tree_dash_component
 import dash
 import plotly.graph_objs as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import dash_html_components as html
 import dash_core_components as dcc
 from dash_katex import DashKatex
@@ -28,6 +28,7 @@ from common.utils import Compose
 from common import io
 from dataset.transformers import Embedder, ident_to_id
 from dataset.generate import SymbolBuilder
+from pycore import Symbol, Context
 
 
 def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
@@ -61,7 +62,7 @@ def create_ground_truth_rule_indices(sample):
 
 
 @torch.no_grad()
-def predict_path_and_label(scenario_params, model, x, s, y):
+def predict_path_and_label(scenario_params, model, x, s, *args, **kwargs):
 
     x = model(x, s)
 
@@ -118,6 +119,8 @@ def main(args):
         html.Button('Prev', id='prev', style={'marginRight': '10px'}),
         html.Button('Next', id='next'),
         html.Span(f'rule: {dataset[0][1][1]}', id='tag', style={'paddingLeft': 10}),
+        dcc.Input(id='input-initial', type='text', placeholder='Initial symbol'),
+        html.Button('Test', id='test'),
         html.Div([
             html.P('-', id='tag_prediction'),
             dcc.Dropdown(id='activation-selector', options=[
@@ -140,6 +143,9 @@ def main(args):
         else:
             return max(0, value - 1)
 
+    global last_test_button_time
+    last_test_button_time = None
+
     @app.callback(
         [
             Output(component_id='symbol', component_property='symbol'),
@@ -158,43 +164,74 @@ def main(args):
         [
             Input(component_id='selector', component_property='value'),
             Input(component_id='rule-selector', component_property='value'),
-            Input(component_id='activation-selector', component_property='value')
-        ]
+            Input(component_id='activation-selector', component_property='value'),
+            Input('test', 'n_clicks_timestamp')
+        ],
+        [State('input-initial', 'value')]
     )
-    def update_selection(sample_id, rule_id, activation_name):
-        initial = dataset.container[sample_id].initial
-        sample = dataset.get_sample(sample_id)
-        node = dataset.get_node(sample_id)
-        ground_truth = 'Ground truth: ' + create_ground_truth_string(dataset.container[sample_id])
-        prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, *sample)
-        prediction = f'Predict arg-max: {prediction}'
-        pattern = Node('?')
+    def update_selection(sample_id, rule_id, activation_name, test_user_input, user_initial):
+        global last_test_button_time
         x_label = [f'{rule.latex}' for rule in dataset.get_rules_raw()]
         x_label[0] = '\\text{padding}'
-        y_label = [f'{part.latex}' for part in initial.parts_bfs]
-        y_label.append('\\text{padding}')
-
-        parts_path = [p[0] for p in initial.parts_bfs_with_path]
-
-        rule_scores = scores[rule_id, :]
-        rule_scores = (rule_scores - rule_scores.min()) / (rule_scores.max() - rule_scores.min())*255
 
         def create_color(value):
             v = int(value)
             return "#{0:0{1}x}0000".format(v, 2)
 
-        colors = [(create_color(score), path)
-                  for path, score in zip(parts_path, rule_scores)]
+        if test_user_input is None or test_user_input == last_test_button_time:
+            initial = dataset.container[sample_id].initial
+            sample = dataset.get_sample(sample_id)
+            node = dataset.get_node(sample_id)
+            ground_truth = 'Ground truth: ' + create_ground_truth_string(dataset.container[sample_id])
+            prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, *sample)
+            prediction = f'Predict arg-max per sub-tree: {prediction}'
+            pattern = Node('?')
+            y_label = [f'{part.latex}' for part in initial.parts_bfs]
+            y_label.append('\\text{padding}')
 
-        colored_initial = initial.latex_with_colors(colors)
-        rule = dataset.get_rule_raw(rule_id)
+            parts_path = [p[0] for p in initial.parts_bfs_with_path]
 
-        gt_rule = dataset.get_rule_of_sample(sample_id)
+            rule_scores = scores[rule_id, :]
+            rule_scores = (rule_scores - rule_scores.min()) / (rule_scores.max() - rule_scores.min())*255
 
-        rules_coords = create_ground_truth_rule_indices(dataset.container[sample_id])
-        prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': rules_coords}
+            colors = [(create_color(score), path)
+                      for path, score in zip(parts_path, rule_scores)]
 
-        return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+            colored_initial = initial.latex_with_colors(colors)
+            rule = dataset.get_rule_raw(rule_id)
+
+            gt_rule = dataset.get_rule_of_sample(sample_id)
+
+            rules_coords = create_ground_truth_rule_indices(dataset.container[sample_id])
+            prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': rules_coords}
+
+            return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+        else:
+            last_test_button_time = test_user_input
+            context = Context.standard()
+            initial = Symbol.parse(context, user_initial)
+            pattern = Node('?')
+            node = Node.from_rust(initial)
+            ground_truth = 'Not available'
+            x, s, _ = dataset.embed_custom(initial)
+            x = torch.unsqueeze(torch.as_tensor(x), 0)
+            s = torch.unsqueeze(torch.as_tensor(s), 0)
+            prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, x, s)
+            y_label = [f'{part.latex}' for part in initial.parts_bfs]
+            prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': []}
+
+            # Colored initial
+            rule_scores = scores[rule_id, :]
+            rule_scores = (rule_scores - rule_scores.min()) / (rule_scores.max() - rule_scores.min())*255
+            parts_path = [p[0] for p in initial.parts_bfs_with_path]
+
+            colors = [(create_color(score), path)
+                      for path, score in zip(parts_path, rule_scores)]
+
+            colored_initial = initial.latex_with_colors(colors)
+            rule = dataset.get_rule_raw(rule_id)
+
+            return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, '\\text{n.a.}', 'n.a.'
 
     app.run_server(debug=True)
 

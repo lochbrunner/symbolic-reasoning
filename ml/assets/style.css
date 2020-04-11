@@ -26,6 +26,12 @@
     margin: 70px 30px;
     display: block;
 }
+
+#input-initial {
+    margin-left: 50px;
+    margin-right: 10px;
+}
+
 #rule-name {
     margin-top: 30px;
     font-size: 1.5em;
