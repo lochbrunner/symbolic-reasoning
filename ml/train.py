@@ -60,8 +60,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         optimizer = optim.Adadelta(model.parameters())
         timer.stop_and_log()
 
-    model.train()
-
     validation_ratio = 0.1
     validation_size = int(len(dataset) * validation_ratio)
     trainings_size = len(dataset) - validation_size
@@ -106,6 +104,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     logbook = []
 
     timer = Timer(f'Training per sample:')
+    model.train()
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
@@ -127,7 +126,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             epoch_loss += loss
         if epoch % exe_params.report_rate == 0:
             timer.pause()
+            model.eval()
             error = validate(model, validation_dataloader)
+            model.train()
             logbook.append((epoch, error))
             clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
@@ -152,6 +153,12 @@ def load_config(filename):
     with open(filename, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         return config['training']
+
+
+def load_model_hyperparameter(filename):
+    with open(filename, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        return config['training']['model-parameter']
 
 
 if __name__ == '__main__':
@@ -207,6 +214,7 @@ if __name__ == '__main__':
     # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
     main(
         exe_params=ExecutionParameter(**vars(args)),
-        learn_params=LearningParmeter(**vars(args)),
+        learn_params=LearningParmeter(model_hyper_parameter=load_model_hyperparameter(args.config),
+                                      **vars(args)),
         scenario_params=ScenarioParameter(**vars(args))
     )

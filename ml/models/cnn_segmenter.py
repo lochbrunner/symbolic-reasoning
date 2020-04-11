@@ -103,7 +103,8 @@ class TreeCnnUniqueIndices(nn.Module):
         # Config
         self.config = {
             'embedding_size': 32,
-            'hidden_layers': 2
+            'hidden_layers': 2,
+            'dropout': 0.1,
         }
         self.config.update(hyper_parameter)
 
@@ -120,7 +121,10 @@ class TreeCnnUniqueIndices(nn.Module):
             return IConv(embedding_size, embedding_size, kernel_size=kernel_size)
 
         self.cnn_hidden = SequentialByPass(*[layer for _ in range(self.config['hidden_layers'])
-                                             for layer in [create_layer(), nn.LeakyReLU(inplace=True)]])
+                                             for layer in [
+                                                 create_layer(),
+                                                 nn.LeakyReLU(inplace=True),
+                                                 nn.Dropout(p=self.config['dropout'], inplace=False)]])
         self.cnn_end = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
 
     def forward(self, x, s, *args):

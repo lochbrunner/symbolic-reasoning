@@ -61,7 +61,7 @@ files:
   working-folder: experiments
   trainings-data: &bag experiments/bag-basic.bin
   trainings-data-traces: experiments/bag-basic_*.tr
-  model: &model experiments/bag-basic.sp
+  model: &model experiments/bag-basic_low.sp
   training-statistics: &training-statistics experiments/training-statistics.yaml
   evaluation-results: experiments/evaluation-results.yaml
 generation:
@@ -90,6 +90,10 @@ training:
   scenario: bag
   filename: *bag
   statistics: *training-statistics
+  model-parameter:
+    embedding_size: 32
+    hidden_layers: 1
+    dropout: 0.1
 evaluation:
   beam-size: 40
   num_epochs: 5
