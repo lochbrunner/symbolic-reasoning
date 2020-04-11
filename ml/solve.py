@@ -57,8 +57,38 @@ class Statistics:
 
 
 class Inferencer:
+    def __init__(self, model_filename):
+        self.model, snapshot = io.load_model(model_filename)
+        self.model.eval()
+        # Copy of BagDataset
+        self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(snapshot['idents'])}
+        self.spread = snapshot['kernel_size'] - 2
+        self.pad_token = snapshot['pad_token']
+
+    def __call__(self, initial, count):
+        # x, s, _ = self.dataset.embed_custom(initial)
+        x, s, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [])
+        x = torch.unsqueeze(torch.as_tensor(x, device=self.model.device), 0)
+        s = torch.unsqueeze(torch.as_tensor(s, device=self.model.device), 0)
+
+        y = self.model(x, s)
+        y = y.squeeze()  # shape: rules, localisation
+        y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
+
+        parts_path = [p[0] for p in initial.parts_bfs_with_path]
+        i = (-y).flatten().argsort()
+
+        def calc(n):
+            p = np.unravel_index(i[n], y.shape)
+            return p[0]+1, parts_path[p[1]]  # rule at path
+
+        return [calc(i) for i in range(count)]
+
+
+class SharedInferencer:
     def __init__(self, model_filename, depth=None):
-        self.model, self.idents, _ = io.load_model(model_filename, depth=depth)
+        self.model, snapshot = io.load_model(model_filename, depth=depth)
+        self.idents = snapshot['idents']
         self.model.eval()
         self.spread = self.model.spread
         self.depth = self.model.depth
@@ -170,28 +200,32 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def solve_training_problems(training_traces, scenario, model, rule_mapping, **kwargs):
+def solve_training_problems(training_traces, scenario, model, rule_mapping, max_steps_in_training_data, **kwargs):
 
     def variable_generator():
         return Symbol.parse(scenario.declarations, 'u')
 
-    inferencer = Inferencer(model, depth=9)
+    inferencer = Inferencer(model)
 
     failed = 0
     succeeded = 0
+    seen = set()
     for filename in glob(training_traces):
         logging.info(f'Evaluating {filename} ...')
         trace = Trace.load(filename)
         for calculation in trace.unroll:
             conclusion = calculation.steps[0].initial
-            condition = calculation.steps[-1].initial
+            steps_count = min(max_steps_in_training_data, len(calculation.steps)-1)
+            condition = calculation.steps[steps_count].initial
+            if condition in seen:
+                continue
+            seen.add(condition)
             solution, _ = beam_search(inferencer, rule_mapping, condition,
                                       [conclusion], variable_generator, **kwargs)
             if solution is not None:
                 succeeded += 1
             else:
                 failed += 1
-            logging.info(f'{succeeded} succeeded out of {succeeded+failed}')
 
     logging.info(f'{succeeded} of {succeeded+failed} training traces succeeded')
     return {'succeeded': succeeded, 'failed': failed}
@@ -281,6 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('--beam-size', default=10)
     parser.add_argument('--results-filename')
     parser.add_argument('--training-traces')
+    parser.add_argument('--max-steps-in-training-data')
     # Model
     parser.add_argument('-m', '--model', help='Filename of the model snapshot')
     args = parser.parse_args()

@@ -36,22 +36,23 @@ def load_rules(filename):
     return snapshot['rules']
 
 
-def load_model(filename, spread=None, depth=None):
+def load_model(filename, spread=None, depth=None, kernel_size=None):
     with Timer(f'Loading snapshot from {filename}'):
         snapshot = torch.load(filename)
         learn_params = snapshot['learning_parameter']
         padding_index = 0
-        tag_size = snapshot['tag_size']
+        tag_size = snapshot['tagset_size']
         vocab_size = snapshot['vocab_size']
         model = create_model(learn_params.model_name,
                              vocab_size=vocab_size,
                              tagset_size=tag_size,
                              pad_token=padding_index,
-                             spread=spread or snapshot['spread'],
-                             depth=depth or snapshot['depth'],
+                             spread=spread or snapshot['spread']if 'spread' in snapshot else None,
+                             depth=depth or snapshot['depth'] if 'depth' in snapshot else None,
+                             kernel_size=kernel_size or snapshot['kernel_size'] if 'kernel_size' in snapshot else None,
                              hyper_parameter=learn_params.model_hyper_parameter)
         model.load_state_dict(snapshot['model_state_dict'])
-        return model, snapshot['idents'], snapshot['rules']
+        return model, snapshot
 
 
 def save(filename, model, optimizer, scenario_params, learn_params, dataset):

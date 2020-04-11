@@ -62,7 +62,7 @@ def create_ground_truth_rule_indices(sample):
 
 
 @torch.no_grad()
-def predict_path_and_label(scenario_params, model, x, s, *args, **kwargs):
+def predict_path_and_label(model, x, s, *args, **kwargs):
 
     x = model(x, s)
 
@@ -183,7 +183,7 @@ def main(args):
             sample = dataset.get_sample(sample_id)
             node = dataset.get_node(sample_id)
             ground_truth = 'Ground truth: ' + create_ground_truth_string(dataset.container[sample_id])
-            prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, *sample)
+            prediction, tag_scores, scores = predict_path_and_label(model, *sample)
             prediction = f'Predict arg-max per sub-tree: {prediction}'
             pattern = Node('?')
             y_label = [f'{part.latex}' for part in initial.parts_bfs]
@@ -216,7 +216,7 @@ def main(args):
             x, s, _ = dataset.embed_custom(initial)
             x = torch.unsqueeze(torch.as_tensor(x), 0)
             s = torch.unsqueeze(torch.as_tensor(s), 0)
-            prediction, tag_scores, scores = predict_path_and_label(scenario_params, model, x, s)
+            prediction, tag_scores, scores = predict_path_and_label(model, x, s)
             y_label = [f'{part.latex}' for part in initial.parts_bfs]
             prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': []}
 

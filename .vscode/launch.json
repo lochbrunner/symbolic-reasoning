@@ -57,14 +57,14 @@
             "request": "launch",
             "program": "${workspaceFolder}/ml/solve.py",
             "args": [
-                "-v",
-                "-m",
-                "${workspaceFolder}/snapshots/cnn_tree_bag.sp",
-                "--scenario",
-                "${workspaceFolder}/real_world_problems/basics/dataset.yaml"
+                "--config",
+                "${workspaceFolder}/real_world_problems/basics/dataset.yaml",
+                "--log",
+                "info",
+                "--solve-training",
             ],
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/ml",
+            "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
         {
