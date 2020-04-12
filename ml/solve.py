@@ -3,6 +3,7 @@
 import logging
 import yaml
 from glob import glob
+from time import time
 
 import numpy as np
 
@@ -86,6 +87,8 @@ class Inferencer:
 
 
 class SharedInferencer:
+    '''Deprecated'''
+
     def __init__(self, model_filename, depth=None):
         self.model, snapshot = io.load_model(model_filename, depth=depth)
         self.idents = snapshot['idents']
@@ -200,7 +203,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def solve_training_problems(training_traces, scenario, model, rule_mapping, max_steps_in_training_data, **kwargs):
+def solve_training_problems(training_traces, scenario, model, rule_mapping, training_data_max_steps, **kwargs):
 
     def variable_generator():
         return Symbol.parse(scenario.declarations, 'u')
@@ -209,29 +212,33 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, max_
 
     failed = 0
     succeeded = 0
+    total_duration = 0.
     seen = set()
     for filename in glob(training_traces):
         logging.info(f'Evaluating {filename} ...')
         trace = Trace.load(filename)
         for calculation in trace.unroll:
             conclusion = calculation.steps[0].initial
-            steps_count = min(max_steps_in_training_data, len(calculation.steps)-1)
+            steps_count = min(training_data_max_steps, len(calculation.steps)-1)
             condition = calculation.steps[steps_count].initial
             if condition in seen:
                 continue
             seen.add(condition)
+            start_time = time()
             solution, _ = beam_search(inferencer, rule_mapping, condition,
                                       [conclusion], variable_generator, **kwargs)
+            total_duration += time() - start_time
             if solution is not None:
                 succeeded += 1
             else:
                 failed += 1
 
     logging.info(f'{succeeded} of {succeeded+failed} training traces succeeded')
-    return {'succeeded': succeeded, 'failed': failed}
+    total = succeeded + failed
+    return {'succeeded': succeeded, 'failed': failed, 'total': total, 'mean-duration': total_duration / total}
 
 
-def main(scenario, model, results_filename, training_traces, solve_training, **kwargs):
+def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, **kwargs):
     with Timer('Loading model'):
         scenario = Scenario.load(scenario)
 
@@ -249,11 +256,19 @@ def main(scenario, model, results_filename, training_traces, solve_training, **k
         if str(scenario_rule) not in used_rules:
             logging.warning(f'{scenario_rule} was not in the training of the model')
 
+    training_statistics = []
     if solve_training:
-        training_statistics = solve_training_problems(
-            training_traces, scenario, model, rule_mapping, **kwargs)
-    else:
-        training_statistics = {}
+        bs = [int(s) for s in str(training_data_beam_size).split(':')]
+        if len(bs) == 1:
+            beam_size_range = bs
+        else:
+            beam_size_range = range(*bs)
+        for bs in beam_size_range:
+            logging.info(f'Using beam size {bs}')
+            training_statistic = solve_training_problems(
+                training_traces, scenario, model, rule_mapping, beam_size=bs, **kwargs)
+            training_statistic['beam-size'] = bs
+            training_statistics.append(training_statistic)
 
     problem_statistics = []
 
@@ -270,7 +285,7 @@ def main(scenario, model, results_filename, training_traces, solve_training, **k
 
         with Timer('Solving problem'):
             solution, statistic = beam_search(Inferencer(model), rule_mapping, problem.condition,
-                                              [problem.conclusion], variable_generator, **kwargs)
+                                              [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:
             trace = []
@@ -296,12 +311,20 @@ def main(scenario, model, results_filename, training_traces, solve_training, **k
 
 
 def load_config(filename):
+    def unroll_nested_dict(dictionary, parent=''):
+        for key, value in dictionary.items():
+            if type(value) in (str, int, float):
+                yield (f'{parent}{key}', value)
+            elif type(value) is dict:
+                for pair in unroll_nested_dict(value, f'{parent}{key}-'):
+                    yield pair
+
     with open(filename, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         return {'model': config['files']['model'],
                 'results-filename': config['files']['evaluation-results'],
                 'training-traces': config['files']['trainings-data-traces'],
-                **config['evaluation']
+                **{k: v for k, v in unroll_nested_dict(config['evaluation'])}
                 }
 
 
@@ -312,10 +335,11 @@ if __name__ == '__main__':
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
-    parser.add_argument('--beam-size', default=10)
+    parser.add_argument('--problems-beam-size', default=10)
     parser.add_argument('--results-filename')
     parser.add_argument('--training-traces')
-    parser.add_argument('--max-steps-in-training-data')
+    parser.add_argument('--training-data-max-steps')
+    parser.add_argument('--training-data-beam-size')
     # Model
     parser.add_argument('-m', '--model', help='Filename of the model snapshot')
     args = parser.parse_args()

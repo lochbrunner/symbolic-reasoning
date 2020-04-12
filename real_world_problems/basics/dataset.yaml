@@ -95,6 +95,9 @@ training:
     hidden_layers: 1
     dropout: 0.1
 evaluation:
-  beam-size: 20
   num_epochs: 30
-  max-steps-in-training-data: -1
+  problems:
+    beam-size: 10
+  training-data:
+    beam-size: '1:15'
+    max-steps: -1

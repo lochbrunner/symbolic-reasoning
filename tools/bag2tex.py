@@ -193,25 +193,56 @@ def symbols(trace, stage, current=0):
     return [s for c in trace['childs'] for s in symbols(c, stage, current+1)]
 
 
-def create_parent_map(trace, map=None):
+def create_parent_map(trace, mapping=None):
     '''Returns a map which maps child id to parent id'''
-    if map is None:
-        map = {}
+    if mapping is None:
+        mapping = {}
     for child in trace['childs']:
-        map[id(child)] = id(trace)
-        create_parent_map(child, map)
-    return map
+        mapping[id(child)] = id(trace)
+        create_parent_map(child, mapping)
+    return mapping
+
+
+def write_eval_on_training_data(f, results):
+    f.write('\\subsection{Trainings Data}\n')
+    trainings_traces = results['training-traces']
+
+    x = [trace['beam-size'] for trace in trainings_traces]
+    suc_color = 'tab:blue'
+    success_rate = [trace['succeeded'] / trace['total']
+                    for trace in trainings_traces]
+    duration = [trace['mean-duration']*1000. for trace in trainings_traces]
+
+    plt.title('Solving success on trainings data')
+    ax = plt.gca()
+    ax.plot(x, success_rate, color=suc_color)
+    ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
+    ax.set_xlabel('beam size')
+    ax.set_ylabel('successful solving', color=suc_color)
+    ax.tick_params(axis='y', labelcolor=suc_color)
+
+    dur_color = 'tab:orange'
+    ax_duration = ax.twinx()
+    ax_duration.set_ylabel('duration [ms]', color=dur_color)
+    ax_duration.plot(x, duration, color=dur_color)
+    ax_duration.tick_params(axis='y', labelcolor=dur_color)
+
+    tikzplotlib.clean_figure()
+    f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
+    plt.clf()
+    f.write('\\\\')
 
 
 def evaluation_results(f, scenario):
     f.write('\n\\section{Evaluation Results}\n')
-
-    f.write('\\subsection{Problems}\n')
-    beam_size = scenario['evaluation']['beam-size']
-    f.write(f'Beam size: {beam_size}\\\n')
-
     with open(scenario['files']['evaluation-results'], 'r') as sf:
         results = yaml.load(sf, Loader=yaml.FullLoader)
+
+    write_eval_on_training_data(f, results)
+
+    f.write('\\subsection{Problems}\n')
+    beam_size = scenario['evaluation']['problems']['beam-size']
+    f.write(f'Beam size: {beam_size}\\\n')
 
     for problem in results['problems']:
         problem = Namespace(problem)
