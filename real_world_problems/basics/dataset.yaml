@@ -71,7 +71,9 @@ generation:
   min-working-density: 0.1
   min-result-density: 0.05
   distribution-suppression-exponent: 1.8
-  augmentation: true # Permuting free variables
+  augmentation: 
+    enabled: true # Permuting free variables
+    factor: 10
   blacklist-pattern:
     - (1*1)*(1*1)
     - (0+0)+(0+0)

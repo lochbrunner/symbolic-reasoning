@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::configuration::Configuration;
 use core::bag::trace::ApplyInfo;
 use core::Symbol;
@@ -63,5 +65,73 @@ pub fn filter_out_blacklist<'a>(config: &Configuration, apply: &'a &ApplyInfo<'_
 
 /// Should find terms which contain the same pattern (depth >= 2) is more than n times
 pub fn filter_out_repeating_patterns<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
+    let mut pattern_occurrences: HashMap<&Symbol, i32> = HashMap::new();
+    for sub in apply.deduced.iter_bfs() {
+        if sub.operator() {
+            if let Some(entry) = pattern_occurrences.get_mut(sub) {
+                *entry += 1;
+                if *entry > 2 {
+                    return false;
+                }
+            } else {
+                pattern_occurrences.insert(sub, 1);
+            }
+        }
+    }
     true
+}
+
+#[cfg(test)]
+mod specs {
+    use super::*;
+    use crate::Context;
+    use core::Rule;
+
+    #[test]
+    fn filter_out_repeating_patterns_three_sums() {
+        let context = Context::standard();
+        let rule = &Rule::parse(&context, "a=>a").unwrap()[0];
+        let apply = ApplyInfo {
+            rule,
+            path: vec![],
+            initial: Symbol::parse(&context, "a").unwrap(),
+            deduced: Symbol::parse(&context, "(1+1)+a*(1+1)+b*(1+1)").unwrap(),
+        };
+
+        let actual = filter_out_repeating_patterns(&&apply);
+
+        assert_eq!(actual, false);
+    }
+
+    #[test]
+    fn filter_out_repeating_patterns_two_sums() {
+        let context = Context::standard();
+        let rule = &Rule::parse(&context, "a=>a").unwrap()[0];
+        let apply = ApplyInfo {
+            rule,
+            path: vec![],
+            initial: Symbol::parse(&context, "a").unwrap(),
+            deduced: Symbol::parse(&context, "(1+1)+(1+1)").unwrap(),
+        };
+
+        let actual = filter_out_repeating_patterns(&&apply);
+
+        assert_eq!(actual, true);
+    }
+
+    #[test]
+    fn filter_out_repeating_patterns_three_variables() {
+        let context = Context::standard();
+        let rule = &Rule::parse(&context, "a=>a").unwrap()[0];
+        let apply = ApplyInfo {
+            rule,
+            path: vec![],
+            initial: Symbol::parse(&context, "a").unwrap(),
+            deduced: Symbol::parse(&context, "1+1+1").unwrap(),
+        };
+
+        let actual = filter_out_repeating_patterns(&&apply);
+
+        assert_eq!(actual, true);
+    }
 }

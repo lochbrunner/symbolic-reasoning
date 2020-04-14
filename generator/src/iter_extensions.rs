@@ -57,6 +57,9 @@ pub enum Strategy {
     /// Should they be unique?
     Random(bool),
     Uniform(usize),
+    /// For testing and debugging
+    #[cfg(test)]
+    All,
 }
 
 pub struct PickStateVec<'a, T> {
@@ -73,6 +76,18 @@ impl<'a, T> Iterator for PickStateVec<'a, T> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.strategy {
+            #[cfg(test)]
+            Strategy::All => {
+                let index = self.cursor.ceil() as usize;
+                if index < self.left_slice.len() {
+                    let item = self.left_slice.get(index);
+                    self.cursor += 1.;
+                    item
+                } else {
+                    self.cursor = 0.;
+                    None
+                }
+            }
             Strategy::Uniform(count) => {
                 let step_size = (self.left_slice.len() as f32 - 0.0) / (count as f32);
                 let item = self.left_slice.get(self.cursor.ceil() as usize);
@@ -232,5 +247,13 @@ mod specs {
         assert_eq!(actual.len(), input.len());
         let unique: HashSet<_> = actual.into_iter().collect();
         assert_eq!(unique.len(), input.len());
+    }
+
+    #[test]
+    fn pick_all() {
+        let input = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let actual = input.pick(Strategy::All).cloned().collect::<Vec<i32>>();
+        assert_eq!(actual.len(), input.len());
+        assert_eq!(actual, input);
     }
 }

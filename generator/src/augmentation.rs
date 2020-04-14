@@ -1,14 +1,41 @@
+use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use core::bag::FitInfo;
 use core::Symbol;
 
-fn create_combinations<'a, T>(length: usize, items: &[&'a T]) -> Vec<Vec<&'a T>> {
+pub enum AugmentationStrategy {
+    #[cfg(test)]
+    Full,
+    Random(usize),
+}
+
+fn create_combinations<'a, T>(
+    length: usize,
+    items: &[&'a T],
+    strategy: AugmentationStrategy,
+) -> Vec<Vec<&'a T>> {
     let length = length as u32;
     let num_items = items.len();
     let num = num_items.pow(length);
     let mut combinations = Vec::with_capacity(num);
-    for i in 0..num {
+    let indices = match strategy {
+        #[cfg(test)]
+        AugmentationStrategy::Full => (0..num).collect::<Vec<_>>(),
+        AugmentationStrategy::Random(size) => {
+            let mut set: HashSet<usize> = HashSet::new();
+            let mut rng: ThreadRng = rand::thread_rng();
+            while set.len() < size {
+                let proposal = rng.gen_range(0, num);
+                if !set.contains(&proposal) {
+                    set.insert(proposal);
+                }
+            }
+            set.into_iter().collect::<Vec<_>>()
+        }
+    };
+
+    for i in indices {
         let mut combination = vec![];
         for j in 0..length {
             let index = (i / num_items.pow(j)) % num_items;
@@ -22,6 +49,7 @@ fn create_combinations<'a, T>(length: usize, items: &[&'a T]) -> Vec<Vec<&'a T>>
 pub fn augment_with_permuted_free_idents<'a>(
     free_idents: &HashSet<&str>,
     leafs: &[&Symbol],
+    strategy: AugmentationStrategy,
     orig: (&Symbol, FitInfo),
 ) -> Vec<(Symbol, FitInfo)> {
     // Assume each alphabetically char is free
@@ -37,7 +65,7 @@ pub fn augment_with_permuted_free_idents<'a>(
         }
     }
     //
-    create_combinations(per_mapping.len(), leafs)
+    create_combinations(per_mapping.len(), leafs, strategy)
         .iter()
         .map(|combination| {
             let mut new_deduced = orig.0.clone();
@@ -80,7 +108,7 @@ mod specs {
     #[test]
     fn create_combinations_2_of_3() {
         let items = vec![&1, &2, &3];
-        let combinations = create_combinations(2, &items);
+        let combinations = create_combinations(2, &items, AugmentationStrategy::Full);
         assert_eq!(
             combinations,
             vec![
@@ -100,7 +128,7 @@ mod specs {
     #[test]
     fn create_combinations_3_of_2() {
         let items = vec![&1, &2];
-        let combinations = create_combinations(3, &items);
+        let combinations = create_combinations(3, &items, AugmentationStrategy::Full);
         assert_eq!(
             combinations,
             vec![
@@ -134,7 +162,12 @@ mod specs {
                 path: vec![],
             },
         );
-        let actual = augment_with_permuted_free_idents(&free_idents, &leafs, orig);
+        let actual = augment_with_permuted_free_idents(
+            &free_idents,
+            &leafs,
+            AugmentationStrategy::Full,
+            orig,
+        );
         let actual = actual.iter().map(|(s, _)| s).collect::<Vec<_>>();
         assert_eq!(actual.len(), 2);
         assert_contains_symbol!(actual, "a=a", &context);
@@ -160,7 +193,12 @@ mod specs {
             },
         );
 
-        let actual = augment_with_permuted_free_idents(&free_idents, &leafs, orig);
+        let actual = augment_with_permuted_free_idents(
+            &free_idents,
+            &leafs,
+            AugmentationStrategy::Full,
+            orig,
+        );
         let actual = actual.iter().map(|(s, _)| s).collect::<Vec<_>>();
         assert_eq!(actual.len(), 4);
         assert_contains_symbol!(actual, "a=a", &context);

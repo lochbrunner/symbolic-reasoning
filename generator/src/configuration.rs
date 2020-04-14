@@ -11,6 +11,12 @@ struct Files {
 }
 
 #[derive(Deserialize)]
+pub struct Augmentation {
+    pub enabled: bool,
+    pub factor: usize,
+}
+
+#[derive(Deserialize)]
 struct Generation {
     pub stages: Vec<usize>,
     #[serde(rename = "max-depth")]
@@ -25,7 +31,7 @@ struct Generation {
     pub distribution_suppression_exponent: f64,
     #[serde(rename = "max-size")]
     pub max_size: u32,
-    pub augmentation: bool,
+    pub augmentation: Augmentation,
 }
 
 #[derive(Deserialize)]
@@ -44,7 +50,7 @@ pub struct Configuration {
     pub blacklist_pattern: Vec<Symbol>,
     pub distribution_suppression_exponent: f64,
     pub max_size: u32,
-    pub augmentation: bool,
+    pub augmentation: Augmentation,
 }
 
 impl Configuration {

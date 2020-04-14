@@ -18,9 +18,9 @@ mod iter_extensions;
 mod rose;
 mod svg;
 
-use augmentation::augment_with_permuted_free_idents;
+use augmentation::{augment_with_permuted_free_idents, AugmentationStrategy};
 use configuration::Configuration;
-use filter::{filter_interest, filter_out_blacklist};
+use filter::{filter_interest, filter_out_blacklist, filter_out_repeating_patterns};
 
 use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
 use core::bag::{Bag, FitInfo};
@@ -45,12 +45,16 @@ fn gini(distribution: &[usize]) -> f64 {
     nom as f64 / (2 * distribution.len() * sum) as f64
 }
 
-fn print_statistics(distribution: &[usize]) {
+fn print_statistics(distribution: &[usize], label: &str) {
     let sum = distribution.iter().sum::<usize>();
-    println!("sum: {}", sum);
     let min = distribution.iter().min().unwrap();
-    println!("min: {}", min);
-    println!("gini: {}", gini(distribution));
+    println!(
+        "{}  total: {} min: {} gini: {:.3}",
+        label,
+        sum,
+        min,
+        gini(distribution)
+    );
 }
 
 fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec<ApplyInfo<'a>> {
@@ -112,6 +116,7 @@ fn deduce_impl<'a>(
             .filter(|a| soft_min(config.min_working_density, a.deduced.density()))
             .filter(|a| filter_out_blacklist(config, a))
             .filter(filter_interest)
+            .filter(filter_out_repeating_patterns)
             .filter(|a| !prev_symbols.iter().any(|p| *p == a.deduced.get_hash()))
             .take(stage_size)
             .cloned()
@@ -197,7 +202,7 @@ fn deduce<'a>(
             &[initial.get_hash()],
         ),
     };
-    print_statistics(&rules_distribution);
+    print_statistics(&rules_distribution, &format!("{}", initial));
     trace
 }
 
@@ -291,8 +296,13 @@ fn main() {
         .filter(|s| s.len() == 1 && s.chars().next().unwrap().is_alphabetic())
         .collect::<HashSet<_>>();
     let augmentation = &|s: (&Symbol, FitInfo)| {
-        if config.augmentation {
-            augment_with_permuted_free_idents(&free_idents, &leafs, s)
+        if config.augmentation.enabled {
+            augment_with_permuted_free_idents(
+                &free_idents,
+                &leafs,
+                AugmentationStrategy::Random(config.augmentation.factor),
+                s,
+            )
         } else {
             let (symbol, fitinfo) = s;
             vec![(symbol.clone(), fitinfo)]
