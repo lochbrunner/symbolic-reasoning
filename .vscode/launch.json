@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "pycore test",
+            "name": "core test",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/deps/core-e1c2cdf2ab37368b",
@@ -20,15 +20,26 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "generator test",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/generator-0a1dbfa4861c0e9e",
+            "args": [
+                "--test",
+                "augmentation",
+                "--nocapture"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "generator",
             "type": "lldb",
             "request": "launch",
-            "program": "cargo",
+            "program": "target/debug/generator",
             "args": [
-                "run",
-                "--bin",
-                "generator",
-                "--",
                 "-c",
                 "real_world_problems/basics/dataset.yaml"
             ],

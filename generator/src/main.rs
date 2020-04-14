@@ -11,15 +11,19 @@ use clap::{App, Arg};
 
 mod variable_generator;
 use variable_generator::*;
+mod augmentation;
 mod configuration;
+mod filter;
 mod iter_extensions;
 mod rose;
 mod svg;
 
+use augmentation::augment_with_permuted_free_idents;
 use configuration::Configuration;
+use filter::{filter_interest, filter_out_blacklist};
 
 use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
-use core::bag::Bag;
+use core::bag::{Bag, FitInfo};
 use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 
@@ -70,65 +74,6 @@ fn deduce_once<'a>(alphabet: &[Symbol], initial: &Symbol, rule: &'a Rule) -> Vec
             path: deduced.1,
         })
         .collect()
-}
-
-/// Check for e.g. 1*(1*1) or (1*1)*1 (or (1*1)*(1*1))
-fn check_trivial_subtree(sub: &Symbol) -> bool {
-    if sub.depth == 3 {
-        let op = &sub.ident;
-        let mut var: Option<&str> = None;
-        for c in sub.iter_bfs() {
-            if c.operator() {
-                if c.ident != *op {
-                    return true;
-                }
-            } else {
-                if let Some(v) = var {
-                    if v != c.ident {
-                        return true;
-                    }
-                } else {
-                    var = Some(&c.ident);
-                }
-            }
-        }
-        return false;
-    }
-    return true;
-}
-
-/// Filters out non sense symbols in the sene of e.g. a^0^0^0^0^0 ...
-fn filter_interest<'a>(apply: &'a &ApplyInfo<'_>) -> bool {
-    // Filter out when a pattern repeats directly
-    for sub in apply.deduced.iter_bfs() {
-        if sub.operator() {
-            // Check for trivial repetition
-            for child in sub.childs.iter() {
-                let b = child.childs.iter().map(|s| &s.ident);
-                if child.childs.len() == sub.childs.len() {
-                    let a = sub.childs.iter().map(|s| &s.ident);
-                    if a.eq(b) {
-                        return false;
-                    }
-                }
-            }
-            if !check_trivial_subtree(sub) {
-                return false;
-            }
-        }
-    }
-    true
-}
-
-fn filter_out_blacklist<'a>(config: &Configuration, apply: &'a &ApplyInfo<'_>) -> bool {
-    for sub in apply.deduced.iter_bfs() {
-        for black in config.blacklist_pattern.iter() {
-            if black == sub {
-                return false;
-            }
-        }
-    }
-    true
 }
 
 fn deduce_impl<'a>(
@@ -323,9 +268,41 @@ fn main() {
     }
 
     println!("Converting to bag");
-    let bag = Bag::from_traces(&traces, &|s| {
-        s.density() >= config.min_result_density && s.size() <= config.max_size
-    });
+    let mut leafs: HashSet<&Symbol> = HashSet::new();
+    for trace in traces.iter() {
+        for step in trace.all_steps() {
+            for sub in step.deduced.iter_bfs() {
+                if sub.childs.is_empty() && !leafs.contains(sub) {
+                    leafs.insert(sub);
+                }
+            }
+        }
+    }
+    let leafs = leafs.into_iter().collect::<Vec<_>>();
+    let mut idents: HashSet<&str> = HashSet::new();
+    for trace in traces.iter() {
+        for ident in trace.meta.used_idents.iter() {
+            idents.insert(ident);
+        }
+    }
+    // Find all free idents
+    let free_idents = idents
+        .into_iter()
+        .filter(|s| s.len() == 1 && s.chars().next().unwrap().is_alphabetic())
+        .collect::<HashSet<_>>();
+    let augmentation = &|s: (&Symbol, FitInfo)| {
+        if config.augmentation {
+            augment_with_permuted_free_idents(&free_idents, &leafs, s)
+        } else {
+            let (symbol, fitinfo) = s;
+            vec![(symbol.clone(), fitinfo)]
+        }
+    };
+    let bag = Bag::from_traces(
+        &traces,
+        &|s| s.density() >= config.min_result_density && s.size() <= config.max_size,
+        augmentation,
+    );
 
     println!("Writing bag file to \"{}\" ...", &config.dump_filename);
     let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());

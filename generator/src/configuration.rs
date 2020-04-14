@@ -25,6 +25,7 @@ struct Generation {
     pub distribution_suppression_exponent: f64,
     #[serde(rename = "max-size")]
     pub max_size: u32,
+    pub augmentation: bool,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +44,7 @@ pub struct Configuration {
     pub blacklist_pattern: Vec<Symbol>,
     pub distribution_suppression_exponent: f64,
     pub max_size: u32,
+    pub augmentation: bool,
 }
 
 impl Configuration {
@@ -65,6 +67,7 @@ impl Configuration {
             min_working_density: generation.min_working_density,
             min_result_density: generation.min_result_density,
             max_size: generation.max_size,
+            augmentation: generation.augmentation,
             blacklist_pattern,
             distribution_suppression_exponent: generation.distribution_suppression_exponent,
             dump_filename: files.trainings_data,

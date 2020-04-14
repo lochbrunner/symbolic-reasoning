@@ -21,8 +21,8 @@ rules:
   commutative property 1: a*b => b*a
   commutative property 2: a+b => b+a
   associative property: a*(b*c) <=> (a*b)*c 
-  distributive property 1: a*(b+c) <= a*b+a*c
-  distributive property 2: a*(b-c) <= a*b-a*c
+  distributive property 1: a*(b+c) <=> a*b+a*c
+  distributive property 2: a*(b-c) <=> a*b-a*c
   # neutrals
   neutral sum: a+0 => a
   neutral subtraction: a-0 => a
@@ -71,6 +71,7 @@ generation:
   min-working-density: 0.1
   min-result-density: 0.05
   distribution-suppression-exponent: 1.8
+  augmentation: true # Permuting free variables
   blacklist-pattern:
     - (1*1)*(1*1)
     - (0+0)+(0+0)
@@ -97,7 +98,7 @@ training:
 evaluation:
   num_epochs: 30
   problems:
-    beam-size: 10
+    beam-size: 70
   training-data:
     beam-size: '1:15'
     max-steps: -1

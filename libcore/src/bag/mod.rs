@@ -44,12 +44,16 @@ impl Bag {
     /// TODO:
     ///  * select each step and remove duplicates
     ///  * create statistics
-    pub fn from_traces(traces: &[trace::Trace], filter: &dyn Fn(&Symbol) -> bool) -> Bag {
+    pub fn from_traces<'a>(
+        traces: &'a [trace::Trace],
+        filter: &dyn Fn(&Symbol) -> bool,
+        augment: &dyn Fn((&Symbol, FitInfo)) -> Vec<(Symbol, FitInfo)>,
+    ) -> Bag {
         let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
         let mut rules: Vec<(String, Rule)> = Vec::new();
         rules.push(("padding".to_string(), Default::default()));
 
-        let mut initials: HashMap<&Symbol, Vec<FitInfo>> = HashMap::new();
+        let mut initials: HashMap<Symbol, Vec<FitInfo>> = HashMap::new();
         let mut idents: HashSet<String> = HashSet::new();
         for trace in traces.iter() {
             for ident in trace.meta.used_idents.iter() {
@@ -61,17 +65,26 @@ impl Bag {
                     rules.push((name.to_string(), rule.clone()));
                 }
             }
-            for step in trace.all_steps().filter(|s| filter(&s.deduced)) {
+            for (deduced, fitinfo) in trace
+                .all_steps()
+                .filter(|s| filter(&s.deduced))
+                .map(|step| {
+                    let rule_id = *rule_map.get(&step.rule).expect("Rule");
+                    (
+                        &step.deduced,
+                        FitInfo {
+                            path: step.path.clone(),
+                            rule_id,
+                        },
+                    )
+                })
+                .map(augment)
+                .flatten()
+            {
                 // Reverse rules
-                let rule_id = *rule_map.get(&step.rule).expect("Rule");
-                let fitinfo = FitInfo {
-                    path: step.path.clone(),
-                    rule_id,
-                };
-                // TODO: add filter hook
-                match initials.get_mut(&step.deduced) {
+                match initials.get_mut(&deduced) {
                     None => {
-                        initials.insert(&step.deduced, vec![fitinfo]);
+                        initials.insert(deduced, vec![fitinfo]);
                     }
                     Some(initial) => initial.push(fitinfo),
                 }
@@ -209,7 +222,7 @@ mod specs {
             },
         ];
 
-        let actual = Bag::from_traces(&traces, &|_| true);
+        let actual = Bag::from_traces(&traces, &|_| true, &|s| vec![(s.0.clone(), s.1)]);
 
         let expected = Bag {
             meta: Meta {

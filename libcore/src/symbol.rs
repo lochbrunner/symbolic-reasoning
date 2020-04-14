@@ -223,7 +223,16 @@ impl Symbol {
         SymbolIter::new(self)
     }
 
+    /// Traverse depth first order
+    pub fn iter_df(&self) -> SymbolIter {
+        SymbolIter::new(self)
+    }
+
     pub fn parts_with_path(&self) -> SymbolAndPathIter {
+        SymbolAndPathIter::new(self)
+    }
+
+    pub fn iter_dfs_path(&self) -> SymbolAndPathIter {
         SymbolAndPathIter::new(self)
     }
 

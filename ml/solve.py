@@ -275,6 +275,7 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
     def variable_generator():
         return Symbol.parse(context, 'u')
     context = scenario.declarations
+    inferencer = Inferencer(model)
     for problem_name in scenario.problems:
         problem = scenario.problems[problem_name]
         # Get first problem
@@ -283,8 +284,8 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         source = problem.condition
         target = problem.conclusion
 
-        with Timer('Solving problem'):
-            solution, statistic = beam_search(Inferencer(model), rule_mapping, problem.condition,
+        with Timer(f'Solving problem "{problem_name}"'):
+            solution, statistic = beam_search(inferencer, rule_mapping, problem.condition,
                                               [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:

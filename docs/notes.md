@@ -1,31 +1,24 @@
-# Interesting papers
+# Decisions
 
-## LSTM
+* Use Cnn instead of LSTM: Much more simpler to bring it on speed
+* Use Index tensor per sample instead of global: Simpler and possibility to reduce unrolled vector size. Size per mini-batch possible.
+* Use CPU with SIMD instead of GPU: Hard to reduce with CUDA.
+* Not use torch.index_select: torch.gather is more suitable
+* Use own iconv implementation: Much more faster that torch.gather
 
-### Tree LSTM
+# Technical Depth
 
-* [LSTM implementation explained](https://apaszke.github.io/lstm-explained.html)
+## Generation
 
-### Embedding
+Walk randomly from simple terms to complex ones.  
 
-* [Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) Encoding  rare and unknown words as se-quences of subword units 
+### Filter
 
+* Depth of the intermediate term
+* Density of the intermediate term
+* Blacklisted sub-terms
+* Banal repetitions (e.g. a^0^0^0^0^0 or (1*1)*(1*1))
 
-* [Tree LSTM in pytorch][https://github.com/dasguptar/treelstm.pytorch]
+### Augmentation
 
-## CNN
-
-### Indexed Convolution
-
- * Not used but could be cited: https://github.com/IndexedConv/IndexedConv
-
-## Competiter
-
- * [Using neural networks to solve advanced mathematics equations](https://ai.facebook.com/blog/using-neural-networks-to-solve-advanced-mathematics-equations/)
-
-## Few-Shot Meta Learning 
-
-https://towardsdatascience.com/model-agnostic-meta-learning-maml-8a245d9bc4ac
-
-* [Optimization as a model for few-shot learning](https://openreview.net/pdf?id=rJY0-Kcll)
-* [Meta-Learning and Universality: Deep Representations and Gradient Descent can Approximate any Learning Algorithm](https://arxiv.org/abs/1710.11622)
+* Permutation of free variable names 
