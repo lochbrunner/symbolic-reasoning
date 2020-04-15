@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use core::bag::FitInfo;
 use core::Symbol;
 
+#[derive(Clone, Copy)]
 pub enum AugmentationStrategy {
     #[cfg(test)]
     Full,
@@ -84,6 +85,8 @@ mod specs {
     use super::*;
     use core::Context;
 
+    static STRATEGY: AugmentationStrategy = AugmentationStrategy::Full;
+
     macro_rules! hashset {
         ( $( $x:expr ),* ) => {  // Match zero or more comma delimited items
             {
@@ -108,7 +111,7 @@ mod specs {
     #[test]
     fn create_combinations_2_of_3() {
         let items = vec![&1, &2, &3];
-        let combinations = create_combinations(2, &items, AugmentationStrategy::Full);
+        let combinations = create_combinations(2, &items, STRATEGY);
         assert_eq!(
             combinations,
             vec![
@@ -128,7 +131,7 @@ mod specs {
     #[test]
     fn create_combinations_3_of_2() {
         let items = vec![&1, &2];
-        let combinations = create_combinations(3, &items, AugmentationStrategy::Full);
+        let combinations = create_combinations(3, &items, STRATEGY);
         assert_eq!(
             combinations,
             vec![
@@ -162,12 +165,7 @@ mod specs {
                 path: vec![],
             },
         );
-        let actual = augment_with_permuted_free_idents(
-            &free_idents,
-            &leafs,
-            AugmentationStrategy::Full,
-            orig,
-        );
+        let actual = augment_with_permuted_free_idents(&free_idents, &leafs, STRATEGY, orig);
         let actual = actual.iter().map(|(s, _)| s).collect::<Vec<_>>();
         assert_eq!(actual.len(), 2);
         assert_contains_symbol!(actual, "a=a", &context);
@@ -193,12 +191,7 @@ mod specs {
             },
         );
 
-        let actual = augment_with_permuted_free_idents(
-            &free_idents,
-            &leafs,
-            AugmentationStrategy::Full,
-            orig,
-        );
+        let actual = augment_with_permuted_free_idents(&free_idents, &leafs, STRATEGY, orig);
         let actual = actual.iter().map(|(s, _)| s).collect::<Vec<_>>();
         assert_eq!(actual.len(), 4);
         assert_contains_symbol!(actual, "a=a", &context);

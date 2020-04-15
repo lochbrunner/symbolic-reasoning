@@ -1,5 +1,4 @@
-use crate::iter_extensions::{PickTraitVec, Strategy};
-use rose::draw_rose;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
@@ -9,18 +8,20 @@ use std::vec;
 extern crate clap;
 use clap::{App, Arg};
 
-mod variable_generator;
-use variable_generator::*;
 mod augmentation;
 mod configuration;
 mod filter;
 mod iter_extensions;
 mod rose;
 mod svg;
+mod variable_generator;
 
-use augmentation::{augment_with_permuted_free_idents, AugmentationStrategy};
-use configuration::Configuration;
-use filter::{filter_interest, filter_out_blacklist, filter_out_repeating_patterns};
+use crate::augmentation::{augment_with_permuted_free_idents, AugmentationStrategy};
+use crate::configuration::Configuration;
+use crate::filter::{filter_interest, filter_out_blacklist, filter_out_repeating_patterns};
+use crate::iter_extensions::{PickTraitVec, Strategy};
+use crate::rose::draw_rose;
+use crate::variable_generator::*;
 
 use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
 use core::bag::{Bag, FitInfo};
@@ -254,9 +255,8 @@ fn main() {
         .unwrap_or_else(|_| panic!("Loading declarations from {}", &config_filename));
     context.register_standard_operators();
 
-    let traces = scenario
-        .premises
-        .iter()
+    let traces = (&scenario.premises)[..]
+        .par_iter()
         .map(|initial| deduce(&config, &alphabet, initial, &rules, &config.stages))
         .collect::<Vec<_>>();
 
@@ -272,7 +272,7 @@ fn main() {
         }
     }
 
-    println!("Converting to bag");
+    println!("Converting to bag...");
     let mut leafs: HashSet<&Symbol> = HashSet::new();
     for trace in traces.iter() {
         for step in trace.all_steps() {

@@ -95,7 +95,7 @@ training:
   statistics: *training-statistics
   model-parameter:
     embedding_size: 32
-    hidden_layers: 1
+    hidden_layers: 2
     dropout: 0.1
 evaluation:
   num_epochs: 30
