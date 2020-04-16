@@ -21,6 +21,7 @@ from common.terminal_utils import printProgressBar, clearProgressBar
 from common.parameter_search import LearningParmeter
 from common import io
 from common.validation import validate
+from common import grid_search
 
 
 class ExecutionParameter:
@@ -34,11 +35,15 @@ class ExecutionParameter:
         self.statistics = statistics
 
 
-def dump_statistics(params: ExecutionParameter, logbook):
+def dump_statistics(params: ExecutionParameter, logbooks):
     '''Dumps statistics '''
-    with open(params.statistics, 'w') as f:
+    stat = [{'parameter': hp,
+             'results': [{'error': error.as_dict(), 'epoch': epoch} for (epoch, error, loss) in logbook]
+             }
+            for (hp, logbook) in logbooks]
 
-        yaml.dump([{'error': error.as_dict(), 'epoch': epoch} for (epoch, error) in logbook], f)
+    with open(params.statistics, 'w') as f:
+        yaml.dump(stat, f)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -129,9 +134,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             model.eval()
             error = validate(model, validation_dataloader)
             model.train()
-            logbook.append((epoch, error))
             clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
+            logbook.append((epoch, error, loss))
             logging.info(
                 f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding}')
             timer.resume()
@@ -144,9 +149,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     if logging.INFO >= logging.root.level:
         error.exact_no_padding.printHistogram()
 
-    logbook.append((epoch, error))
-    dump_statistics(exe_params, logbook)
+    logbook.append((epoch, error, None))
+    # dump_statistics(exe_params, logbook)
     save_snapshot()
+    return logbook
 
 
 def load_config(filename):
@@ -211,10 +217,17 @@ if __name__ == '__main__':
     if args.device == 'auto':
         args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
-    main(
-        exe_params=ExecutionParameter(**vars(args)),
-        learn_params=LearningParmeter(model_hyper_parameter=load_model_hyperparameter(args.config),
-                                      **vars(args)),
-        scenario_params=ScenarioParameter(**vars(args))
-    )
+    model_hyper_parameter = load_model_hyperparameter(args.config)
+
+    stats = []
+    exe_params = ExecutionParameter(**vars(args))
+    for param in grid_search.unroll(model_hyper_parameter):
+        # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
+        result = main(
+            exe_params=exe_params,
+            learn_params=LearningParmeter(model_hyper_parameter=param,
+                                          **vars(args)),
+            scenario_params=ScenarioParameter(**vars(args))
+        )
+        stats.append((param, result))
+    dump_statistics(exe_params, stats)

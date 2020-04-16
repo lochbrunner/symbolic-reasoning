@@ -7,6 +7,7 @@ from dataset.symbol_builder import *
 from dataset.generate import *
 from common.node import *
 from common.validation import *
+from common.grid_search import *
 # from common.parameter_search_specs import *
 
 import unittest

@@ -83,8 +83,8 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 100
-  report-rate: 5
+  num-epochs: 20
+  report-rate: 2
   batch-size: 32
   learning-rate: 0.1 # Not needed here
   gradient-clipping: 0.1
@@ -94,9 +94,9 @@ training:
   filename: *bag
   statistics: *training-statistics
   model-parameter:
-    embedding_size: 32
+    embedding_size: [32, 48]
     hidden_layers: 2
-    dropout: 0.1
+    dropout: [0.1, 0.2]
 evaluation:
   num_epochs: 30
   problems:

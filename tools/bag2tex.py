@@ -17,6 +17,18 @@ from flavor import Flavors
 matplotlib.use('Agg')
 
 
+def roman_numeral(number):
+    assert number < 1000
+    row = [[], [0], [0, 0], [0, 0, 0], [0, 1], [1], [1, 0], [1, 0, 0], [1, 0, 0, 0], [0, 2]]
+    char = [['I', 'V', 'X'],
+            ['X', 'L', 'C'],
+            ['C', 'D', 'M']]
+
+    def digit(i, j):
+        return ''.join([char[i][d] for d in row[j]])
+    return digit(2, number//100)+digit(1, (number//10) % 10)+digit(0, number % 10)
+
+
 def density_histogram(f, container, scenario):
     f.write('\\\\')
     densities = [sample.initial.density for sample in container.samples]
@@ -132,33 +144,95 @@ def tops_progress(f, key, title, statistics, count=8):
     f.write('\\\\')
 
 
+def write_key_value_table(f, obj):
+    f.write('\\begin{center}\n')
+    f.write('\\begin{tabular}{r|r}\n')
+    f.write(f'Name & Value \\\\\n')
+    f.write('\\hline\n')
+    for k, v in obj.items():
+        k = k.replace('_', ' ')
+        f.write(f'{k} & {v} \\\\\n')
+    f.write('\\end{tabular}\n')
+    f.write('\\end{center}\n')
+
+
+def write_table(f, head, rows):
+    f.write('\\begin{center}\n')
+    align = '|'.join(['r' for _ in head])
+    f.write(f'\\begin{{tabular}}{{{align}}}\n')
+    head = ' & '.join(head).replace('_', ' ')
+    f.write(f'{head} \\\\\n')
+    f.write('\\hline\n')
+    for row in rows:
+        row = ' & '.join([str(c) for c in row]).replace('_', ' ')
+        f.write(f'{row} \\\\\n')
+    f.write('\\end{tabular}\n')
+    f.write('\\end{center}\n')
+
+
 def training_statistics(f, scenario):
     with open(scenario['files']['training-statistics'], 'r') as sf:
         statistics = yaml.load(sf, Loader=yaml.FullLoader)
 
     f.write('\n\\section{Training Statistics}\n')
-    f.write('\n\\subsection{Tops}\n')
-    last_error = statistics[-1]['error']
-    tops(f, last_error['exact-no-padding'], 'Exact matches (no padding)')
 
-    tops_progress(f, 'exact-no-padding', 'Progress of exact Matches', statistics)
+    write_table(f,
+                head=['Set'] + list(statistics[0]['parameter'].keys()),
+                rows=[[roman_numeral(i+1)] + list(statistic['parameter'].values()) for i, statistic in enumerate(statistics)])
 
-    # When rule
-    when_rule_tops = last_error['when-rule']['tops']
-    plt.bar(range(1, len(when_rule_tops)+1), when_rule_tops)
-    plt.title('When rule')
-    # tikzplotlib.clean_figure()
+    # Comparision of the parameter sets
+    f.write('\n\\subsubsection{Exact (without padding)}\n')
+    x = [roman_numeral(i+1) for i in range(len(statistics))]
+
+    total = statistics[0]['results'][-1]['error']['exact-no-padding']['total']
+
+    def y(i):
+        return [s['results'][-1]['error']['exact-no-padding']['tops'][i]/total for s in statistics]
+
+    def sy(i):
+        return [sum(s['results'][-1]['error']['exact-no-padding']['tops'][:i])/total for s in statistics]
+
+    ax = plt.gca()
+    for i in range(10):
+        ax.bar(x, y(i), bottom=sy(i))
+    ax.set_yticklabels([f'{x:,.0%}' for x in ax.get_yticks()])
+    plt.xticks(np.arange(len(x)), x)
+    ax.set_xlabel('parameter set')
+    ax.set_ylabel('match probability')
     f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
     plt.clf()
     f.write('\\\\')
 
-    # When rule
-    with_padding = last_error['with-padding']['tops']
-    plt.bar(range(1, len(with_padding)+1), with_padding)
-    plt.title('With padding')
-    # tikzplotlib.clean_figure()
-    f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
-    plt.clf()
+    # The tops
+    f.write('\n\\subsection{Tops}\n')
+    for i, statistic in enumerate(statistics):
+        f.write(f'\n\\subsubsection{{Parameterset {roman_numeral(i+1)}}}\n')
+        hyper_parameter = statistic['parameter']
+
+        f.write('Hyper Parameter\n')
+        write_key_value_table(f, hyper_parameter)
+        results = statistic['results']
+        last_error = results[-1]['error']
+        tops(f, last_error['exact-no-padding'], 'Exact matches (no padding)')
+
+        tops_progress(f, 'exact-no-padding', 'Progress of exact Matches', results)
+
+        # When rule
+        when_rule_tops = last_error['when-rule']['tops']
+        plt.bar(range(1, len(when_rule_tops)+1), when_rule_tops)
+        plt.title('When rule')
+        # tikzplotlib.clean_figure()
+        f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
+        plt.clf()
+        f.write('\\\\')
+
+        # When rule
+        with_padding = last_error['with-padding']['tops']
+        plt.bar(range(1, len(with_padding)+1), with_padding)
+        plt.title('With padding')
+        # tikzplotlib.clean_figure()
+        f.write(tikzplotlib.get_tikz_code(axis_width='15cm', axis_height='8cm'))
+        plt.clf()
 
 
 class Namespace:
@@ -431,7 +505,7 @@ def main(args):
             if len(container.samples) > 0:
                 density_histogram(f, container, scenario)
 
-            samples = list(container.samples)
+            samples = list(container.samples[: 100])
 
             samples.sort(key=lambda s: s.initial.density, reverse=True)
 
