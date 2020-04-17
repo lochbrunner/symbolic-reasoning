@@ -2,6 +2,7 @@ use crate::bag::PyFitInfo;
 use crate::context::PyContext;
 use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_symbol_plain};
+use core::symbol::Embedding;
 use core::Symbol;
 use ndarray::Array;
 use numpy::{IntoPyArray, PyArray1, PyArray2};
@@ -222,6 +223,19 @@ impl PyIterProtocol for PySymbolAndPathBfsIter {
     }
 }
 
+fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
+where
+    T: numpy::types::TypeNum,
+{
+    Ok(Array::from_shape_vec(
+        (orig.len(), orig[0].len()),
+        orig.into_iter().flat_map(|row| row.into_iter()).collect(),
+    )
+    .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?
+    .into_pyarray(py)
+    .to_owned())
+}
+
 #[pymethods]
 impl PySymbol {
     #[staticmethod]
@@ -320,33 +334,26 @@ impl PySymbol {
         padding: i16,
         spread: usize,
         fits: Vec<PyFitInfo>,
-    ) -> PyResult<(Py<PyArray1<i64>>, Py<PyArray2<i16>>, Py<PyArray1<i64>>)> {
+    ) -> PyResult<(Py<PyArray2<i64>>, Py<PyArray2<i16>>, Py<PyArray1<i64>>)> {
         let fits = fits
             .into_iter()
             .map(|fit| (*fit.data).clone())
             .collect::<Vec<_>>();
-        let (embedding, indices, label) =
-            self.inner
-                .embed(&dict, padding, spread, &fits)
-                .map_err(|msg| {
-                    PyErr::new::<KeyError, _>(format!(
-                        "Could not embed {}: \"{}\"",
-                        self.inner, msg
-                    ))
-                })?;
+        let Embedding {
+            embedded,
+            index_map,
+            label,
+        } = self
+            .inner
+            .embed(&dict, padding, spread, &fits)
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
 
-        let indices = Array::from_shape_vec(
-            (indices.len(), indices[0].len()),
-            indices
-                .into_iter()
-                .flat_map(|row| row.into_iter())
-                .collect(),
-        )
-        .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
-        let indices = indices.into_pyarray(py).to_owned();
+        let index_map = make_2darray(py, index_map)?;
         let label = label.into_pyarray(py).to_owned();
-        let embedding = embedding.into_pyarray(py).to_owned();
-        Ok((embedding, indices, label))
+        let embedded = make_2darray(py, embedded)?;
+        Ok((embedded, index_map, label))
     }
 
     #[getter]
@@ -368,6 +375,11 @@ impl PySymbol {
     #[getter]
     fn fixed(&self) -> PyResult<bool> {
         Ok(self.inner.fixed())
+    }
+
+    #[getter]
+    fn is_number(&self) -> PyResult<bool> {
+        Ok(self.inner.is_number())
     }
 
     #[getter]

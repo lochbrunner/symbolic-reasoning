@@ -125,7 +125,10 @@ class TestSymbol(unittest.TestCase):
         spread = 2
         embedding, indices, label = symbol.embed(embed_dict, 0, spread, fits)
 
-        npt.assert_equal(embedding, [1, 2, 3, 4, 5, 6, 7, 0])
+        npt.assert_equal(embedding[:, 0], [1, 2, 3, 4, 5, 6, 7, 0])
+        npt.assert_equal(embedding[:, 1], [1, 1, 1, 0, 0, 0, 0, 0])  # is operator
+        npt.assert_equal(embedding[:, 2], [1, 1, 1, 0, 0, 0, 0, 0])  # is fixed
+        npt.assert_equal(embedding[:, 3], [0, 0, 0, 0, 0, 0, 0, 0])  # is number
         npt.assert_equal(indices, [[0, 1, 2, 7],
                                    [1, 3, 4, 0],
                                    [2, 5, 6, 0],

@@ -105,6 +105,7 @@ class TreeCnnUniqueIndices(nn.Module):
             'embedding_size': 32,
             'hidden_layers': 2,
             'dropout': 0.1,
+            'use_props': True
         }
         self.config.update(hyper_parameter)
 
@@ -113,7 +114,7 @@ class TreeCnnUniqueIndices(nn.Module):
         # Embedding
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size+1,
-            embedding_dim=embedding_size,
+            embedding_dim=embedding_size-(3 if self.config['use_props'] else 0),
             padding_idx=pad_token
         )
 
@@ -128,7 +129,13 @@ class TreeCnnUniqueIndices(nn.Module):
         self.cnn_end = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
 
     def forward(self, x, s, *args):
-        x = self.embedding(x)
+        # x: b,l,(e,props)
+        e = x[:, :, 0].squeeze()
+        e = self.embedding(e)
+        if self.config['use_props']:
+            x = torch.cat([e, x[:, :, 1:].type(torch.FloatTensor)], dim=2)
+        else:
+            x = e
         x = self.cnn_hidden(x, s)
         x = self.cnn_end(x, s)
         # j must be second index: b,j,...

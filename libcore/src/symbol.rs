@@ -160,6 +160,22 @@ pub struct Symbol {
     pub value: Option<i64>,
 }
 
+fn one_encode(value: bool) -> i64 {
+    if value {
+        1
+    } else {
+        0
+    }
+}
+
+pub struct Embedding {
+    /// each items is a vector
+    /// [ident, is_operator, is_fixed, is_number]
+    pub embedded: Vec<Vec<i64>>,
+    pub index_map: Vec<Vec<i16>>,
+    pub label: Vec<i64>,
+}
+
 impl Symbol {
     pub fn only_root(&self) -> bool {
         self.flags & symbol_flags::ROOT_ONLY != 0
@@ -180,6 +196,10 @@ impl Symbol {
     #[inline]
     pub fn operator(&self) -> bool {
         !self.childs.is_empty()
+    }
+    #[inline]
+    pub fn is_number(&self) -> bool {
+        self.value.is_some()
     }
 
     /// Assumes a spread of 2
@@ -296,7 +316,7 @@ impl Symbol {
         padding: i16,
         spread: usize,
         fits: &[FitInfo],
-    ) -> Result<(Vec<i64>, Vec<Vec<i16>>, Vec<i64>), String> {
+    ) -> Result<Embedding, String> {
         let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
         let mut embedded = self
             .iter_bfs()
@@ -304,12 +324,19 @@ impl Symbol {
             .map(|(i, s)| {
                 ref_to_index.insert(s, i as i16);
                 dict.get(&s.ident)
-                    .and_then(|i| Some(*i as i64))
+                    .and_then(|i| {
+                        Some(vec![
+                            *i as i64,
+                            one_encode(s.operator()),
+                            one_encode(s.fixed()),
+                            one_encode(s.is_number()),
+                        ])
+                    })
                     .ok_or(format!("Unknown ident {}", s.ident))
             })
             .collect::<Result<Vec<_>, String>>()?;
         let padding_index = embedded.len() as i16;
-        embedded.push(padding as i64);
+        embedded.push(vec![padding as i64, 0, 0, 0]);
 
         // self, ..childs, (parent later)
         let mut index_map = self
@@ -350,7 +377,11 @@ impl Symbol {
             label[index] = fit.rule_id as i64;
         }
 
-        return Ok((embedded, index_map, label));
+        return Ok(Embedding {
+            embedded,
+            index_map,
+            label,
+        });
     }
 
     /// Returns the item at the specified path
@@ -431,7 +462,6 @@ impl Symbol {
             flags: Symbol::create_flags(fixed, only_root),
             childs,
             value: None,
-            // only_root,
         }
     }
 
@@ -576,19 +606,24 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 2;
-        let (embedding, indices, _) = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        let Embedding {
+            embedded,
+            index_map,
+            ..
+        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
 
-        assert_eq!(embedding, vec![1, 2, 3, 4, 5, 6, 7, 0]);
+        assert_eq!(embedded, vec![1, 2, 3, 4, 5, 6, 7, 0]);
 
-        assert_eq!(indices.len(), 8);
-        assert_eq!(indices[0], vec![0, 1, 2, 7]); // *=+
-        assert_eq!(indices[1], vec![1, 3, 4, 0]); // a+b
-        assert_eq!(indices[2], vec![2, 5, 6, 0]); // c*d
-        assert_eq!(indices[3], vec![3, 7, 7, 1]); // a
-        assert_eq!(indices[4], vec![4, 7, 7, 1]); // b
-        assert_eq!(indices[5], vec![5, 7, 7, 2]); // c
-        assert_eq!(indices[6], vec![6, 7, 7, 2]); // d
-        assert_eq!(indices[7], vec![7, 7, 7, 7]); // d
+        assert_eq!(index_map.len(), 8);
+        assert_eq!(index_map[0], vec![0, 1, 2, 7]); // *=+
+        assert_eq!(index_map[1], vec![1, 3, 4, 0]); // a+b
+        assert_eq!(index_map[2], vec![2, 5, 6, 0]); // c*d
+        assert_eq!(index_map[3], vec![3, 7, 7, 1]); // a
+        assert_eq!(index_map[4], vec![4, 7, 7, 1]); // b
+        assert_eq!(index_map[5], vec![5, 7, 7, 2]); // c
+        assert_eq!(index_map[6], vec![6, 7, 7, 2]); // d
+        assert_eq!(index_map[7], vec![7, 7, 7, 7]); // d
     }
 
     #[test]
@@ -606,16 +641,21 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 3;
-        let (embedding, indices, _) = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        let Embedding {
+            embedded,
+            index_map,
+            ..
+        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
 
-        assert_eq!(embedding, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
-        assert_eq!(indices.len(), 6);
-        assert_eq!(indices[0], vec![0, 1, 2, 5, 5]); // *=c
-        assert_eq!(indices[1], vec![1, 3, 4, 5, 0]); // a+b
-        assert_eq!(indices[2], vec![2, 5, 5, 5, 0]); // c
-        assert_eq!(indices[3], vec![3, 5, 5, 5, 1]); // a
-        assert_eq!(indices[4], vec![4, 5, 5, 5, 1]); // b
-        assert_eq!(indices[5], vec![5, 5, 5, 5, 5]); // padding
+        assert_eq!(embedded, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
+        assert_eq!(index_map.len(), 6);
+        assert_eq!(index_map[0], vec![0, 1, 2, 5, 5]); // *=c
+        assert_eq!(index_map[1], vec![1, 3, 4, 5, 0]); // a+b
+        assert_eq!(index_map[2], vec![2, 5, 5, 5, 0]); // c
+        assert_eq!(index_map[3], vec![3, 5, 5, 5, 1]); // a
+        assert_eq!(index_map[4], vec![4, 5, 5, 5, 1]); // b
+        assert_eq!(index_map[5], vec![5, 5, 5, 5, 5]); // padding
     }
 
     #[test]
@@ -635,7 +675,7 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 2;
-        let (_, _, label) = symbol
+        let Embedding { label, .. } = symbol
             .embed(
                 &dict,
                 padding,
