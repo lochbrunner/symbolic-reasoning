@@ -217,17 +217,18 @@ if __name__ == '__main__':
     if args.device == 'auto':
         args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    model_hyper_parameter = load_model_hyperparameter(args.config)
+    model_hyper_parameters = load_model_hyperparameter(args.config)
 
     stats = []
     exe_params = ExecutionParameter(**vars(args))
-    for param in grid_search.unroll(model_hyper_parameter):
+    changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))
+    for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(args)):
         # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
         result = main(
             exe_params=exe_params,
-            learn_params=LearningParmeter(model_hyper_parameter=param,
-                                          **vars(args)),
-            scenario_params=ScenarioParameter(**vars(args))
+            learn_params=LearningParmeter(model_hyper_parameter=model_hyper_parameter,
+                                          **arg),
+            scenario_params=ScenarioParameter(**arg)
         )
-        stats.append((param, result))
+        stats.append((grid_search.strip_keys(model_hyper_parameter, arg, names=changed_parameters), result))
     dump_statistics(exe_params, stats)
