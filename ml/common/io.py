@@ -1,5 +1,6 @@
 import logging
 import operator
+import os
 from functools import reduce
 
 import torch
@@ -67,4 +68,5 @@ def save(filename, model, optimizer, scenario_params, learn_params, dataset):
              'rules': [str(rule) for rule in dataset.get_rules_raw()]  # For consistency checks
              }
     state.update(dataset.model_params)
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     torch.save(state, filename)

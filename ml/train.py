@@ -10,7 +10,10 @@ import torch
 from torch import nn
 import torch.optim as optim
 from torch.utils import data
-from torch.utils.tensorboard import SummaryWriter
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+    pass
 
 from dataset import create_scenario, scenarios_choices, ScenarioParameter
 from models import create_model, all_models

@@ -110,5 +110,14 @@
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
+        {
+            "name": "azure submit",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/azure/submit.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/azure",
+            "justMyCode": false
+        },
     ]
 }

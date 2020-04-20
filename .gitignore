@@ -16,4 +16,5 @@ runs
 *.log
 *.aux
 *.toc
+*whl
 experiments
