@@ -24,7 +24,7 @@ runconfig.environment.python.interpreter_path = '/opt/conda/envs/pytorch-py37/bi
 runconfig.environment.docker.enabled = True
 runconfig.environment.docker.base_image = 'symbolicreasd05db995.azurecr.io/train:4'
 runconfig.environment.docker.base_image_registry.address = 'symbolicreasd05db995.azurecr.io'
-runconfig.target = ws.compute_targets['cpucore2']
+runconfig.target = ws.compute_targets['cpucore8']
 
 generated_datastore = Datastore.get(ws, 'generated')
 generated_datastore = DataReference(

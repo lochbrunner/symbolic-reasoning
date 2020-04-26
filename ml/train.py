@@ -208,13 +208,20 @@ if __name__ == '__main__':
     parser.add_argument('--max-size', type=int, default=120)
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bag-filename', type=str, default=None, dest='filename')
+    parser.add_argument('--data-size-limit', type=int, default=None,
+                        help='Limits the size of the loaded bag file data. For testing purpose.')
 
     args = parser.parse_args()
     loglevel = 'INFO' if args.verbose else args.log.upper()
+    if sys.stdin.isatty():
+        log_format = '%(message)s'
+    else:
+        log_format = '%(asctime)s %(message)s'
 
     logging.basicConfig(
         level=logging.getLevelName(loglevel),
-        format='%(message)s'
+        format=log_format,
+        datefmt='%I:%M:%S'
     )
 
     if args.device == 'auto':
@@ -223,15 +230,14 @@ if __name__ == '__main__':
     model_hyper_parameters = load_model_hyperparameter(args.config)
 
     stats = []
-    exe_params = ExecutionParameter(**vars(args))
     changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))
     for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(args)):
         # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
         result = main(
-            exe_params=exe_params,
+            exe_params=ExecutionParameter(**vars(args)),
             learn_params=LearningParmeter(model_hyper_parameter=model_hyper_parameter,
                                           **arg),
             scenario_params=ScenarioParameter(**arg)
         )
         stats.append((grid_search.strip_keys(model_hyper_parameter, arg, names=changed_parameters), result))
-    dump_statistics(exe_params, stats)
+    dump_statistics(ExecutionParameter(**vars(args)), stats)

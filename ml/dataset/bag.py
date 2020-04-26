@@ -161,7 +161,13 @@ class BagDataset(Dataset):
         self._rule_map = list(meta.rules)
 
         # Merge use largest
-        self.container = [sample for container in bag.samples for sample in container.samples]
+
+        if params.data_size_limit is None:
+            limit = -1
+        else:
+            limit = params.data_size_limit
+
+        self.container = [sample for container in bag.samples for sample in container.samples][:limit]
         self._max_spread = bag.samples[-1].max_spread
         self._max_depth = bag.samples[-1].max_depth
         self._max_size = bag.samples[-1].max_size

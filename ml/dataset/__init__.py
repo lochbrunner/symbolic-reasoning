@@ -8,7 +8,7 @@ from .transformers import SegEmbedder, TagEmbedder, Padder, Uploader
 
 class ScenarioParameter:
     def __init__(self, scenario: str, depth: int, spread: int, max_size: int,
-                 pattern_depth: int, num_labels: int, filename: str, **kwargs):
+                 pattern_depth: int, num_labels: int, filename: str, data_size_limit: int, **kwargs):
         self.scenario = scenario
         self.depth = depth
         self.spread = spread
@@ -16,6 +16,7 @@ class ScenarioParameter:
         self.pattern_depth = pattern_depth
         self.num_labels = num_labels
         self.filename = filename
+        self.data_size_limit = data_size_limit
 
 
 def scenarios_choices():

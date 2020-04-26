@@ -1,0 +1,9 @@
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libm.so.6
+/lib/x86_64-linux-gnu/libpthread.so.0
+/lib/x86_64-linux-gnu/librt.so.1
+/lib/x86_64-linux-gnu/libutil.so.1
+/lib64/ld-linux-x86-64.so.2
+/opt/conda/envs/pytorch-py37/bin/python
+/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/torch/bin/torch_shm_manager

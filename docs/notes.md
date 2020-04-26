@@ -22,3 +22,9 @@ Walk randomly from simple terms to complex ones.
 ### Augmentation
 
 * Permutation of free variable names 
+
+
+# Paper ideas
+
+* Rule based symbolic reasoning using indexed convolution networks
+* Using hierarchical Network for self-learned abstraction 

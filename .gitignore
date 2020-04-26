@@ -18,3 +18,5 @@ runs
 *.toc
 *whl
 experiments
+azure/workspace
+tmp

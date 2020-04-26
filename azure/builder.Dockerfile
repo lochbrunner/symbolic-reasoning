@@ -2,11 +2,12 @@ FROM ubuntu:19.10
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
-    curl \
     ca-certificates \
+    curl \
+    git \
     libjpeg-dev \
-    libpng-dev && \
+    libpng-dev \
+    strace && \
     rm -rf /var/lib/apt/lists/*
 
 
@@ -23,5 +24,5 @@ RUN curl -o ~/miniconda.sh -L -O  https://repo.continuum.io/miniconda/Miniconda3
 
 RUN cd /tmp/ &&  \
     curl -L -O https://download.pytorch.org/whl/cpu/torch-1.3.0%2Bcpu-cp37-cp37m-linux_x86_64.whl -o pytorch.whl && \
-    PATH=/opt/conda/envs/pytorch-py37/bin:$PATH pip install *.whl && \
+    PATH=/opt/conda/envs/pytorch-py37/bin:$PATH pip install *.whl azureml-core && \
     rm *.whl
