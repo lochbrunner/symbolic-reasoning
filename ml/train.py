@@ -5,6 +5,11 @@ import signal
 import sys
 import yaml
 
+try:
+    from azureml.core import Run
+    azure_run = Run.get_context().parent
+except ImportError:
+    azure_run = None
 
 import torch
 from torch import nn
@@ -48,6 +53,16 @@ def dump_statistics(params: ExecutionParameter, logbooks):
     with open(params.statistics, 'w') as f:
         yaml.dump(stat, f)
 
+    if azure_run is not None:
+        for i, logbook in enumerate(logbooks):
+            (_, error, loss) = logbook[-1]
+
+            def sumup(name):
+                return sum([error[name]['tops'][i] for i in range(0, 5)]) / error[name]['total']
+
+            row = {n: sumup(n) for n in ['exact', 'exact-no-padding']}
+            azure_run.lo_row(f'Parameter set {i+1}', **row)
+
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
     device = torch.device(exe_params.device)
@@ -65,7 +80,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                              **dataset.model_params)
         model.to(device)
 
-        optimizer = optim.Adadelta(model.parameters())
+        optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
         timer.stop_and_log()
 
     validation_ratio = 0.1
@@ -192,10 +207,11 @@ if __name__ == '__main__':
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
     parser.add_argument('-b', '--batch-size', type=int, default=32)
-    parser.add_argument('-l', '--learning-rate', type=float, default=0.1)
+    parser.add_argument('-l', '--learning-rate', type=float, default=1.0)
     parser.add_argument('-g', '--gradient-clipping', type=float, default=0.1)
     parser.add_argument('-m', '--model', choices=all_models,
                         default='TreeCnnSegmenter', dest='model_name')
+    parser.add_argument('--optimizer', choices=[''])
 
     # Scenario
     parser.add_argument('-s', '--scenario', type=str,

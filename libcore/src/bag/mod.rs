@@ -152,21 +152,14 @@ impl Bag {
     where
         W: std::io::Write,
     {
-        match bincode::serialize_into(writer, self) {
-            Ok(_) => Ok(()),
-            Err(msg) => Err(msg.to_string()),
-        }
+        bincode::serialize_into(writer, self).map_err(|msg| msg.to_string())
     }
 
     pub fn read_bincode<R>(reader: R) -> Result<Bag, String>
     where
         R: std::io::Read,
     {
-        let bag = bincode::deserialize_from::<R, Bag>(reader);
-        match bag {
-            Ok(bag) => Ok(bag),
-            Err(msg) => Err(msg.to_string()),
-        }
+        bincode::deserialize_from::<R, Bag>(reader).map_err(|msg| msg.to_string())
     }
 }
 

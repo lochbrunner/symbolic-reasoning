@@ -16,6 +16,7 @@ runs
 *.log
 *.aux
 *.toc
+*.tar
 *whl
 experiments
 azure/workspace

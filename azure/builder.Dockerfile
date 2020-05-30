@@ -7,8 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libjpeg-dev \
     libpng-dev \
-    strace && \
-    rm -rf /var/lib/apt/lists/*
+    strace \
+    file \
+    && rm -rf /var/lib/apt/lists/*
 
 
 COPY iconv-0.2.1-cp37-cp37m-linux_x86_64.whl /tmp/

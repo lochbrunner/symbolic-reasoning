@@ -28,4 +28,5 @@
 !/target/release/pycore.so
 *.whl
 *.pyc
+*.tar
 Dockerfile
