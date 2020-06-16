@@ -6,7 +6,7 @@ import pathspec
 import os
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser('')
     parser.add_argument('strace_file')
     parser.add_argument('-o', '--output-file', default=None)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         file_names = [os.path.realpath(file) for file in file_names if not spec.match_file(pre(file))]
 
     with open('additional_files.txt') as f:
-        file_names += f.readlines()
+        file_names += [line for line in f.readlines() if not line.startswith('//')]
     unique_file_names = set(file_names)
 
     # For each <dir>/__pycache__/<file>.cpython-37.pyc add <dir>/file.py
