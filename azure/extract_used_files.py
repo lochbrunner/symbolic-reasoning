@@ -4,12 +4,14 @@ import argparse
 import re
 import pathspec
 import os
+from pathlib import Path
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('')
     parser.add_argument('strace_file')
-    parser.add_argument('-o', '--output-file', default=None)
+    parser.add_argument('-O', '--output-file', default=None, type=Path)
+    parser.add_argument('-a', '--additional-files-list', default=None, type=Path)
     args = parser.parse_args()
 
     with open(args.strace_file, 'r') as f:
@@ -27,8 +29,8 @@ if __name__ == '__main__':
         spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
         file_names = [os.path.realpath(file) for file in file_names if not spec.match_file(pre(file))]
 
-    with open('additional_files.txt') as f:
-        file_names += [line for line in f.readlines() if not line.startswith('//')]
+    with args.additional_files_list.open('r') as f:
+        file_names += [line.strip() for line in f.readlines() if not line.startswith('//')]
     unique_file_names = set(file_names)
 
     # For each <dir>/__pycache__/<file>.cpython-37.pyc add <dir>/file.py
@@ -51,5 +53,5 @@ if __name__ == '__main__':
     if args.output_file is None:
         print('\n'.join(unique_file_names))
     else:
-        with open(args.output_file, 'w') as f:
+        with args.output_file.open('w') as f:
             f.write('\n'.join(unique_file_names-directories_names) + '\n')

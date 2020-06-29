@@ -8,5 +8,13 @@
 /opt/conda/envs/pytorch-py37/bin/python
 /opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/torch/bin/torch_shm_manager
 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-// Only used by Azure, but not touched locally
-/opt/conda/envs/pytorch-py37/lib/python3.7/distutils/dir_util.py
+# Only used by Azure, but not touched locally
+#/opt/conda/envs/pytorch-py37/lib/python3.7/distutils/dir_util.py
+#/opt/conda/envs/pytorch-py37/lib/python3.7/encodings/__pycache__/cp437.cpython-37.pyc
+#/opt/conda/envs/pytorch-py37/lib/python3.7/encodings/cp437.py
+#/opt/conda/envs/pytorch-py37/lib/python3.7/encodings/__pycache__/utf_8_sig.cpython-37.pyc
+#/opt/conda/envs/pytorch-py37/lib/python3.7/encodings/utf_8_sig.py
+#/opt/conda/envs/pytorch-py37/lib/python3.7/runpy.py
+#/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/_history/utils/filesystem.py
+#/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/_restclient/token_client.py
+/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/**
