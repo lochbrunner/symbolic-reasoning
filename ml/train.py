@@ -10,6 +10,8 @@ try:
     azure_run = Run.get_context().parent
 except ImportError:
     azure_run = None
+except AttributeError:  # Running in offline mode
+    azure_run = None
 
 import torch
 from torch import nn

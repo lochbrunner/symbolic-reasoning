@@ -152,6 +152,11 @@ class TreeCnnUniqueIndices(nn.Module):
 
 
 class TreeCnnSegmenter(nn.Module):
+    '''
+    TODO:
+     * use layer-normalisation
+     * use bilinear instead of concat for feature combination (-> to inputs)
+    '''
 
     def __init__(self, vocab_size, tagset_size, pad_token, spread, depth, hyper_parameter, **kwargs):
         super(TreeCnnSegmenter, self).__init__()

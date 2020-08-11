@@ -17,4 +17,5 @@
 #/opt/conda/envs/pytorch-py37/lib/python3.7/runpy.py
 #/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/_history/utils/filesystem.py
 #/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/_restclient/token_client.py
-/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/**
+/opt/conda/envs/pytorch-py37/lib/python3.7/site-packages/azureml/
+/opt/conda/envs/pytorch-py37/bin/python3
