@@ -1,6 +1,6 @@
 use rayon::prelude::*;
 use std::collections::HashSet;
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::io::BufWriter;
 use std::path::Path;
 use std::vec;
@@ -207,6 +207,17 @@ fn deduce<'a>(
     trace
 }
 
+fn create_parent_dir(filename: &str) {
+    let directory = Path::new(filename).parent().unwrap();
+    if !directory.is_dir() {
+        println!(
+            "Creating directory \"{}\" as it does not exist yet",
+            directory.display()
+        );
+        create_dir_all(directory).unwrap();
+    }
+}
+
 fn main() {
     let matches = App::new("Sample data generator")
         .version("0.2.0")
@@ -223,8 +234,7 @@ fn main() {
             Arg::with_name("rose")
                 .long("rose-directory")
                 .help("Directory to place the roses")
-                .takes_value(true)
-                .default_value("./out/generator/rose"),
+                .takes_value(true),
         )
         .arg(
             Arg::with_name("dump_trace")
@@ -260,18 +270,6 @@ fn main() {
         .par_iter()
         .map(|initial| deduce(&config, &alphabet, initial, &rules, &config.stages))
         .collect::<Vec<_>>();
-
-    if let Some(dir) = matches.value_of("rose") {
-        if !Path::new(dir).is_dir() {
-            println!("\"{}\" is not a valid directory!", dir);
-            return;
-        }
-        for (i, trace) in traces.iter().enumerate() {
-            let filename = Path::new(dir).join(&format!("rose_{}.svg", i));
-            let filename = filename.to_str().unwrap();
-            draw_rose(filename, trace).expect("SVG Dump");
-        }
-    }
 
     println!("Converting to bag...");
     let mut leafs: HashSet<&Symbol> = HashSet::new();
@@ -316,6 +314,7 @@ fn main() {
     );
 
     println!("Writing bag file to \"{}\" ...", &config.dump_filename);
+    create_parent_dir(&config.dump_filename);
     let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
     bag.write_bincode(writer).expect("Writing bin file");
 
@@ -335,14 +334,26 @@ fn main() {
 
     if let Some(dir) = matches.value_of("tex") {
         if !Path::new(dir).is_dir() {
-            println!("\"{}\" is not a valid directory!", dir);
-            return;
+            eprintln!("\"{}\" is not a valid directory!", dir);
+            std::process::exit(1);
         }
         for (i, trace) in traces.iter().enumerate() {
             let filename = Path::new(dir).join(&format!("trace_{}.tex", i));
             let mut writer = BufWriter::new(File::create(filename).expect("Parent folder exists"));
             let trace = DenseTrace::from_trace(trace);
             trace.write_latex(&mut writer).expect("Writing tex file");
+        }
+    }
+
+    if let Some(dir) = matches.value_of("rose") {
+        if !Path::new(dir).is_dir() {
+            eprintln!("\"{}\" is not a valid directory!", dir);
+            std::process::exit(1);
+        }
+        for (i, trace) in traces.iter().enumerate() {
+            let filename = Path::new(dir).join(&format!("rose_{}.svg", i));
+            let filename = filename.to_str().unwrap();
+            draw_rose(filename, trace).expect("SVG Dump");
         }
     }
 }

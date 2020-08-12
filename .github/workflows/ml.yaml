@@ -1,6 +1,6 @@
 name: ml
 
-on: [push]
+on: [push, pull_request]r
 
 jobs:
   build:

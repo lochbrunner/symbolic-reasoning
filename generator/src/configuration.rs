@@ -98,6 +98,7 @@ impl<'a, 'b> ConfigurationOverrides for App<'a, 'b> {
         self.arg(
             Arg::with_name("stages")
                 .long("stages")
+                .multiple(true)
                 .help("Used stages")
                 .takes_value(true),
         )
