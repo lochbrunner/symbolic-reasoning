@@ -1,6 +1,7 @@
 use core::{Context, Symbol};
 use std::fs::File;
 extern crate serde_yaml;
+use clap::{App, Arg, ArgMatches};
 
 #[derive(Deserialize)]
 struct Files {
@@ -53,8 +54,12 @@ pub struct Configuration {
     pub augmentation: Augmentation,
 }
 
+pub trait ConfigurationOverrides {
+    fn config_overrides(self) -> Self;
+}
+
 impl Configuration {
-    pub fn load(filename: &str) -> Result<Configuration, String> {
+    pub fn load(filename: &str, matches: &ArgMatches) -> Result<Configuration, String> {
         let file = File::open(filename).map_err(|msg| msg.to_string())?;
         let dataset: Dataset = serde_yaml::from_reader(file).map_err(|msg| msg.to_string())?;
         let Dataset { files, generation } = dataset;
@@ -67,8 +72,14 @@ impl Configuration {
             .map(|s| Symbol::parse(&context, s))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let stages = if let Some(s) = matches.values_of("stages") {
+            Some(s.map(|s| s.parse::<usize>().unwrap()).collect::<Vec<_>>())
+        } else {
+            None
+        };
+
         Ok(Configuration {
-            stages: generation.stages,
+            stages: stages.unwrap_or(generation.stages),
             max_depth: generation.max_depth,
             min_working_density: generation.min_working_density,
             min_result_density: generation.min_result_density,
@@ -79,5 +90,16 @@ impl Configuration {
             dump_filename: files.trainings_data,
             trace_filename: files.trace_filename,
         })
+    }
+}
+
+impl<'a, 'b> ConfigurationOverrides for App<'a, 'b> {
+    fn config_overrides(self) -> Self {
+        self.arg(
+            Arg::with_name("stages")
+                .long("stages")
+                .help("Used stages")
+                .takes_value(true),
+        )
     }
 }

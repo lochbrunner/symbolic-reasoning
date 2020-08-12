@@ -26,6 +26,6 @@ jobs:
           command: build
           args: --release
       - name: Create Trainings Data
-        run: cargo run --bin generator -- -c real_world_problems/basics/dataset.yaml
+        run: cargo run --bin generator -- -c real_world_problems/basics/dataset.yaml --stages 3 3
       - name: Run Training
         run: PYTHONPATH=ml python3 ./ml/train.py --device cpu -c real_world_problems/basics/dataset.yaml -v --data-size-limit 100 -n 1

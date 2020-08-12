@@ -17,7 +17,7 @@ mod svg;
 mod variable_generator;
 
 use crate::augmentation::{augment_with_permuted_free_idents, AugmentationStrategy};
-use crate::configuration::Configuration;
+use crate::configuration::{Configuration, ConfigurationOverrides};
 use crate::filter::{filter_interest, filter_out_blacklist, filter_out_repeating_patterns};
 use crate::iter_extensions::{PickTraitVec, Strategy};
 use crate::rose::draw_rose;
@@ -237,10 +237,11 @@ fn main() {
                 .help("Directory to place the tex files")
                 .takes_value(true),
         )
+        .config_overrides()
         .get_matches();
 
     let config_filename = matches.value_of("config").unwrap();
-    let config = Configuration::load(config_filename).expect("load config");
+    let config = Configuration::load(config_filename, &matches).expect("load config");
 
     let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
 
