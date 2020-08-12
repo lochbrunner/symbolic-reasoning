@@ -1,6 +1,7 @@
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/core/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=core)
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/pycore/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=pycore)
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/ml/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=ml)
+[![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/smoker/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=smoker)
 
 
 # Symbolic reasoning

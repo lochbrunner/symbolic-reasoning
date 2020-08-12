@@ -1,0 +1,31 @@
+name: smoker
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install dependencies
+        run: |
+            pip3 install pyyaml
+            pip3 install torch==1.3.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Create Trainings Data
+        run: cargo run --bin generator -- -c real_world_problems/basics/dataset.yaml
+      - name: Run Training
+        run: PYTHONPATH=ml python3 ./ml/train.py --device cpu -c real_world_problems/basics/dataset.yaml -v --data-size-limit 100 -n 1
