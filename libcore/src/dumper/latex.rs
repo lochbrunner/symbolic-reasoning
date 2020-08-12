@@ -34,7 +34,7 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>, verbose: bool) -
             },
         },
         formats: SpecialFormatRules {
-            symbols: hashmap! {"(" => "\\left( ", ")" => "\\right) ", "*" => "\\cdot "},
+            symbols: hashmap! {"(" => "\\left( ", ")" => "\\right) ", "*" => "\\cdot ", "!=" => "\\neq ", "==" => "="},
             functions: hashmap! {
                 "^" => vec![
                     FormatItem::Tag("{"),
@@ -155,6 +155,13 @@ mod e2e {
             dump_latex(&term, vec![], false),
             String::from("\\frac{a}{b}")
         );
+    }
+
+    #[test]
+    fn inequality() {
+        let context = create_context(vec![]);
+        let term = Symbol::parse(&context, "a!=b").unwrap();
+        assert_eq!(dump_latex(&term, vec![], false), String::from("a\\neq b"));
     }
 
     #[test]

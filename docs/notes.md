@@ -27,4 +27,5 @@ Walk randomly from simple terms to complex ones.
 # Paper ideas
 
 * Rule based symbolic reasoning using indexed convolution networks
-* Using hierarchical Network for self-learned abstraction 
+* Using hierarchical Network for self-learned abstraction
+* Similarity modeling
