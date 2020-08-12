@@ -309,6 +309,12 @@ impl Symbol {
         SymbolBfsIter::new(self)
     }
 
+    /// Returns the number of embedded properties
+    pub fn number_of_embedded_properties() -> u32 {
+        3
+    }
+
+    /// Embeds the ident and the props (operator, fixed, number)
     /// Should maybe moved to other location?
     pub fn embed(
         &self,

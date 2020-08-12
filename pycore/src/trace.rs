@@ -5,7 +5,7 @@ use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use std::fs::File;
 use std::io::BufReader;
@@ -21,7 +21,7 @@ pub struct PyApplyInfo {
 impl PyApplyInfo {
     #[getter]
     fn get_rule(&self) -> PyResult<PyRule> {
-        let inner = Rc::new(self.inner.rule.clone());
+        let inner = Arc::new(self.inner.rule.clone());
         Ok(PyRule {
             inner,
             name: String::new(),
@@ -87,7 +87,7 @@ impl PyCalculation {
 #[pyclass(name=TraceIter)]
 pub struct PyTraceIter {
     cursor: Vec<usize>,
-    trace: Rc<DenseTrace>,
+    trace: Arc<DenseTrace>,
 }
 
 impl PyTraceIter {
@@ -176,7 +176,7 @@ impl PyIterProtocol for PyTraceIter {
 #[pyclass(name=StepsIter)]
 pub struct PyStepsIter {
     cursors: Vec<Vec<usize>>,
-    trace: Rc<DenseTrace>,
+    trace: Arc<DenseTrace>,
 }
 
 impl PyStepsIter {
@@ -227,7 +227,7 @@ impl PyIterProtocol for PyStepsIter {
 
 #[pyclass(name=Meta,subclass)]
 pub struct PyMeta {
-    trace: Rc<DenseTrace>,
+    trace: Arc<DenseTrace>,
 }
 
 #[pymethods]
@@ -244,7 +244,7 @@ impl PyMeta {
             .rules
             .iter()
             .map(|(n, r)| PyRule {
-                inner: Rc::new(r.clone()),
+                inner: Arc::new(r.clone()),
                 name: n.clone(),
             })
             .collect())
@@ -253,7 +253,7 @@ impl PyMeta {
 
 #[pyclass(name=Trace,subclass,dict)]
 pub struct PyTrace {
-    inner: Rc<DenseTrace>,
+    inner: Arc<DenseTrace>,
 }
 
 #[pymethods]
@@ -264,7 +264,7 @@ impl PyTrace {
             File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
         let reader = BufReader::new(file);
         let inner = DenseTrace::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
-        let inner = Rc::new(inner);
+        let inner = Arc::new(inner);
         Ok(PyTrace { inner })
     }
 

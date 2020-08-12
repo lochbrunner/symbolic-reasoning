@@ -5,12 +5,12 @@ use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Python Wrapper for core::Rule
 #[pyclass(name=Rule,subclass)]
 pub struct PyRule {
-    pub inner: Rc<Rule>,
+    pub inner: Arc<Rule>,
     pub name: String,
 }
 
@@ -20,7 +20,7 @@ impl PyRule {
     fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
         match Rule::parse(&context.inner, &code) {
             Ok(mut rule) => Ok(PyRule {
-                inner: Rc::new(rule.pop().unwrap()),
+                inner: Arc::new(rule.pop().unwrap()),
                 name: format!("Parsed from {}", code),
             }),
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
@@ -42,7 +42,7 @@ impl PyRule {
     #[getter]
     fn reverse(&self) -> PyResult<PyRule> {
         Ok(PyRule {
-            inner: Rc::new(Rule {
+            inner: Arc::new(Rule {
                 conclusion: self.inner.condition.clone(),
                 condition: self.inner.conclusion.clone(),
             }),

@@ -2,7 +2,7 @@ use core::scenario::Scenario;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::context::PyContext;
 use crate::rule::PyRule;
@@ -10,7 +10,7 @@ use crate::rule::PyRule;
 /// Python Wrapper for core::io::Scenario
 #[pyclass(name=Scenario,subclass)]
 pub struct PyScenario {
-    pub inner: Rc<Scenario>,
+    pub inner: Arc<Scenario>,
 }
 
 #[pymethods]
@@ -21,7 +21,7 @@ impl PyScenario {
     fn load(filename: String) -> PyResult<PyScenario> {
         match Scenario::load_from_yaml(&filename) {
             Ok(scenario) => Ok(PyScenario {
-                inner: Rc::new(scenario),
+                inner: Arc::new(scenario),
             }),
             Err(msg) => Err(PyErr::new::<exceptions::IOError, _>(msg)),
         }
@@ -37,7 +37,7 @@ impl PyScenario {
                 (
                     k.clone(),
                     PyRule {
-                        inner: Rc::new(v.clone()),
+                        inner: Arc::new(v.clone()),
                         name: k.clone(),
                     },
                 )
@@ -55,7 +55,7 @@ impl PyScenario {
                 (
                     k.clone(),
                     PyRule {
-                        inner: Rc::new(v.clone()),
+                        inner: Arc::new(v.clone()),
                         name: k.clone(),
                     },
                 )

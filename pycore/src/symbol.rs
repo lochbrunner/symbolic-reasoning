@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 type Path = Vec<usize>;
 
@@ -41,7 +41,7 @@ impl PyDecoration {
 #[pyclass(name=Symbol,subclass)]
 #[derive(PartialEq)]
 pub struct PySymbol {
-    pub inner: Rc<Symbol>,
+    pub inner: Arc<Symbol>,
     pub attributes: HashMap<String, PyObject>,
 }
 
@@ -63,7 +63,7 @@ impl Clone for PySymbol {
 impl PySymbol {
     pub fn new(symbol: Symbol) -> PySymbol {
         PySymbol {
-            inner: Rc::new(symbol),
+            inner: Arc::new(symbol),
             attributes: HashMap::new(),
         }
     }
@@ -84,12 +84,12 @@ impl PySymbol {
 #[pyclass(name=SymbolBfsIter)]
 #[derive(Clone)]
 pub struct PySymbolBfsIter {
-    pub parent: Rc<Symbol>,
+    pub parent: Arc<Symbol>,
     pub queue: VecDeque<Symbol>,
 }
 
 impl PySymbolBfsIter {
-    pub fn new(symbol: &Rc<Symbol>) -> PySymbolBfsIter {
+    pub fn new(symbol: &Arc<Symbol>) -> PySymbolBfsIter {
         let mut queue = VecDeque::with_capacity(1);
         queue.push_back((*symbol.clone()).clone());
         PySymbolBfsIter {
@@ -121,7 +121,7 @@ impl PyIterProtocol for PySymbolBfsIter {
 #[pyclass(name=SymbolDfsIter)]
 #[derive(Clone)]
 pub struct PySymbolDfsIter {
-    pub parent: Rc<Symbol>,
+    pub parent: Arc<Symbol>,
     pub stack: Vec<Symbol>,
 }
 
@@ -150,7 +150,7 @@ impl PyIterProtocol for PySymbolDfsIter {
 #[pyclass(name=SymbolAndPathIter)]
 #[derive(Clone)]
 pub struct PySymbolAndPathDfsIter {
-    pub parent: Rc<Symbol>,
+    pub parent: Arc<Symbol>,
     pub stack: Vec<Path>,
 }
 
@@ -184,12 +184,12 @@ impl PyIterProtocol for PySymbolAndPathDfsIter {
 #[pyclass(name=SymbolAndPathIter)]
 #[derive(Clone)]
 pub struct PySymbolAndPathBfsIter {
-    pub parent: Rc<Symbol>,
+    pub parent: Arc<Symbol>,
     pub queue: VecDeque<Path>,
 }
 
 impl PySymbolAndPathBfsIter {
-    pub fn new(symbol: &Rc<Symbol>) -> PySymbolAndPathBfsIter {
+    pub fn new(symbol: &Arc<Symbol>) -> PySymbolAndPathBfsIter {
         let mut queue = VecDeque::with_capacity(1);
         queue.push_back(vec![]);
         PySymbolAndPathBfsIter {
@@ -225,7 +225,7 @@ impl PyIterProtocol for PySymbolAndPathBfsIter {
 
 fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
 where
-    T: numpy::types::TypeNum,
+    T: numpy::Element,
 {
     Ok(Array::from_shape_vec(
         (orig.len(), orig[0].len()),
@@ -356,6 +356,11 @@ impl PySymbol {
         Ok((embedded, index_map, label))
     }
 
+    #[classattr]
+    fn number_of_embedded_properties() -> u32 {
+        Symbol::number_of_embedded_properties()
+    }
+
     #[getter]
     fn depth(&self) -> PyResult<u32> {
         Ok(self.inner.depth)
@@ -397,7 +402,7 @@ impl PySymbol {
 
     #[text_signature = "($self, padding, spread, depth, /)"]
     fn pad(&mut self, padding: String, spread: u32, depth: u32) -> PyResult<()> {
-        match Rc::get_mut(&mut self.inner) {
+        match Arc::get_mut(&mut self.inner) {
             None => Err(PyErr::new::<TypeError, _>(format!(
                 "Can not get mut reference of symbol {}",
                 self.inner

@@ -3,14 +3,14 @@ use crate::symbol::PySymbol;
 use core::bag;
 use std::fs::File;
 use std::io::BufReader;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
 
 #[pyclass(name=BagMeta,subclass)]
 pub struct PyBagMeta {
-    data: Rc<bag::Meta>,
+    data: Arc<bag::Meta>,
 }
 
 #[pymethods]
@@ -27,7 +27,7 @@ impl PyBagMeta {
             .rules
             .iter()
             .map(|(l, r)| PyRule {
-                inner: Rc::new(r.clone()),
+                inner: Arc::new(r.clone()),
                 name: l.clone(),
             })
             .collect())
@@ -43,13 +43,13 @@ impl PyBagMeta {
 #[derive(Clone)]
 pub struct PyFitInfo {
     /// Starting with 1 for better embedding
-    pub data: Rc<bag::FitInfo>,
+    pub data: Arc<bag::FitInfo>,
 }
 
 impl PyFitInfo {
     pub fn new(orig: bag::FitInfo) -> PyFitInfo {
         PyFitInfo {
-            data: Rc::new(orig),
+            data: Arc::new(orig),
         }
     }
 }
@@ -80,7 +80,7 @@ struct SampleData {
 #[pyclass(name=Sample,subclass)]
 #[derive(Clone)]
 pub struct PySample {
-    data: Rc<SampleData>,
+    data: Arc<SampleData>,
 }
 
 #[pymethods]
@@ -130,7 +130,7 @@ impl PyContainer {
 
 #[pyclass(name=Bag,subclass)]
 pub struct PyBag {
-    meta_data: Rc<bag::Meta>,
+    meta_data: Arc<bag::Meta>,
     samples_data: Vec<PyContainer>,
 }
 
@@ -143,7 +143,7 @@ impl PyBag {
         let reader = BufReader::new(file);
         let bag = bag::Bag::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
 
-        let meta_data = Rc::new(bag.meta);
+        let meta_data = Arc::new(bag.meta);
         let samples_data = bag
             .samples
             .into_iter()
@@ -155,7 +155,7 @@ impl PyBag {
                     .samples
                     .into_iter()
                     .map(|s| PySample {
-                        data: Rc::new(SampleData {
+                        data: Arc::new(SampleData {
                             initial: PySymbol::new(s.initial),
                             fits: s.fits.into_iter().map(PyFitInfo::new).collect(),
                         }),

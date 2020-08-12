@@ -144,3 +144,6 @@ class TestSymbol(unittest.TestCase):
         symbol = Symbol.parse(context, 'a+b=c*d')
 
         self.assertEqual(symbol.size, 7)
+
+    def test_number_of_embedded_properties(self):
+        self.assertEqual(Symbol.number_of_embedded_properties, 3)
