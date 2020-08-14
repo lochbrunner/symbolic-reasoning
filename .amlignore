@@ -1,8 +1,11 @@
 /.git
 /.github
 /.vscode
+/azure
 .amlignore
+.dockerignore
 .gitignore
+.gitattributes
 /Cargo.lock
 /Cargo.toml
 /docs

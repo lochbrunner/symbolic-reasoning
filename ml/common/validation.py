@@ -27,6 +27,11 @@ class Ratio:
         remaining = ', '.join(v[1:])
         return f'{v[0]} ({remaining})'
 
+    def log(self, logger, prefix):
+        vs = [(1. - self.topk(i+1)) * 100 for i in range(self.count_print)]
+        for i, v in enumerate(vs, 1):
+            logger(f'{prefix} [{i}]', v)
+
     def update(self, mask, predict, truth):
         '''
         n: node

@@ -34,17 +34,18 @@ class Timer:
             return str(delta)
 
     def stop_and_log(self):
-        end = time()
-        delta_str = Timer._format_time(end-self.begin-self.paused_seconds)
+        seconds = time() - self.begin - self.paused_seconds
+        delta_str = Timer._format_time(seconds)
         logging.info(f'{self.label} took {delta_str}')
+        return seconds
 
     def stop_and_log_average(self, iterations):
         end = time()
         seconds = (end-self.begin-self.paused_seconds)/iterations
 
         delta_str = Timer._format_time(seconds)
-
         logging.info(f'{self.label} took {delta_str}')
+        return seconds
 
     def __enter__(self):
         pass

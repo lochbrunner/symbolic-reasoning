@@ -1,66 +1,93 @@
 #!/usr/bin/env python3
 
 import argparse
+from pathlib import Path
+import logging
 
-from azureml.core import Workspace, Experiment, RunConfiguration
-from azureml.core.compute import ComputeTarget, AmlCompute
+from azureml.core import Workspace, Experiment
 from azureml.core.datastore import Datastore
-from azureml.core.environment import Environment, PythonSection
 from azureml.data.data_reference import DataReference
-from azureml.pipeline.steps import PythonScriptStep
-from azureml.pipeline.core import Pipeline
 
+from azureml.train.estimator import Estimator
+from azureml.train.hyperdrive import GridParameterSampling, HyperDriveConfig, PrimaryMetricGoal
+from azureml.train.hyperdrive import choice
 
-import os
+logger = logging.getLogger(__name__)
 
 
 def main(args):
+    loglevel = 'INFO' if args.verbose else args.log.upper()
+    log_format = '%(message)s'
+    logging.basicConfig(
+        level=logging.getLevelName(loglevel),
+        format=log_format,
+        datefmt='%I:%M:%S'
+    )
+
     ws = Workspace.get(name=args.workspace_name,
                        subscription_id=args.subscription_id,
                        resource_group=args.resource_group)
 
-    runconfig = RunConfiguration()
-
-    runconfig.environment.python.user_managed_dependencies = True
-    runconfig.environment.python.interpreter_path = '/opt/conda/envs/pytorch-py37/bin/python'
-    runconfig.environment.docker.enabled = True
-    runconfig.environment.docker.base_image = f'{args.docker_registry}/{args.docker_repository}:{args.docker_image}'
-    runconfig.environment.docker.base_image_registry.address = args.docker_registry
-    runconfig.target = ws.compute_targets[args.compute_target]
-
     generated_datastore = Datastore.get(ws, 'generated')
-    generated_datastore = DataReference(
+    generated_dr = DataReference(
         datastore=generated_datastore,
         data_reference_name='generated',
         path_on_datastore=args.trainings_data)
 
-    train_step = PythonScriptStep(
-        script_name='ml/train.py',
-        runconfig=runconfig,
-        arguments=['-c', args.dataset, '-v',
-                   '--bag-filename', generated_datastore,
-                   '--save-model', 'outputs/bag-basic_parameter_search.sp',
-                   '--statistics', 'outputs/training-statistics.yaml'],
-        inputs=[generated_datastore],
-        outputs=[],
-        source_directory=os.path.realpath(os.path.dirname(__file__)+'/..'),
-        allow_reuse=False
+    docker_image = f'{args.docker_registry}/{args.docker_repository}:{args.docker_image}'
+
+    logger.info(f'Using Docker image: {docker_image}')
+    dir_on_compute = Path('/mnt/data')
+    path_on_compute = dir_on_compute / args.trainings_data
+    estimator = Estimator(
+        compute_target=args.compute_target,
+        entry_script='./ml/train.py',
+        inputs=[generated_dr.as_download(path_on_compute=dir_on_compute)],
+        script_params={'-c': args.dataset,
+                       '-v': '',
+                       '--bag-filename': str(path_on_compute),
+                       '--save-model': 'outputs/bag-basic_parameter_search.sp',
+                       '--report-rate': '10',
+                       '--statistics': 'outputs/training-statistics.yaml'},
+        source_directory=Path(__file__).parents[1],
+        user_managed=True,
+        process_count_per_node=1,
+        custom_docker_image=docker_image,
+        use_gpu=False
     )
-    pipeline = Pipeline(workspace=ws, steps=[train_step])
+
+    ps = GridParameterSampling(
+        {
+            '--embedding-size': choice([16, 24, 32, 48]),
+            '--use-props': choice([1, 0]),
+        }
+    )
+
+    hdc = HyperDriveConfig(estimator=estimator,
+                           hyperparameter_sampling=ps,
+                           primary_metric_name='final_error',
+                           primary_metric_goal=PrimaryMetricGoal.MINIMIZE,
+                           max_total_runs=20,
+                           max_concurrent_runs=2)
+
     experiment = Experiment(workspace=ws, name='training')
 
-    experiment.submit(pipeline, tags={k: v for k, v in [i.split(':') for i in args.tags]})
+    run = experiment.submit(hdc, tags={k: v for k, v in [i.split(':') for i in args.tags]})
+    print(run.get_portal_url())
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Submit Azure ML trainings job')
+    parser.add_argument('--log', help='Set the log level', default='warning')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+
     parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
     parser.add_argument('--docker-repository', default='train')
-    parser.add_argument('--docker-image', default='6')
+    parser.add_argument('--docker-image', default='7-builder')
     parser.add_argument('--compute-target', default='cpucore8')
 
-    parser.add_argument('--trainings-data', default='experiments/bag-basic.bin')
-    parser.add_argument('--dataset', default='real_world_problems/basics/dataset.yaml')
+    parser.add_argument('--trainings-data', default='experiments/bag-basic.bin', type=Path)
+    parser.add_argument('--dataset', default='real_world_problems/basics/dataset.yaml', type=Path)
 
     parser.add_argument('--tags', nargs='*', default=[])
     parser.add_argument('--name', default='training')

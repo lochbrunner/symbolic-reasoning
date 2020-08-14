@@ -7,7 +7,7 @@ import yaml
 
 try:
     from azureml.core import Run
-    azure_run = Run.get_context().parent
+    azure_run = Run.get_context()
 except ImportError:
     azure_run = None
 except AttributeError:  # Running in offline mode
@@ -57,13 +57,18 @@ def dump_statistics(params: ExecutionParameter, logbooks):
 
     if azure_run is not None:
         for i, logbook in enumerate(logbooks):
-            (_, error, loss) = logbook[-1]
+            (_, error, loss) = logbook[-1][0]
 
             def sumup(name):
-                return sum([error[name]['tops'][i] for i in range(0, 5)]) / error[name]['total']
+                ratio = getattr(error, name)
+                return ratio.topk(5)
 
-            row = {n: sumup(n) for n in ['exact', 'exact-no-padding']}
-            azure_run.lo_row(f'Parameter set {i+1}', **row)
+            row = {n: sumup(n) for n in ['exact', 'exact_no_padding']}
+            azure_run.log_row(f'Parameter set {i+1}', **row)
+        # Last error
+        (_, last, _) = logbooks[-1][-1][0]
+        top = last.exact_no_padding.topk(1)
+        azure_run.log('final_error', top)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -128,7 +133,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     logbook = []
 
-    timer = Timer(f'Training per sample:')
+    timer = Timer('Training per sample:')
     model.train()
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
@@ -159,10 +164,18 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             logbook.append((epoch, error, loss))
             logging.info(
                 f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding}')
+            if azure_run is not None:
+                error.exact.log(azure_run.log, 'exact')
+                error.exact_no_padding.log(azure_run.log, 'exact (np)')
+                error.with_padding.log(azure_run.log, 'class')
+                error.when_rule.log(azure_run.log, 'class (np)')
+                azure_run.log('loss', loss.item())
             timer.resume()
         printProgressBar(epoch, learn_params.num_epochs)
     clearProgressBar()
-    timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
+    duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
+    if azure_run is not None:
+        azure_run.log('duration_per_sample', duration_per_sample)
 
     signal.signal(signal.SIGINT, original_sigint_handler)
     error = validate(model, validation_dataloader)
@@ -170,7 +183,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         error.exact_no_padding.printHistogram()
 
     logbook.append((epoch, error, None))
-    # dump_statistics(exe_params, logbook)
     save_snapshot()
     return logbook
 
@@ -181,18 +193,14 @@ def load_config(filename):
         return config['training']
 
 
-def load_model_hyperparameter(filename):
-    with open(filename, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-        return config['training']['model-parameter']
-
-
 if __name__ == '__main__':
 
     parser = ArgumentParser('-c', '--config-file', loader=load_config,
                             prog='deep training')
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('--smoke', action='store_true', default=False,
+                        help='Make a very fast run. (data_size_limit: 100, num_epochs: 1)')
 
     # Execution parameter
     parser.add_argument('-i', '--load-model', type=str,
@@ -229,7 +237,8 @@ if __name__ == '__main__':
     parser.add_argument('--data-size-limit', type=int, default=None,
                         help='Limits the size of the loaded bag file data. For testing purpose.')
 
-    args = parser.parse_args()
+    args, model_hyper_parameters = parser.parse_args()
+    # Logging
     loglevel = 'INFO' if args.verbose else args.log.upper()
     if sys.stdin.isatty():
         log_format = '%(message)s'
@@ -242,14 +251,17 @@ if __name__ == '__main__':
         datefmt='%I:%M:%S'
     )
 
+    if args.smoke:
+        args.data_size_limit = 100
+        args.num_epochs = 1
+
     if args.device == 'auto':
         args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    model_hyper_parameters = load_model_hyperparameter(args.config)
 
     stats = []
     changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))
     for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(args)):
+        logging.info(model_hyper_parameter)
         # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
         result = main(
             exe_params=ExecutionParameter(**vars(args)),

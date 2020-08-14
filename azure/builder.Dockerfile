@@ -20,7 +20,7 @@ RUN curl -o ~/miniconda.sh -L -O  https://repo.continuum.io/miniconda/Miniconda3
     ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
     conda install conda-build -y && \
-    conda create -y --name pytorch-py37 python=3.7.5 numpy pyyaml && \
+    conda create -y --name pytorch-py37 python=3.7.5 numpy pyyaml py-cpuinfo && \
     conda clean -ya
 
 RUN cd /tmp/ &&  \
