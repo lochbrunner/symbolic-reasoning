@@ -9,6 +9,8 @@ from dataset.transformers import Embedder
 
 from iconv import IConv
 
+from pycore import Symbol
+
 
 def _create_index_tensor(spread, depth):
     '''This tensor returns the k indices for node of index l'''
@@ -50,7 +52,7 @@ class PyIConv(nn.Module):
         self.mask = nn.Parameter(mask)
         self.bias = nn.Parameter(torch.zeros(out_size))
 
-    def forward(self, x, *args):
+    def forward(self, x, *args):  # pylint: disable=arguments-differ
         # m: mask (k,i,j)
         # s: index map (l,k -> l)
         # x: input (b,l,i)
@@ -88,7 +90,7 @@ class PyIConv(nn.Module):
 
 class SequentialByPass(nn.Sequential):
 
-    def forward(self, x, s):
+    def forward(self, x, s):  # pylint: disable=arguments-differ
         for module in self._modules.values():
             if type(module) is IConv:
                 x = module(x, s)
@@ -111,12 +113,18 @@ class TreeCnnUniqueIndices(nn.Module):
 
         embedding_size = self.config['embedding_size']
 
+        num_props = Symbol.number_of_embedded_properties
+
         # Embedding
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size+1,
-            embedding_dim=embedding_size-(3 if self.config['use_props'] else 0),
+            embedding_dim=embedding_size,
+            # embedding_dim=embedding_size-(num_props if self.config['use_props'] else 0),
             padding_idx=pad_token
         )
+
+        if self.config['use_props']:
+            self.combine = nn.Bilinear(embedding_size, num_props, embedding_size)
 
         def create_layer():
             return IConv(embedding_size, embedding_size, kernel_size=kernel_size)
@@ -128,12 +136,13 @@ class TreeCnnUniqueIndices(nn.Module):
                                                  nn.Dropout(p=self.config['dropout'], inplace=False)]])
         self.cnn_end = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
 
-    def forward(self, x, s, *args):
+    def forward(self, x, s, *args):  # pylint: disable=arguments-differ
         # x: b,l,(e,props)
         e = x[:, :, 0].squeeze()
         e = self.embedding(e)
         if self.config['use_props']:
-            x = torch.cat([e, x[:, :, 1:].type(torch.FloatTensor)], dim=2)
+            props = x[:, :, 1:].type(torch.FloatTensor)
+            x = self.combine(e, props)
         else:
             x = e
         x = self.cnn_hidden(x, s)

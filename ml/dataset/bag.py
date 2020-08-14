@@ -13,6 +13,8 @@ from common.terminal_utils import printProgressBar, clearProgressBar
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class BagDatasetSharedIndex(DatasetBase):
     '''Deprecated!
@@ -21,7 +23,7 @@ class BagDatasetSharedIndex(DatasetBase):
 
     def __init__(self, params, preprocess=False):
         super(BagDatasetSharedIndex, self).__init__(preprocess)
-        logging.info(f'Loading samples from {params.filename}')
+        logger.info(f'Loading samples from {params.filename}')
         bag = Bag.load(params.filename)
 
         self.patterns = [rule.condition for rule in bag.meta.rules]
@@ -43,8 +45,8 @@ class BagDatasetSharedIndex(DatasetBase):
         self.raw_samples = [feature for sample in self.container
                             for feature in create_features(sample)]
 
-        logging.info(f'number of samples: {len(self.raw_samples)}')
-        logging.info(f'max depth: {self._max_depth}')
+        logger.info(f'number of samples: {len(self.raw_samples)}')
+        logger.info(f'max depth: {self._max_depth}')
 
         builder = SymbolBuilder()
         for _ in range(self._max_depth):
@@ -124,7 +126,7 @@ def stack(samples, width):
         # shared memory tensor to avoid an extra copy
         elem = samples[0]
         numel = sum([x.numel() for x in samples])
-        storage = elem.storage()._new_shared(numel)
+        storage = elem.storage()._new_shared(numel)  # pylint: disable=protected-access
         out = elem.new(storage)
     return torch.stack(samples, 0, out=out)
 
@@ -145,7 +147,7 @@ class BagDataset(Dataset):
     def __init__(self, params, preprocess=False):
         self.preprocess = preprocess
 
-        logging.info(f'Loading samples from {params.filename}')
+        logger.info(f'Loading samples from {params.filename}')
         bag = Bag.load(params.filename)
 
         meta = bag.meta
@@ -171,8 +173,8 @@ class BagDataset(Dataset):
         self._max_spread = bag.samples[-1].max_spread
         self._max_depth = bag.samples[-1].max_depth
         self._max_size = bag.samples[-1].max_size
-        logging.info(f'max size: {self._max_size}')
-        logging.info(f'number of samples: {len(self.container)}')
+        logger.info(f'max size: {self._max_size}')
+        logger.info(f'number of samples: {len(self.container)}')
 
         if preprocess:
             def progress(i, sample):
