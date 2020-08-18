@@ -47,7 +47,6 @@ def main(args):
                        '-v': '',
                        '--bag-filename': str(path_on_compute),
                        '--save-model': 'outputs/bag-basic_parameter_search.sp',
-                       '--report-rate': '10',
                        '--statistics': 'outputs/training-statistics.yaml'},
         source_directory=Path(__file__).parents[1],
         user_managed=True,
@@ -58,17 +57,18 @@ def main(args):
 
     ps = GridParameterSampling(
         {
-            '--embedding-size': choice([16, 24, 32, 48]),
-            '--use-props': choice([1, 0]),
+            '--embedding-size': choice([16, 24, 32]),
+            '--use-props': choice([1]),
+            '--hidden-layers': choice([1, 2, 3]),
         }
     )
 
     hdc = HyperDriveConfig(estimator=estimator,
                            hyperparameter_sampling=ps,
-                           primary_metric_name='final_error',
-                           primary_metric_goal=PrimaryMetricGoal.MINIMIZE,
+                           primary_metric_name='top3',
+                           primary_metric_goal=PrimaryMetricGoal.MAXIMIZE,
                            max_total_runs=20,
-                           max_concurrent_runs=2)
+                           max_concurrent_runs=10)
 
     experiment = Experiment(workspace=ws, name='training')
 
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
     parser.add_argument('--docker-repository', default='train')
     parser.add_argument('--docker-image', default='7-builder')
-    parser.add_argument('--compute-target', default='cpucore8')
+    parser.add_argument('--compute-target', default='cpucore4')
 
     parser.add_argument('--trainings-data', default='experiments/bag-basic.bin', type=Path)
     parser.add_argument('--dataset', default='real_world_problems/basics/dataset.yaml', type=Path)

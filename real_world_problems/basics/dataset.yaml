@@ -83,7 +83,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 20
+  num-epochs: 50
   report-rate: 2
   batch-size: 32
   learning-rate: 0.1 # Not needed here

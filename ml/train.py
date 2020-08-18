@@ -36,13 +36,15 @@ from common import grid_search
 
 class ExecutionParameter:
     def __init__(self, report_rate: int = 10, update_model: str = None, load_model: str = None,
-                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, statistics: str = None, **kwargs):
+                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, statistics: str = None,
+                 manual_seed: bool = False, **kwargs):
         self.report_rate = report_rate
         self.load_model = load_model or update_model
         self.save_model = save_model or update_model
         self.device = device
         self.tensorboard = tensorboard
         self.statistics = statistics
+        self.manual_seed = manual_seed
 
 
 def dump_statistics(params: ExecutionParameter, logbooks):
@@ -67,11 +69,17 @@ def dump_statistics(params: ExecutionParameter, logbooks):
             azure_run.log_row(f'Parameter set {i+1}', **row)
         # Last error
         (_, last, _) = logbooks[-1][-1][0]
-        top = last.exact_no_padding.topk(1)
-        azure_run.log('final_error', top)
+        top1 = last.exact_no_padding.topk(1)
+        azure_run.log('top1', top1)
+        top2 = last.exact_no_padding.topk(2)
+        azure_run.log('top2', top2)
+        top3 = last.exact_no_padding.topk(3)
+        azure_run.log('top3', top3)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
+    if exe_params.manual_seed:
+        torch.manual_seed(0)
     device = torch.device(exe_params.device)
     logging.info(f'Using device: {device}')
 
@@ -213,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
     parser.add_argument('--tensorboard', action='store_true', default=False)
     parser.add_argument('--statistics', default=None)
+    parser.add_argument('--manual-seed', action='store_true', default=False)
 
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
