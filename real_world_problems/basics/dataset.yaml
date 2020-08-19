@@ -36,7 +36,7 @@ rules:
   # equations
   equation 1: a - b = 0 => a = b
   equation 3: a / b = 1 => a = b
-premises:
+premises: # for data generation
  - x = y
  - x = 0
  - x = 1

@@ -30,6 +30,7 @@ https://towardsdatascience.com/model-agnostic-meta-learning-maml-8a245d9bc4ac
 
 * [Optimization as a model for few-shot learning](https://openreview.net/pdf?id=rJY0-Kcll)
 * [Meta-Learning and Universality: Deep Representations and Gradient Descent can Approximate any Learning Algorithm](https://arxiv.org/abs/1710.11622)
+* [Learning with rare data](https://arxiv.org/pdf/2008.06334v1.pdf)
 
 ## Similarity Modeling
 

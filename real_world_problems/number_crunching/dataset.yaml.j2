@@ -1,0 +1,51 @@
+name: {{name}}
+declarations: {}
+rules:
+  # counting
+  {% for i in range(1, upper_limit+1) -%}
+  counting {{i}}: 1+{{i-1}} => {{i}}
+  {% endfor -%}
+  # counting down (Could be deduced from above later)
+  {% for i in range(1, upper_limit+1) -%}
+  de-counting {{i}}: {{i+1}}-1 => {{i}}
+  {% endfor -%}
+  # multiplication
+  multiplication: a*b = b + (a-1)*b # -> 1*b = b
+premises: [] # for data generation
+problems:
+  simple addition: 2+3 = 5
+  simple multiplication: 2*3 = 6
+  big addition: 24 + 56 = 80
+  big multiplication: 7*8 = 56
+files:
+  working-folder: experiments
+  model: &model experiments/{{name}}.sp
+  training-statistics: &training-statistics experiments/{{name}}/training-statistics.yaml
+  evaluation-results: experiments/{{name}}/evaluation-results.yaml
+generation: {}
+training:
+  save-model: *model
+  device: cpu
+  # Learning
+  num-epochs: 50
+  report-rate: 2
+  batch-size: 32
+  learning-rate: 0.1
+  gradient-clipping: 0.1
+  model-name: TreeCnnUniqueIndices
+  # Scenario
+  scenario: bag
+  filename: *bag
+  statistics: *training-statistics
+  model-parameter:
+    embedding_size: 24
+    hidden_layers: 2
+    dropout: 0
+    use_props: True
+evaluation:
+  num_epochs: 30
+  problems:
+    beam-size: 70
+  training-data:
+    beam-size: '1:15'
+    max-steps: -1
