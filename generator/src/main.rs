@@ -251,7 +251,8 @@ fn main() {
         .get_matches();
 
     let config_filename = matches.value_of("config").unwrap();
-    let config = Configuration::load(config_filename, &matches).expect("load config");
+    let config = Configuration::load(config_filename, &matches)
+        .expect(&format!("load config {}", config_filename));
 
     let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
 
@@ -265,6 +266,20 @@ fn main() {
     let mut context = Context::load(&config_filename)
         .unwrap_or_else(|_| panic!("Loading declarations from {}", &config_filename));
     context.register_standard_operators();
+
+    if scenario.premises.is_empty() {
+        println!("Warning: No premises found in the configuration!");
+        let bag = Bag::empty(2, rules.clone());
+
+        println!(
+            "Writing empty bag file to \"{}\" ...",
+            &config.dump_filename
+        );
+        create_parent_dir(&config.dump_filename);
+        let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
+        bag.write_bincode(writer).expect("Writing bin file");
+        std::process::exit(0);
+    }
 
     let traces = (&scenario.premises)[..]
         .par_iter()

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from pycore import Bag
 from datetime import datetime
-import yaml
+from pathlib import Path
+from pycore import Bag
 import argparse
-import os
-import numpy as np
 import math
+import numpy as np
 import scipy.optimize as optimize
+import yaml
 
 # Graphs
 import tikzplotlib
@@ -447,12 +447,13 @@ def main(args):
 
     experiment_name = scenario['name']
     bagfile = scenario['files']['trainings-data']
-    texfile = os.path.join(scenario['files']['working-folder'], f'{experiment_name}.tex')
+    wd = Path(scenario['files']['working-folder'])
+    texfile = wd / f'{experiment_name}.tex')
 
-    bag = Bag.load(bagfile)
+    bag=Bag.load(bagfile)
     print(f'Writing file {texfile} ...')
     with open(texfile, 'w') as f:
-        date = datetime.now().strftime('%a %b %d %Y')
+        date=datetime.now().strftime('%a %b %d %Y')
         f.write('\\documentclass{scrartcl}\n')
 
         usepackages(f, [
@@ -505,9 +506,9 @@ def main(args):
             if len(container.samples) > 0:
                 density_histogram(f, container, scenario)
 
-            samples = list(container.samples[: 100])
+            samples=list(container.samples[: 100])
 
-            samples.sort(key=lambda s: s.initial.density, reverse=True)
+            samples.sort(key = lambda s: s.initial.density, reverse=True)
 
             for sample in samples:
                 # sample.initial

@@ -48,7 +48,7 @@ impl Bag {
         traces: &'a [trace::Trace],
         filter: &dyn Fn(&Symbol) -> bool,
         augment: &dyn Fn((&Symbol, FitInfo)) -> Vec<(Symbol, FitInfo)>,
-    ) -> Bag {
+    ) -> Self {
         let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
         let mut rules: Vec<(String, Rule)> = Vec::new();
         rules.push(("padding".to_string(), Default::default()));
@@ -145,6 +145,34 @@ impl Bag {
                 rule_distribution,
             },
             samples,
+        }
+    }
+
+    /// Creates a bag with one empty container
+    pub fn empty(max_spread: u32, rules: Vec<(String, Rule)>) -> Self {
+        let rule_distribution = vec![1; rules.len()];
+        // Crawl the idents from the rules
+        let mut idents: HashSet<String> = HashSet::new();
+        for (_, rule) in rules.iter() {
+            for sub in rule.conclusion.iter_bfs() {
+                idents.insert(sub.ident.clone());
+            }
+            for sub in rule.condition.iter_bfs() {
+                idents.insert(sub.ident.clone());
+            }
+        }
+        Bag {
+            meta: Meta {
+                rule_distribution,
+                rules,
+                idents: idents.into_iter().collect(),
+            },
+            samples: vec![SampleContainer {
+                max_size: 0,
+                max_depth: 0,
+                max_spread,
+                samples: vec![],
+            }],
         }
     }
 

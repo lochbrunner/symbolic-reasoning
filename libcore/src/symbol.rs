@@ -157,6 +157,7 @@ pub struct Symbol {
     pub depth: u32,
     // Collection of flags
     pub flags: FlagType,
+    // If this symbol is a number (only integers are supported yet)
     pub value: Option<i64>,
 }
 

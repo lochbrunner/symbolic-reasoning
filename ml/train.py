@@ -4,13 +4,17 @@ import logging
 import signal
 import sys
 import yaml
+from pathlib import Path
 
 try:
     from azureml.core import Run
-    azure_run = Run.get_context()
+    import azureml
+    azure_run = Run.get_context(allow_offline=False)
 except ImportError:
     azure_run = None
 except AttributeError:  # Running in offline mode
+    azure_run = None
+except azureml.exceptions.RunEnvironmentException:
     azure_run = None
 
 import torch
@@ -54,10 +58,13 @@ def dump_statistics(params: ExecutionParameter, logbooks):
              }
             for (hp, logbook) in logbooks]
 
-    with open(params.statistics, 'w') as f:
+    filename = Path(params.statistics)
+    filename.parent.mkdir(exist_ok=True)
+    with filename.open('w') as f:
         yaml.dump(stat, f)
 
     if azure_run is not None:
+        print(azure_run)
         for i, logbook in enumerate(logbooks):
             (_, error, loss) = logbook[-1][0]
 
@@ -98,6 +105,14 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
         timer.stop_and_log()
 
+    def save_snapshot():
+        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
+
+    if len(dataset) == 0:
+        logging.info('Loaded empty bagfile')
+        save_snapshot()
+        return []
+
     validation_ratio = 0.1
     validation_size = int(len(dataset) * validation_ratio)
     trainings_size = len(dataset) - validation_size
@@ -122,9 +137,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
-
-    def save_snapshot():
-        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
 
     def early_abort(*args):
         clearProgressBar()
