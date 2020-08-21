@@ -27,18 +27,22 @@ class Parser(argparse.ArgumentParser):
         setattr(args, self.config_name, config_file)
 
         # model parameter (hyper parameters)
-        default_model_parameters = defaults['model-parameter']
-        model_parameter_parser = argparse.ArgumentParser()
-        for mp_name in default_model_parameters:
-            default = default_model_parameters[mp_name]
-            if isinstance(default, list):
-                dtype = type(default[0])
-            else:
-                dtype = type(default)
-            model_parameter_parser.add_argument('--' + mp_name.replace('_', '-'), dest=mp_name,
-                                                default=default, type=dtype)
-        mp_args = model_parameter_parser.parse_args(remaining_argv)
-        model_parameters = {}
-        for mp_name in default_model_parameters:
-            model_parameters[mp_name] = getattr(mp_args, mp_name)
+        if 'model-parameter' in defaults:
+            default_model_parameters = defaults['model-parameter']
+            model_parameter_parser = argparse.ArgumentParser()
+            for mp_name in default_model_parameters:
+                default = default_model_parameters[mp_name]
+                if isinstance(default, list):
+                    dtype = type(default[0])
+                else:
+                    dtype = type(default)
+                model_parameter_parser.add_argument('--' + mp_name.replace('_', '-'), dest=mp_name,
+                                                    default=default, type=dtype)
+            mp_args = model_parameter_parser.parse_args(remaining_argv)
+            model_parameters = {}
+            for mp_name in default_model_parameters:
+                model_parameters[mp_name] = getattr(mp_args, mp_name)
+        else:
+            model_parameters = None
+
         return args, model_parameters

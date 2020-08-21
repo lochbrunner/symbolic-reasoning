@@ -269,7 +269,7 @@ fn main() {
 
     if scenario.premises.is_empty() {
         println!("Warning: No premises found in the configuration!");
-        let bag = Bag::empty(2, rules.clone());
+        let bag = Bag::empty(2, &rules);
 
         println!(
             "Writing empty bag file to \"{}\" ...",

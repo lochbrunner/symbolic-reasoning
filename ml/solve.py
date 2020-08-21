@@ -9,7 +9,7 @@ import numpy as np
 
 import torch
 
-from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply
+from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply
 
 from common import io
 from common.timer import Timer
@@ -58,6 +58,9 @@ class Statistics:
 
 
 class Inferencer:
+    ''' Standard inferencer for unique index map per sample
+    '''
+
     def __init__(self, model_filename):
         self.model, snapshot = io.load_model(model_filename)
         self.model.eval()
@@ -66,11 +69,11 @@ class Inferencer:
         self.spread = snapshot['kernel_size'] - 2
         self.pad_token = snapshot['pad_token']
 
-    def __call__(self, initial, count):
+    def __call__(self, initial, count=None):
         # x, s, _ = self.dataset.embed_custom(initial)
         x, s, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [])
-        x = torch.unsqueeze(torch.as_tensor(x, device=self.model.device), 0)
-        s = torch.unsqueeze(torch.as_tensor(s, device=self.model.device), 0)
+        x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
+        s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
 
         y = self.model(x, s)
         y = y.squeeze()  # shape: rules, localisation
@@ -82,6 +85,9 @@ class Inferencer:
         def calc(n):
             p = np.unravel_index(i[n], y.shape)
             return p[0]+1, parts_path[p[1]]  # rule at path
+
+        if count is None:
+            count = i.shape[0]
 
         return [calc(i) for i in range(count)]
 
@@ -170,6 +176,7 @@ class LocalTrace:
 
 
 def beam_search(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, **kwargs):
+    '''First apply the policy and then try to fit the suggestions.'''
     seen = set()
     statistics = Statistics(initial)
 
@@ -185,7 +192,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     logging.debug(f'Missing fit of {rule.condition} at {path} in {prev.current}')
                     continue
                 deduced, mapping = result
-                s = str(deduced)
+                s = deduced.verbose
                 if s in seen:
                     continue
                 seen.add(s)
@@ -198,6 +205,65 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     statistics.success = True
                     return apply_info, statistics
 
+        statistics.trace.close_stage()
+
+    return None, statistics
+
+
+def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, black_list_terms, black_list_rules, **kwargs):
+    '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
+    seen = set()
+    black_list_terms = set(black_list_terms)
+    black_list_rules = set(black_list_rules)
+    statistics = Statistics(initial)
+    logging.info(f'num_epochs: {num_epochs}')
+    for epoch in range(num_epochs):
+        logging.debug(f'epoch: {epoch}')
+        successfull_epoch = False
+        for prev in statistics.trace:
+            possible_rules = {}
+            for i, rule in rule_mapping.items():
+                if rule.name not in black_list_rules:
+                    fits = fit_and_apply(variable_generator, prev.current, rule)
+                    if fits:
+                        possible_rules[i] = fits
+
+            # Sort the possibility by the policy network
+            policies = inference(prev.current, None)  # rule_id, path
+            ranked_fits = {}
+            for rule_id, fits in possible_rules.items():
+                for deduced, fit_result in fits:
+                    try:
+                        j = next(i for i, (pr, pp) in enumerate(policies) if pr == rule_id and pp == fit_result.path)
+                    except StopIteration:
+                        # print(policies)
+                        for k, v in rule_mapping.items():
+                            print(f'#{k}: {v}')
+                        raise RuntimeError(f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}')
+                    # rule id, path, mapping, deduced
+                    ranked_fits[j] = (rule_id, fit_result, deduced)
+
+            possible_fits = [v for _, v in sorted(ranked_fits.items())]
+
+            # filter out already seen
+            possible_fits = ((*args, deduced) for *args, deduced in possible_fits if deduced.verbose
+                             not in seen and deduced.verbose not in black_list_terms)
+
+            for rule_id, fit_result, deduced in possible_fits:
+                seen.add(deduced.verbose)
+                rule = rule_mapping[rule_id]
+                apply_info = ApplyInfo(
+                    rule_name=rule.name, rule_formula=str(rule),
+                    current=deduced,
+                    previous=prev, mapping=fit_result.variable)
+                statistics.trace.add(apply_info)
+                successfull_epoch = True
+
+                if deduced in targets:
+                    statistics.success = True
+                    return apply_info, statistics
+        if not successfull_epoch:
+            break
         statistics.trace.close_stage()
 
     return None, statistics
@@ -246,15 +312,15 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
     rules = io.load_rules(model)
     rule_mapping = {}
     used_rules = set()
-    for i, model_rule in enumerate(rules[1:]):
-        scenario_rule = next(rule for rule in scenario.rules.values() if str(rule.reverse) == model_rule)
+    for i, model_rule in enumerate(rules[1:], 1):
+        scenario_rule = next(rule for rule in scenario.rules.values() if rule.reverse.verbose == model_rule)
         rule_mapping[i] = scenario_rule
         used_rules.add(str(scenario_rule))
         logging.debug(f'Using rule {i}# {scenario_rule}')
 
     for scenario_rule in scenario.rules.values():
         if str(scenario_rule) not in used_rules:
-            logging.warning(f'{scenario_rule} was not in the training of the model')
+            logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
     training_statistics = []
     if solve_training:
@@ -285,8 +351,8 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         target = problem.conclusion
 
         with Timer(f'Solving problem "{problem_name}"'):
-            solution, statistic = beam_search(inferencer, rule_mapping, problem.condition,
-                                              [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
+            solution, statistic = beam_search_policy_last(inferencer, rule_mapping, problem.condition,
+                                                          [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:
             trace = []
@@ -296,7 +362,10 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
 
             for step in reversed(trace):
                 if step.previous is not None:
-                    print(f'{step.rule_name} ({step.rule_formula}): {step.previous.current} => {step.current} ({step.mapping})')
+                    mapping = ', '.join([f'{a} -> {b}' for a, b in step.mapping.items()])
+                    if mapping:
+                        mapping = f' ({mapping})'
+                    print(f'{step.rule_name} ({step.rule_formula}): {step.previous.current} => {step.current}{mapping}')
                 else:
                     print(f'Initial: {step.current}')
         else:
@@ -314,11 +383,13 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
 def load_config(filename):
     def unroll_nested_dict(dictionary, parent=''):
         for key, value in dictionary.items():
-            if type(value) in (str, int, float):
+            if type(value) in (str, int, float, list):
                 yield (f'{parent}{key}', value)
             elif type(value) is dict:
                 for pair in unroll_nested_dict(value, f'{parent}{key}-'):
                     yield pair
+            else:
+                raise NotImplementedError(f'Loading config does not support type {type(value)}')
 
     with open(filename, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -341,11 +412,15 @@ if __name__ == '__main__':
     parser.add_argument('--training-traces')
     parser.add_argument('--training-data-max-steps')
     parser.add_argument('--training-data-beam-size')
+    parser.add_argument('--num-epochs', type=int)
+    parser.add_argument('--black-list-terms', nargs='+')
+    parser.add_argument('--black-list-rules', nargs='+')
+
     # Model
     parser.add_argument('-m', '--model', help='Filename of the model snapshot')
     args = parser.parse_args()
 
-    args = parser.parse_args()
+    args, _ = parser.parse_args()
     loglevel = 'DEBUG' if args.verbose else args.log.upper()
 
     logging.basicConfig(

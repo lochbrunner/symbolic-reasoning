@@ -68,6 +68,12 @@ mod e2e {
         assert_eq!(dump_symbol_plain(&term, false), String::from(code));
     }
 
+    fn test_verbose(code: &str) {
+        let context = create_context(&[]);
+        let term = Symbol::parse(&context, code).unwrap();
+        assert_eq!(dump_symbol_plain(&term, true), String::from(code));
+    }
+
     fn test_with_function(function_names: &[&str], code: &str) {
         let context = create_context(function_names);
         let term = Symbol::parse(&context, code).unwrap();
@@ -102,6 +108,11 @@ mod e2e {
     #[test]
     fn postfix_with_infix() {
         test("(a+b)!");
+    }
+
+    #[test]
+    fn verbose_infix_simple() {
+        test_verbose("a+(b+c)")
     }
 
     #[test]

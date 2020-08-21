@@ -66,7 +66,7 @@ def save(filename, model, optimizer, scenario_params, learn_params, dataset):
              'model_name': model.__class__.__name__,
              'learning_parameter': learn_params,
              'scenario_parameter': scenario_params,
-             'rules': [str(rule) for rule in dataset.get_rules_raw()]  # For consistency checks
+             'rules': [rule.verbose for rule in dataset.get_rules_raw()]  # For consistency checks
              }
     state.update(dataset.model_params)
     filename.parent.mkdir(exist_ok=True)

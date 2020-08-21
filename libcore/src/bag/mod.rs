@@ -149,7 +149,9 @@ impl Bag {
     }
 
     /// Creates a bag with one empty container
-    pub fn empty(max_spread: u32, rules: Vec<(String, Rule)>) -> Self {
+    pub fn empty(max_spread: u32, loaded_rules: &[(String, Rule)]) -> Self {
+        let mut rules = vec![("padding".to_string(), Default::default())];
+        rules.extend_from_slice(loaded_rules);
         let rule_distribution = vec![1; rules.len()];
         // Crawl the idents from the rules
         let mut idents: HashSet<String> = HashSet::new();

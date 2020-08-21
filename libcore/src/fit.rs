@@ -146,6 +146,38 @@ fn folk_childs<'a>(
     fittings
 }
 
+fn exact_fit<'a>(
+    outer: &'a Symbol,
+    inner: &'a Symbol,
+    path: &[usize],
+    map: &Option<FitMap<'a>>,
+) -> Vec<FitMap<'a>> {
+    let new_scenario = Some(FitMap {
+        variable: HashMap::new(),
+        path: path.to_vec(),
+    });
+    let scenario = match map {
+        Some(_) => map,
+        None => &new_scenario,
+    };
+    let mut extension: Vec<FitMap> = vec![FitMap {
+        variable: HashMap::new(),
+        path: path.to_vec(),
+    }];
+    for (outer, inner) in outer.childs.iter().zip(inner.childs.iter()) {
+        let add = fit_impl(outer, inner, &scenario, path);
+        if add.is_empty() {
+            return vec![];
+        } else {
+            add_extension(&mut extension, add);
+        }
+    }
+    match scenario {
+        Some(scenario) => merge_mappings(scenario, &extension),
+        _ => vec![],
+    }
+}
+
 /// When forking give the child only the relevant branches
 fn fit_fixed<'a>(
     outer: &'a Symbol,
@@ -164,33 +196,10 @@ fn fit_fixed<'a>(
         // Wrong number of childs
         vec![]
     } else {
-        let new_scenario = Some(FitMap {
-            variable: HashMap::new(),
-            path: path.to_vec(),
-        });
-        let scenario = match map {
-            Some(_) => map,
-            None => &new_scenario,
-        };
-
-        // Operator matches
-        // Check for variable repetition
-        let mut extension: Vec<FitMap> = vec![FitMap {
-            variable: HashMap::new(),
-            path: path.to_vec(),
-        }];
-
-        for (outer, inner) in outer.childs.iter().zip(inner.childs.iter()) {
-            let add = fit_impl(outer, inner, &scenario, path);
-            if add.is_empty() {
-                return vec![];
-            }
-            add_extension(&mut extension, add);
-        }
-        match scenario {
-            Some(scenario) => merge_mappings(scenario, &extension),
-            _ => vec![],
-        }
+        let mut fitmaps = exact_fit(outer, inner, path, map);
+        // Folk
+        fitmaps.extend(folk_childs(outer, inner, map, &path, Vec::new()));
+        fitmaps
     }
 }
 
@@ -263,6 +272,10 @@ mod specs {
 
     fn new_variable(ident: &str) -> Symbol {
         Symbol::new_variable(ident, false)
+    }
+
+    fn new_number(value: i64) -> Symbol {
+        Symbol::new_number(value)
     }
 
     #[test]
@@ -718,5 +731,34 @@ mod specs {
         b.iter(|| {
             fit(&outer, &inner);
         })
+    }
+
+    #[test]
+    fn associative_property() {
+        let context = Context::standard();
+        let outer = Symbol::parse(&context, "(1+1)+3").unwrap();
+        let inner = Symbol::parse(&context, "(a+b)+c").unwrap();
+        let scenarios = fit(&outer, &inner);
+
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+
+        assert_eq!(scenario.variable.len(), 3);
+        assert_eq!(scenario.variable[&new_variable("a")], &new_number(1));
+        assert_eq!(scenario.variable[&new_variable("b")], &new_number(1));
+        assert_eq!(scenario.variable[&new_variable("c")], &new_number(3));
+    }
+
+    #[test]
+    fn bug_number_crunching() {
+        let context = Context::standard();
+        let outer = Symbol::parse(&context, "1+(1+3)").unwrap();
+        let inner = Symbol::parse(&context, "1+3").unwrap();
+        let scenarios = fit(&outer, &inner);
+
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+        assert!(scenario.variable.is_empty());
+        assert_eq!(&scenario.path, &[1]);
     }
 }
