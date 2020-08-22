@@ -176,6 +176,10 @@ def training_statistics(f, scenario):
 
     f.write('\n\\section{Training Statistics}\n')
 
+    if not statistics[0]['results']:
+        f.write('No training statistics available')
+        return
+
     write_table(f,
                 head=['Set'] + list(statistics[0]['parameter'].keys()),
                 rows=[[roman_numeral(i+1)] + list(statistic['parameter'].values()) for i, statistic in enumerate(statistics)])
@@ -327,8 +331,8 @@ def evaluation_results(f, scenario):
 
         num_stages = depth_of_trace(problem.trace)
         angles = {}
-        RX = 6.
-        RY = 3.
+        RX = 4.
+        RY = 2.
         if num_stages >= 2:
             caption = f'Rose {problem.name}'
             f.write('''\\begin{figure}[!htb]
@@ -448,12 +452,12 @@ def main(args):
     experiment_name = scenario['name']
     bagfile = scenario['files']['trainings-data']
     wd = Path(scenario['files']['working-folder'])
-    texfile = wd / f'{experiment_name}.tex')
+    texfile = wd / f'{experiment_name}.tex'
 
-    bag=Bag.load(bagfile)
+    bag = Bag.load(bagfile)
     print(f'Writing file {texfile} ...')
-    with open(texfile, 'w') as f:
-        date=datetime.now().strftime('%a %b %d %Y')
+    with texfile.open('w') as f:
+        date = datetime.now().strftime('%a %b %d %Y')
         f.write('\\documentclass{scrartcl}\n')
 
         usepackages(f, [
@@ -506,9 +510,9 @@ def main(args):
             if len(container.samples) > 0:
                 density_histogram(f, container, scenario)
 
-            samples=list(container.samples[: 100])
+            samples = list(container.samples[: 100])
 
-            samples.sort(key = lambda s: s.initial.density, reverse=True)
+            samples.sort(key=lambda s: s.initial.density, reverse=True)
 
             for sample in samples:
                 # sample.initial

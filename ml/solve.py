@@ -19,25 +19,29 @@ from dataset.transformers import Padder, Embedder, ident_to_id
 
 
 class ApplyInfo:
-    def __init__(self, rule_name, rule_formula, current, previous, mapping):
+    def __init__(self, rule_name, rule_formula, current, previous, mapping, confidence):
         self.rule_name = rule_name
         self.rule_formula = rule_formula
         self.current = current
         self.previous = previous
         self.mapping = mapping
+        if hasattr(confidence, 'item'):
+            self.confidence = confidence.item()
+        else:
+            self.confidence = confidence
 
     def as_dict(self):
         return {
             'rule-name': self.rule_name,
-            'current': self.current.latex,
-            # 'previous': self.previous.current.latex if self.previous else None,
+            'current': self.current.latex_verbose,
+            'confidence': self.confidence,
         }
 
 
 class Statistics:
     def __init__(self, initial):
         self.name = ''
-        self.initial_latex = initial.latex
+        self.initial_latex = initial.latex_verbose
         self.success = False
         self.fit_tries = 0
         self.fit_results = 0
@@ -84,7 +88,7 @@ class Inferencer:
 
         def calc(n):
             p = np.unravel_index(i[n], y.shape)
-            return p[0]+1, parts_path[p[1]]  # rule at path
+            return p[0]+1, parts_path[p[1]], y[p[0], p[1]]  # rule at path
 
         if count is None:
             count = i.shape[0]
@@ -145,7 +149,7 @@ class LocalTrace:
     def __init__(self, initial):
         self.root = LocalTrace.Node(ApplyInfo(
             rule_name='initial', rule_formula='',
-            current=initial, previous=None, mapping=None))
+            current=initial, previous=None, mapping=None, confidence=1))
         self.current_stage = [self.root]
         self.current_index = None
         self.next_stage = []
@@ -183,7 +187,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     for _ in range(num_epochs):
         for prev in statistics.trace:
             policies = inference(prev.current, beam_size)
-            for (rule_id, path) in policies:
+            for (rule_id, path, confidence) in policies:
                 rule = rule_mapping[rule_id-1]
                 result = fit_at_and_apply(variable_generator, prev.current, rule, path)
                 statistics.fit_tries += 1
@@ -199,7 +203,8 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                 apply_info = ApplyInfo(
                     rule_name=rule.name, rule_formula=str(rule),
                     current=deduced,
-                    previous=prev, mapping=mapping)
+                    previous=prev, mapping=mapping,
+                    confidence=confidence)
                 statistics.trace.add(apply_info)
                 if deduced in targets:
                     statistics.success = True
@@ -224,38 +229,39 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
             possible_rules = {}
             for i, rule in rule_mapping.items():
                 if rule.name not in black_list_rules:
-                    fits = fit_and_apply(variable_generator, prev.current, rule)
-                    if fits:
+                    if fits := fit_and_apply(variable_generator, prev.current, rule):
                         possible_rules[i] = fits
 
-            # Sort the possibility by the policy network
+            # Sort the possible fits by the policy network
             policies = inference(prev.current, None)  # rule_id, path
             ranked_fits = {}
             for rule_id, fits in possible_rules.items():
                 for deduced, fit_result in fits:
                     try:
-                        j = next(i for i, (pr, pp) in enumerate(policies) if pr == rule_id and pp == fit_result.path)
+                        j, confidence = next((i, conf) for i, (pr, pp, conf) in enumerate(policies)
+                                             if pr == rule_id and pp == fit_result.path)
                     except StopIteration:
                         # print(policies)
                         for k, v in rule_mapping.items():
                             print(f'#{k}: {v}')
                         raise RuntimeError(f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}')
                     # rule id, path, mapping, deduced
-                    ranked_fits[j] = (rule_id, fit_result, deduced)
+                    ranked_fits[j] = (rule_id, fit_result, confidence, deduced)
 
-            possible_fits = [v for _, v in sorted(ranked_fits.items())]
+            possible_fits = (v for _, v in sorted(ranked_fits.items()))
 
-            # filter out already seen
+            # filter out already seen terms
             possible_fits = ((*args, deduced) for *args, deduced in possible_fits if deduced.verbose
                              not in seen and deduced.verbose not in black_list_terms)
 
-            for rule_id, fit_result, deduced in possible_fits:
+            for rule_id, fit_result, confidence, deduced in possible_fits:
                 seen.add(deduced.verbose)
                 rule = rule_mapping[rule_id]
                 apply_info = ApplyInfo(
                     rule_name=rule.name, rule_formula=str(rule),
                     current=deduced,
-                    previous=prev, mapping=fit_result.variable)
+                    previous=prev, mapping=fit_result.variable,
+                    confidence=confidence)
                 statistics.trace.add(apply_info)
                 successfull_epoch = True
 
@@ -304,7 +310,7 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, trai
     return {'succeeded': succeeded, 'failed': failed, 'total': total, 'mean-duration': total_duration / total}
 
 
-def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, **kwargs):
+def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, policy_last, **kwargs):
     with Timer('Loading model'):
         scenario = Scenario.load(scenario)
 
@@ -351,8 +357,9 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         target = problem.conclusion
 
         with Timer(f'Solving problem "{problem_name}"'):
-            solution, statistic = beam_search_policy_last(inferencer, rule_mapping, problem.condition,
-                                                          [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
+            search_strategy = beam_search_policy_last if policy_last else beam_search
+            solution, statistic = search_strategy(inferencer, rule_mapping, problem.condition,
+                                                  [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:
             trace = []
@@ -375,6 +382,7 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         logging.info(statistic)
         problem_statistics.append(statistic.as_dict())
 
+    logging.info(f'Writing results to {results_filename}')
     with open(results_filename, 'w') as f:
         yaml.dump({'problems': problem_statistics,
                    'training-traces': training_statistics}, f)
@@ -415,6 +423,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-epochs', type=int)
     parser.add_argument('--black-list-terms', nargs='+')
     parser.add_argument('--black-list-rules', nargs='+')
+    parser.add_argument('--policy-last', action='store_true', default=False)
 
     # Model
     parser.add_argument('-m', '--model', help='Filename of the model snapshot')

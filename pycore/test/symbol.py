@@ -48,6 +48,12 @@ class TestSymbol(unittest.TestCase):
         latex = symbol.latex_with_colors([('red', [0])])
         self.assertEqual(latex, '\\textcolor{red}{a}+b')
 
+    def test_dump_latex_verbose(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, "a+(b+c)")
+        latex = symbol.latex_verbose.strip()
+        self.assertEqual(latex, 'a+\\left( b+c\\right)')
+
     def test_unroll(self):
         context = Context.standard()
 
