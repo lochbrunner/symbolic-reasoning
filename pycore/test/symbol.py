@@ -127,7 +127,7 @@ class TestSymbol(unittest.TestCase):
         context = Context.standard()
         symbol = Symbol.parse(context, 'a+b=c*d')
         embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
-        fits = [FitInfo(2, [0])]
+        fits = [FitInfo(2, [0], True)]
         spread = 2
         embedding, indices, label = symbol.embed(embed_dict, 0, spread, fits)
 

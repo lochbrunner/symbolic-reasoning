@@ -1,12 +1,15 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core::bag;
+use core::rule::Rule;
+use pyo3::exceptions::{FileNotFoundError, TypeError};
+use pyo3::prelude::*;
+use pyo3::types::PyTuple;
+use std::cmp;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
-
-use pyo3::exceptions::{FileNotFoundError, TypeError};
-use pyo3::prelude::*;
 
 #[pyclass(name=BagMeta,subclass)]
 pub struct PyBagMeta {
@@ -57,8 +60,12 @@ impl PyFitInfo {
 #[pymethods]
 impl PyFitInfo {
     #[new]
-    fn py_new(rule_id: u32, path: Vec<usize>) -> Self {
-        PyFitInfo::new(bag::FitInfo { rule_id, path })
+    fn py_new(rule_id: u32, path: Vec<usize>, positive: bool) -> Self {
+        PyFitInfo::new(bag::FitInfo {
+            rule_id,
+            path,
+            policy: bag::Policy::new(positive),
+        })
     }
 
     #[getter]
@@ -69,6 +76,11 @@ impl PyFitInfo {
     #[getter]
     fn path(&self) -> PyResult<Vec<usize>> {
         Ok(self.data.path.clone())
+    }
+
+    #[getter]
+    fn policy(&self) -> PyResult<f32> {
+        Ok(self.data.policy.value())
     }
 }
 
@@ -85,6 +97,13 @@ pub struct PySample {
 
 #[pymethods]
 impl PySample {
+    #[new]
+    fn py_new(initial: PySymbol, fits: Vec<PyFitInfo>) -> Self {
+        PySample {
+            data: Arc::new(SampleData { initial, fits }),
+        }
+    }
+
     #[getter]
     fn initial(&self) -> PyResult<PySymbol> {
         Ok(self.data.initial.clone())
@@ -107,6 +126,16 @@ pub struct PyContainer {
 
 #[pymethods]
 impl PyContainer {
+    #[new]
+    fn py_new() -> Self {
+        PyContainer {
+            max_depth: 0,
+            max_spread: 0,
+            max_size: 0,
+            samples: vec![],
+        }
+    }
+
     #[getter]
     fn max_depth(&self) -> PyResult<u32> {
         Ok(self.max_depth)
@@ -126,16 +155,49 @@ impl PyContainer {
     fn samples(&self) -> PyResult<Vec<PySample>> {
         Ok(self.samples.clone())
     }
+
+    fn add_sample(&mut self, sample: PySample) -> PyResult<()> {
+        let symbol = &sample.data.initial.inner;
+        let size = symbol.size();
+        let spread = symbol.max_spread();
+        let depth = symbol.depth;
+        self.max_depth = cmp::max(depth, self.max_depth);
+        self.max_spread = cmp::max(spread, self.max_spread);
+        self.max_size = cmp::max(size, self.max_size);
+        self.samples.push(sample);
+        Ok(())
+    }
 }
 
 #[pyclass(name=Bag,subclass)]
 pub struct PyBag {
-    meta_data: Arc<bag::Meta>,
+    /// Arc<bag::Meta> would be more performing but hard to update
+    meta_data: bag::Meta,
     samples_data: Vec<PyContainer>,
 }
 
 #[pymethods]
 impl PyBag {
+    #[new]
+    fn py_new(rules: Vec<&PyTuple>) -> PyResult<Self> {
+        let rules = rules
+            .into_iter()
+            .map(|item| {
+                let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
+                let name = item.get_item(0).extract::<String>()?;
+                Ok((name, rule))
+            })
+            .collect::<Result<Vec<(std::string::String, Rule)>, PyErr>>()?;
+        Ok(PyBag {
+            meta_data: bag::Meta {
+                idents: vec![],
+                rule_distribution: vec![0; rules.len()],
+                rules,
+            },
+            samples_data: vec![],
+        })
+    }
+
     #[staticmethod]
     fn load(path: String) -> PyResult<PyBag> {
         let file =
@@ -143,7 +205,7 @@ impl PyBag {
         let reader = BufReader::new(file);
         let bag = bag::Bag::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
 
-        let meta_data = Arc::new(bag.meta);
+        let meta_data = bag.meta;
         let samples_data = bag
             .samples
             .into_iter()
@@ -173,12 +235,39 @@ impl PyBag {
     #[getter]
     fn meta(&self) -> PyResult<PyBagMeta> {
         Ok(PyBagMeta {
-            data: self.meta_data.clone(),
+            data: Arc::new(self.meta_data.clone()),
         })
     }
 
     #[getter]
-    fn samples(&self) -> PyResult<Vec<PyContainer>> {
+    fn containers(&self) -> PyResult<Vec<PyContainer>> {
         Ok(self.samples_data.clone())
+    }
+
+    fn add_container(&mut self, container: PyContainer) -> PyResult<()> {
+        self.samples_data.push(container);
+        Ok(())
+    }
+
+    fn update_meta(&mut self) -> PyResult<()> {
+        let mut idents: HashSet<String> = HashSet::new();
+        let mut rule_distribution: Vec<u32> = vec![0; self.meta_data.rules.len() + 1];
+        for container in self.samples_data.iter() {
+            for sample in container.samples.iter() {
+                for part in sample.data.initial.inner.iter_bfs() {
+                    if !idents.contains(&part.ident) {
+                        idents.insert(part.ident.clone());
+                    }
+                }
+                for fit in sample.data.fits.iter() {
+                    rule_distribution[fit.data.rule_id as usize] += 1;
+                }
+            }
+        }
+
+        self.meta_data.idents = idents.into_iter().collect();
+        self.meta_data.rule_distribution = rule_distribution;
+
+        Ok(())
     }
 }

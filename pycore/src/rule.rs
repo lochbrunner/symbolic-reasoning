@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 /// Python Wrapper for core::Rule
 #[pyclass(name=Rule,subclass)]
+#[derive(Clone)]
 pub struct PyRule {
     pub inner: Arc<Rule>,
     pub name: String,

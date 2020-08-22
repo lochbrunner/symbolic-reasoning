@@ -204,8 +204,12 @@ impl Symbol {
     }
 
     /// Assumes a spread of 2
+    pub fn max_spread(&self) -> u32 {
+        2
+    }
+
     pub fn density(&self) -> f32 {
-        let spread: i32 = 2;
+        let spread = self.max_spread() as i32;
         let size = self.parts().map(|_| 1).sum::<i32>();
         let max_size = (0..self.depth).map(|i| spread.pow(i)).sum::<i32>();
         size as f32 / max_size as f32
@@ -501,6 +505,7 @@ impl Symbol {
 #[cfg(test)]
 mod specs {
     use super::*;
+    use crate::bag::Policy;
     use crate::context::Context;
 
     #[test]
@@ -691,10 +696,12 @@ mod specs {
                     FitInfo {
                         rule_id: 1,
                         path: vec![0, 0],
+                        policy: Policy::Positive,
                     },
                     FitInfo {
                         rule_id: 2,
                         path: vec![0, 1],
+                        policy: Policy::Positive,
                     },
                 ],
             )

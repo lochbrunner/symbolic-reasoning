@@ -3,12 +3,35 @@ use std::collections::{HashMap, HashSet};
 
 pub mod trace;
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Meta {
     pub idents: Vec<String>,
     pub rule_distribution: Vec<u32>,
     /// Rule at index 0 is padding
     pub rules: Vec<(String, Rule)>,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
+pub enum Policy {
+    Positive,
+    Negative,
+}
+
+impl Policy {
+    pub fn value(&self) -> f32 {
+        match self {
+            Self::Positive => 1.,
+            Self::Negative => -1.,
+        }
+    }
+
+    pub fn new(positive: bool) -> Self {
+        if positive {
+            Self::Positive
+        } else {
+            Self::Negative
+        }
+    }
 }
 
 // Clone is needed as long sort_map is not available
@@ -17,6 +40,8 @@ pub struct FitInfo {
     /// Starting with 1 for better embedding
     pub rule_id: u32,
     pub path: Vec<usize>,
+    /// For positive and negative samples
+    pub policy: Policy,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
@@ -75,6 +100,7 @@ impl Bag {
                         FitInfo {
                             path: step.path.clone(),
                             rule_id,
+                            policy: Policy::Positive,
                         },
                     )
                 })
@@ -268,6 +294,7 @@ mod specs {
                         fits: vec![FitInfo {
                             rule_id: 2,
                             path: vec![0, 0],
+                            policy: Policy::Positive,
                         }],
                     },
                     Sample {
@@ -275,6 +302,7 @@ mod specs {
                         fits: vec![FitInfo {
                             rule_id: 1,
                             path: vec![0, 0],
+                            policy: Policy::Positive,
                         }],
                     },
                 ],
