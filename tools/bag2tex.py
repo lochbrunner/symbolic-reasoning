@@ -332,7 +332,7 @@ def evaluation_results(f, scenario):
         num_stages = depth_of_trace(problem.trace)
         angles = {}
         RX = 4.
-        RY = 2.
+        RY = 2.5
         if num_stages >= 2:
             caption = f'Rose {problem.name}'
             f.write('''\\begin{figure}[!htb]

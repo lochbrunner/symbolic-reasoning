@@ -4,12 +4,14 @@ import logging
 import yaml
 from glob import glob
 from time import time
+from pathlib import Path
+from queue import Queue
 
 import numpy as np
 
 import torch
 
-from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply
+from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply, Bag, FitInfo, Sample, Container
 
 from common import io
 from common.timer import Timer
@@ -19,12 +21,17 @@ from dataset.transformers import Padder, Embedder, ident_to_id
 
 
 class ApplyInfo:
-    def __init__(self, rule_name, rule_formula, current, previous, mapping, confidence):
+    def __init__(self, rule_name: str, rule_formula, current, previous,
+                 mapping, confidence, top: int, rule_id: int, path: list):
         self.rule_name = rule_name
         self.rule_formula = rule_formula
         self.current = current
         self.previous = previous
         self.mapping = mapping
+        self.rule_id = rule_id
+        self.path = path
+        self.top = top
+        self.contributed = False
         if hasattr(confidence, 'item'):
             self.confidence = confidence.item()
         else:
@@ -35,7 +42,19 @@ class ApplyInfo:
             'rule-name': self.rule_name,
             'current': self.current.latex_verbose,
             'confidence': self.confidence,
+            'top': self.top,
+            'contributed': self.contributed,
+            'rule_id': self.rule_id,
         }
+
+    def contribute(self):
+        self.contributed = True
+        if self.previous is not None:
+            self.previous.contribute()
+
+    @property
+    def fit_info(self):
+        return FitInfo(self.rule_id, self.path, self.contributed)
 
 
 class Statistics:
@@ -149,7 +168,8 @@ class LocalTrace:
     def __init__(self, initial):
         self.root = LocalTrace.Node(ApplyInfo(
             rule_name='initial', rule_formula='',
-            current=initial, previous=None, mapping=None, confidence=1))
+            current=initial, previous=None, mapping=None,
+            confidence=1, top=1, rule_id=None, path=None))
         self.current_stage = [self.root]
         self.current_index = None
         self.next_stage = []
@@ -175,6 +195,15 @@ class LocalTrace:
         return {'apply_info': node.apply_info.as_dict(),
                 'childs': [self.as_dict_recursive(c) for c in node.childs]}
 
+    def iter(self):
+        queue = Queue()
+        queue.put(self.root)
+        while not queue.empty():
+            node = queue.get()
+            for child in node.childs:
+                queue.put(child)
+            yield node.apply_info
+
     def as_dict(self):
         return self.as_dict_recursive(self.root)
 
@@ -187,7 +216,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     for _ in range(num_epochs):
         for prev in statistics.trace:
             policies = inference(prev.current, beam_size)
-            for (rule_id, path, confidence) in policies:
+            for top, (rule_id, path, confidence) in enumerate(policies):
                 rule = rule_mapping[rule_id-1]
                 result = fit_at_and_apply(variable_generator, prev.current, rule, path)
                 statistics.fit_tries += 1
@@ -204,10 +233,13 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     rule_name=rule.name, rule_formula=str(rule),
                     current=deduced,
                     previous=prev, mapping=mapping,
-                    confidence=confidence)
+                    confidence=confidence,
+                    top=top,
+                    rule_id=rule_id, path=path)
                 statistics.trace.add(apply_info)
                 if deduced in targets:
                     statistics.success = True
+                    apply_info.contribute()
                     return apply_info, statistics
 
         statistics.trace.close_stage()
@@ -254,19 +286,20 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
             possible_fits = ((*args, deduced) for *args, deduced in possible_fits if deduced.verbose
                              not in seen and deduced.verbose not in black_list_terms)
 
-            for rule_id, fit_result, confidence, deduced in possible_fits:
+            for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits):
                 seen.add(deduced.verbose)
                 rule = rule_mapping[rule_id]
                 apply_info = ApplyInfo(
                     rule_name=rule.name, rule_formula=str(rule),
                     current=deduced,
                     previous=prev, mapping=fit_result.variable,
-                    confidence=confidence)
+                    confidence=confidence, top=top, rule_id=rule_id, path=fit_result.path)
                 statistics.trace.add(apply_info)
                 successfull_epoch = True
 
                 if deduced in targets:
                     statistics.success = True
+                    apply_info.contribute()
                     return apply_info, statistics
         if not successfull_epoch:
             break
@@ -310,6 +343,24 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, trai
     return {'succeeded': succeeded, 'failed': failed, 'total': total, 'mean-duration': total_duration / total}
 
 
+def dump_trainings_data(statistics: Statistics, solver_trainings_data: str, initial_trainings_data_file: str, **kwargs):
+
+    container = Container()
+    for apply_info in statistics.trace.iter():
+        # For now each fit it's own sample
+        if apply_info.rule_id is not None:
+            sample = Sample(apply_info.previous.current, [apply_info.fit_info])
+            container.add_sample(sample)
+
+    bag = Bag.load(initial_trainings_data_file)
+    bag.clear_containers()
+    bag.add_container(container)
+    bag.update_meta()
+    Path(solver_trainings_data).parent.mkdir(exist_ok=True, parents=True)
+    logging.info(f'Dumping trainings data to {solver_trainings_data}')
+    bag.dump(solver_trainings_data)
+
+
 def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, policy_last, **kwargs):
     with Timer('Loading model'):
         scenario = Scenario.load(scenario)
@@ -318,11 +369,12 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
     rules = io.load_rules(model)
     rule_mapping = {}
     used_rules = set()
+    max_width = max(len(s.name) for s in scenario.rules.values())+1
     for i, model_rule in enumerate(rules[1:], 1):
         scenario_rule = next(rule for rule in scenario.rules.values() if rule.reverse.verbose == model_rule)
         rule_mapping[i] = scenario_rule
         used_rules.add(str(scenario_rule))
-        logging.debug(f'Using rule {i}# {scenario_rule}')
+        logging.debug(f'Using rule {i:2}# {scenario_rule.name.ljust(max_width)} {scenario_rule.verbose}')
 
     for scenario_rule in scenario.rules.values():
         if str(scenario_rule) not in used_rules:
@@ -358,8 +410,8 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
 
         with Timer(f'Solving problem "{problem_name}"'):
             search_strategy = beam_search_policy_last if policy_last else beam_search
-            solution, statistic = search_strategy(inferencer, rule_mapping, problem.condition,
-                                                  [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
+            solution, statistics = search_strategy(inferencer, rule_mapping, problem.condition,
+                                                   [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:
             trace = []
@@ -375,12 +427,14 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
                     print(f'{step.rule_name} ({step.rule_formula}): {step.previous.current} => {step.current}{mapping}')
                 else:
                     print(f'Initial: {step.current}')
+
+            dump_trainings_data(statistics, rules=scenario.rules, **kwargs)
         else:
             logging.warning(f'No solution found for {source} => {target}')
 
-        statistic.name = problem_name
-        logging.info(statistic)
-        problem_statistics.append(statistic.as_dict())
+        statistics.name = problem_name
+        logging.info(statistics)
+        problem_statistics.append(statistics.as_dict())
 
     logging.info(f'Writing results to {results_filename}')
     with open(results_filename, 'w') as f:
@@ -404,6 +458,7 @@ def load_config(filename):
         return {'model': config['files']['model'],
                 'results-filename': config['files']['evaluation-results'],
                 'training-traces': config['files']['trainings-data-traces'],
+                'initial-trainings-data-file': config['files']['trainings-data'],
                 **{k: v for k, v in unroll_nested_dict(config['evaluation'])}
                 }
 
@@ -420,6 +475,7 @@ if __name__ == '__main__':
     parser.add_argument('--training-traces')
     parser.add_argument('--training-data-max-steps')
     parser.add_argument('--training-data-beam-size')
+    parser.add_argument('--solver-trainings-data')
     parser.add_argument('--num-epochs', type=int)
     parser.add_argument('--black-list-terms', nargs='+')
     parser.add_argument('--black-list-rules', nargs='+')

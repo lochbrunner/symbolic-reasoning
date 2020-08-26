@@ -185,6 +185,7 @@ impl PyBag {
             .map(|item| {
                 let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
                 let name = item.get_item(0).extract::<String>()?;
+                let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
                 Ok((name, rule))
             })
             .collect::<Result<Vec<(std::string::String, Rule)>, PyErr>>()?;
@@ -232,6 +233,42 @@ impl PyBag {
         })
     }
 
+    fn dump(&self, path: String) -> PyResult<()> {
+        let file = File::create(path)
+            .map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
+        let writer = BufWriter::new(file);
+        let meta = self.meta_data.clone();
+
+        let samples: Vec<bag::SampleContainer> = self
+            .samples_data
+            .iter()
+            .map(|container| bag::SampleContainer {
+                max_depth: container.max_depth,
+                max_spread: container.max_spread,
+                max_size: container.max_size,
+                samples: container
+                    .samples
+                    .iter()
+                    .map(|sample| bag::Sample {
+                        initial: (*sample.data.initial.inner).clone(),
+                        fits: sample
+                            .data
+                            .fits
+                            .iter()
+                            .map(|fit| (*fit.data).clone())
+                            .collect(),
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        let bag = bag::Bag { meta, samples };
+
+        bag.write_bincode(writer)
+            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+        Ok(())
+    }
+
     #[getter]
     fn meta(&self) -> PyResult<PyBagMeta> {
         Ok(PyBagMeta {
@@ -268,6 +305,11 @@ impl PyBag {
         self.meta_data.idents = idents.into_iter().collect();
         self.meta_data.rule_distribution = rule_distribution;
 
+        Ok(())
+    }
+
+    fn clear_containers(&mut self) -> PyResult<()> {
+        self.samples_data.clear();
         Ok(())
     }
 }
