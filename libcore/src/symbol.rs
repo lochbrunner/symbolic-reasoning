@@ -175,6 +175,7 @@ pub struct Embedding {
     pub embedded: Vec<Vec<i64>>,
     pub index_map: Vec<Vec<i16>>,
     pub label: Vec<i64>,
+    pub policy: Vec<f32>,
 }
 
 impl Symbol {
@@ -319,8 +320,9 @@ impl Symbol {
         3
     }
 
-    /// Embeds the ident and the props (operator, fixed, number)
+    /// Embeds the ident and the props (operator, fixed, number, policy)
     /// Should maybe moved to other location?
+    /// If there are multiple fits per path, the last will win.
     pub fn embed(
         &self,
         dict: &HashMap<String, i16>,
@@ -380,18 +382,21 @@ impl Symbol {
 
         // Compute label
         let mut label = vec![0; embedded.len()];
+        let mut policy = vec![0.0; embedded.len()];
         for fit in fits.iter() {
             let child = self
                 .at(&fit.path)
                 .ok_or(format!("Symbol {} has no element at {:?}", self, fit.path))?;
             let index = ref_to_index[child] as usize;
             label[index] = fit.rule_id as i64;
+            policy[index] = fit.policy.value();
         }
 
         return Ok(Embedding {
             embedded,
             index_map,
             label,
+            policy,
         });
     }
 

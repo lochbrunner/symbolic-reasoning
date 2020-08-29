@@ -6,9 +6,8 @@ use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use std::cmp;
-use std::collections::HashSet;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 
 #[pyclass(name=BagMeta,subclass)]
@@ -37,7 +36,7 @@ impl PyBagMeta {
     }
 
     #[getter]
-    fn rule_distribution(&self) -> PyResult<Vec<u32>> {
+    fn rule_distribution(&self) -> PyResult<Vec<(u32, u32)>> {
         Ok(self.data.rule_distribution.clone())
     }
 }
@@ -183,7 +182,6 @@ impl PyBag {
         let rules = rules
             .into_iter()
             .map(|item| {
-                let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
                 let name = item.get_item(0).extract::<String>()?;
                 let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
                 Ok((name, rule))
@@ -192,7 +190,7 @@ impl PyBag {
         Ok(PyBag {
             meta_data: bag::Meta {
                 idents: vec![],
-                rule_distribution: vec![0; rules.len()],
+                rule_distribution: vec![(0, 0); rules.len()],
                 rules,
             },
             samples_data: vec![],
@@ -287,8 +285,8 @@ impl PyBag {
     }
 
     fn update_meta(&mut self) -> PyResult<()> {
-        let mut idents: HashSet<String> = HashSet::new();
-        let mut rule_distribution: Vec<u32> = vec![0; self.meta_data.rules.len() + 1];
+        let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |(_, r)| r);
+        let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len() + 1];
         for container in self.samples_data.iter() {
             for sample in container.samples.iter() {
                 for part in sample.data.initial.inner.iter_bfs() {
@@ -297,7 +295,13 @@ impl PyBag {
                     }
                 }
                 for fit in sample.data.fits.iter() {
-                    rule_distribution[fit.data.rule_id as usize] += 1;
+                    let (ref mut positive, ref mut negative) =
+                        rule_distribution[fit.data.rule_id as usize];
+                    if fit.data.policy == bag::Policy::Positive {
+                        *positive += 1;
+                    } else {
+                        *negative += 1;
+                    }
                 }
             }
         }

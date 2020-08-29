@@ -52,7 +52,7 @@ class TestBag(unittest.TestCase):
 
 class TestSample(unittest.TestCase):
 
-    def test_sample(self):
+    def test_create_sample(self):
         context = Context.standard()
         symbol = Symbol.parse(context, "a")
         fits = [FitInfo(3, [1, 2], True), FitInfo(7, [3, 4], False)]
@@ -68,7 +68,7 @@ class TestSample(unittest.TestCase):
         self.assertEqual(sample.fits[1].path, [3, 4])
         self.assertEqual(sample.fits[1].rule, 7)
 
-    def test_bag(self):
+    def test_create_bag(self):
         context = Context.standard()
         symbol = Symbol.parse(context, "a")
         fits = [FitInfo(1, [1, 2], True), FitInfo(1, [3, 4], False)]
@@ -84,7 +84,7 @@ class TestSample(unittest.TestCase):
         bag.update_meta()
 
         self.assertEqual(bag.meta.idents, ['a'])
-        self.assertEqual(bag.meta.rule_distribution, [0, 2])
+        self.assertEqual(bag.meta.rule_distribution, [(0, 0), (1, 1)])
         self.assertEqual(bag.containers[0].samples[0].initial.verbose, 'a')
 
 

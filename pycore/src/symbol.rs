@@ -334,7 +334,12 @@ impl PySymbol {
         padding: i16,
         spread: usize,
         fits: Vec<PyFitInfo>,
-    ) -> PyResult<(Py<PyArray2<i64>>, Py<PyArray2<i16>>, Py<PyArray1<i64>>)> {
+    ) -> PyResult<(
+        Py<PyArray2<i64>>,
+        Py<PyArray2<i16>>,
+        Py<PyArray1<i64>>,
+        Py<PyArray1<f32>>,
+    )> {
         let fits = fits
             .into_iter()
             .map(|fit| (*fit.data).clone())
@@ -343,6 +348,7 @@ impl PySymbol {
             embedded,
             index_map,
             label,
+            policy,
         } = self
             .inner
             .embed(&dict, padding, spread, &fits)
@@ -352,8 +358,9 @@ impl PySymbol {
 
         let index_map = make_2darray(py, index_map)?;
         let label = label.into_pyarray(py).to_owned();
+        let policy = policy.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
-        Ok((embedded, index_map, label))
+        Ok((embedded, index_map, label, policy))
     }
 
     #[classattr]

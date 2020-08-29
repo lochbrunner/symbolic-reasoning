@@ -24,7 +24,7 @@ use crate::rose::draw_rose;
 use crate::variable_generator::*;
 
 use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
-use core::bag::{Bag, FitInfo};
+use core::bag::{extract_idents_from_rules, Bag, FitInfo};
 use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 
@@ -141,25 +141,6 @@ fn deduce_impl<'a>(
     stage
 }
 
-fn extract_idents_from_rules(rules: &[Rule]) -> HashSet<String> {
-    let mut used_idents = HashSet::new();
-
-    for rule in rules.iter() {
-        for part in rule
-            .condition
-            .parts()
-            .filter(|s| s.fixed())
-            .map(|s| &s.ident)
-        {
-            if !used_idents.contains(part) {
-                used_idents.insert(part.clone());
-            }
-        }
-    }
-
-    used_idents
-}
-
 fn deduce<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
@@ -168,8 +149,10 @@ fn deduce<'a>(
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
-    let mut used_idents =
-        extract_idents_from_rules(&rules.iter().map(|(_, r)| r.reverse()).collect::<Vec<_>>());
+    let mut used_idents = extract_idents_from_rules(
+        &rules.iter().map(|(_, r)| r.reverse()).collect::<Vec<_>>(),
+        |r| r,
+    );
 
     for part in initial.parts() {
         if !used_idents.contains(&part.ident) {

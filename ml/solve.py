@@ -94,11 +94,12 @@ class Inferencer:
 
     def __call__(self, initial, count=None):
         # x, s, _ = self.dataset.embed_custom(initial)
-        x, s, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [])
+        x, s, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [])
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
+        p = torch.ones(x.shape[:-1])
 
-        y = self.model(x, s)
+        y = self.model(x, s, p)
         y = y.squeeze()  # shape: rules, localisation
         y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
 

@@ -158,13 +158,13 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
-        for x, *s, y in training_dataloader:
+        for x, *s, y, p in training_dataloader:
             x = x.to(device)
             y = y.to(device)
             optimizer.zero_grad()
             if len(s) > 0:
                 s = s[0].to(device)
-                x = model(x, s)
+                x = model(x, s, p)
             else:
                 x = model(x)
             # batch x tags
@@ -202,7 +202,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     if logging.INFO >= logging.root.level:
         error.exact_no_padding.printHistogram()
 
-    logbook.append((epoch, error, None))
+    logbook.append((learn_params.num_epochs, error, None))
     save_snapshot()
     return logbook
 
@@ -234,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--tensorboard', action='store_true', default=False)
     parser.add_argument('--statistics', default=None)
     parser.add_argument('--manual-seed', action='store_true', default=False)
+    parser.add_argument('--use-solver-data', action='store_true', default=False)
 
     # Learning parameter
     parser.add_argument('-n', '--num-epochs', type=int, default=30)
@@ -255,6 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-size', type=int, default=120)
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bag-filename', type=str, default=None, dest='filename')
+    parser.add_argument('--solver-bag-filename', type=str, default=None, dest='solver_filename')
     parser.add_argument('--data-size-limit', type=int, default=None,
                         help='Limits the size of the loaded bag file data. For testing purpose.')
 
@@ -278,6 +280,9 @@ if __name__ == '__main__':
 
     if args.device == 'auto':
         args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    if args.use_solver_data:
+        args.filename = args.solver_filename
 
     stats = []
     changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))

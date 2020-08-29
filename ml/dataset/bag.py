@@ -35,9 +35,9 @@ class BagDatasetSharedIndex(DatasetBase):
         self._rule_map = list(meta.rules)
 
         # Merge use largest
-        self.container = [sample for container in bag.samples for sample in container.samples]
-        self._max_spread = bag.samples[-1].max_spread
-        self._max_depth = bag.samples[-1].max_depth
+        self.container = [sample for container in bag.containers for sample in container.samples]
+        self._max_spread = bag.containers[-1].max_spread
+        self._max_depth = bag.containers[-1].max_depth
 
         def create_features(c):
             return [(c.initial, fit) for fit in c.fits]
@@ -159,8 +159,8 @@ class BagDataset(Dataset):
         # 0 is padding
         self._ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
 
-        self.label_distribution = meta.rule_distribution
-        self._rule_map = list(meta.rules)
+        self.label_distribution = [p+n for p, n in meta.rule_distribution]
+        self._rule_map = meta.rules
 
         # Merge use largest
 
@@ -169,10 +169,10 @@ class BagDataset(Dataset):
         else:
             limit = params.data_size_limit
 
-        self.container = [sample for container in bag.samples for sample in container.samples][:limit]
-        self._max_spread = bag.samples[-1].max_spread
-        self._max_depth = bag.samples[-1].max_depth
-        self._max_size = bag.samples[-1].max_size
+        self.container = [sample for container in bag.containers for sample in container.samples][:limit]
+        self._max_spread = bag.containers[-1].max_spread
+        self._max_depth = bag.containers[-1].max_depth
+        self._max_size = bag.containers[-1].max_size
         logger.info(f'max size: {self._max_size}')
         logger.info(f'number of samples: {len(self.container)}')
 

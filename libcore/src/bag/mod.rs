@@ -3,10 +3,29 @@ use std::collections::{HashMap, HashSet};
 
 pub mod trace;
 
+pub fn extract_idents_from_rules<T>(rules: &[T], unpack: fn(&T) -> &Rule) -> HashSet<String> {
+    let mut used_idents = HashSet::new();
+
+    for rule in rules.iter().map(unpack) {
+        for part in rule
+            .condition
+            .parts()
+            .filter(|s| s.fixed())
+            .map(|s| &s.ident)
+        {
+            if !used_idents.contains(part) {
+                used_idents.insert(part.clone());
+            }
+        }
+    }
+
+    used_idents
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Meta {
     pub idents: Vec<String>,
-    pub rule_distribution: Vec<u32>,
+    pub rule_distribution: Vec<(u32, u32)>,
     /// Rule at index 0 is padding
     pub rules: Vec<(String, Rule)>,
 }
@@ -135,15 +154,26 @@ impl Bag {
             }
         }
 
-        let mut rule_distribution = vec![0; rules.len()];
+        let mut rule_distribution = vec![(0, 0); rules.len()];
         for (_, fitinfos) in initials.iter() {
             for fitinfo in fitinfos.iter() {
-                rule_distribution[fitinfo.rule_id as usize] += 1;
+                let (ref mut positive, ref mut negative) =
+                    rule_distribution[fitinfo.rule_id as usize];
+                if fitinfo.policy == Policy::Positive {
+                    *positive += 1;
+                } else {
+                    *negative += 1;
+                }
             }
         }
-        rule_distribution[0] = initials.iter().fold(0, |acc, (symbol, fits)| {
-            acc + ((symbol.parts().count() - 1) * fits.len()) as u32
-        });
+        rule_distribution[0] = initials
+            .iter()
+            .fold((0, 0), |(positive, _), (symbol, fits)| {
+                (
+                    positive + ((symbol.parts().count() - 1) * fits.len()) as u32,
+                    0,
+                )
+            });
 
         let samples = (1..max_depth)
             .map(|depth| {
@@ -178,7 +208,7 @@ impl Bag {
     pub fn empty(max_spread: u32, loaded_rules: &[(String, Rule)]) -> Self {
         let mut rules = vec![("padding".to_string(), Default::default())];
         rules.extend_from_slice(loaded_rules);
-        let rule_distribution = vec![1; rules.len()];
+        let rule_distribution = vec![(1, 1); rules.len()];
         // Crawl the idents from the rules
         let mut idents: HashSet<String> = HashSet::new();
         for (_, rule) in rules.iter() {
@@ -281,7 +311,7 @@ mod specs {
                     "c".to_string(),
                     "d".to_string(),
                 ],
-                rule_distribution: vec![0, 1, 1],
+                rule_distribution: vec![(0, 0), (1, 0), (1, 0)],
                 rules: vec![pad_rule, r1, r2],
             },
             samples: vec![SampleContainer {

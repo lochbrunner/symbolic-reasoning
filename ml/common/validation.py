@@ -103,7 +103,7 @@ class Error:
 def validate(model: torch.nn.Module, dataloader: DataLoader):
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
 
-    for x, *s, y in dataloader:
+    for x, *s, y, p in dataloader:
         x = x.to(model.device)
         y = y.to(model.device)
         # Dimensions
@@ -111,7 +111,7 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
         # y: batch * length
         if len(s) > 0:
             s = s[0].to(model.device)
-            x = model(x, s)
+            x = model(x, s, p)
         else:
             x = model(x)
         assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'

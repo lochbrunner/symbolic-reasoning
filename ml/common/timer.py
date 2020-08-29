@@ -41,7 +41,7 @@ class Timer:
 
     def stop_and_log_average(self, iterations):
         end = time()
-        seconds = (end-self.begin-self.paused_seconds)/iterations
+        seconds = (end-self.begin-self.paused_seconds)/max(iterations, 1)
 
         delta_str = Timer._format_time(seconds)
         logging.info(f'{self.label} took {delta_str}')

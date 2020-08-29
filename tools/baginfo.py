@@ -69,6 +69,10 @@ class Table:
                 td:nth-child(3) {
                     text-align: right;
                 }
+                th:nth-child(4),
+                td:nth-child(4) {
+                    text-align: right;
+                }
                 tr:hover{
                     background: rgba(128, 128, 128, 10%);
                 }
@@ -78,6 +82,7 @@ class Table:
                 <th>name</th>
                 <th>count</th>
                 <th>id</th>
+                <th>p/c</th>
             </tr>'''
 
             max_columns = max(len(row.columns) for row in self.rows if isinstance(row, Table.Row))
@@ -112,8 +117,8 @@ def main(args):
     table = Table()
 
     rules_tuple = list(enumerate(zip(bag.meta.rules, bag.meta.rule_distribution), 0))
-    rules_tuple.sort(key=lambda r: r[1], reverse=True)
-    max_count = max(bag.meta.rule_distribution[1:])
+    rules_tuple.sort(key=lambda r: r[1][1][1]+r[1][1][0], reverse=True)
+    max_count = max(p+n for p, n in bag.meta.rule_distribution[1:])
 
     for i, (rule, (p_count, n_count)) in rules_tuple[0:]:
         count = p_count + n_count
@@ -121,7 +126,7 @@ def main(args):
         table.add_row(f'{rule.name}', count, f'#{i}', rel_pos, ratio=count/max_count)
 
     table.add_sep()
-    total = sum(bag.meta.rule_distribution[1:])
+    total = sum(p+n for p, n in bag.meta.rule_distribution[1:])
     table.add_row('total:', total)
     table.add_row('idents:', ', '.join(bag.meta.idents))
 
