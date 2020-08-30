@@ -37,6 +37,8 @@ from common import io
 from common.validation import validate
 from common import grid_search
 
+logger = logging.getLogger(__name__)
+
 
 class ExecutionParameter:
     def __init__(self, report_rate: int = 10, update_model: str = None, load_model: str = None,
@@ -88,7 +90,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     if exe_params.manual_seed:
         torch.manual_seed(0)
     device = torch.device(exe_params.device)
-    logging.info(f'Using device: {device}')
+    logger.info(f'Using device: {device}')
 
     # Creating dataset and model
     if exe_params.load_model:
@@ -109,7 +111,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
 
     if len(dataset) == 0:
-        logging.info('Loaded empty bagfile')
+        logger.info('Loaded empty bagfile')
         save_snapshot()
         return []
 
@@ -140,7 +142,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     def early_abort(*args):
         clearProgressBar()
-        logging.warning('Early abort')
+        logger.warning('Early abort')
         save_snapshot()
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
@@ -155,6 +157,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
     timer = Timer('Training per sample:')
     model.train()
+
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
@@ -182,7 +185,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
             logbook.append((epoch, error, loss))
-            logging.info(
+            logger.info(
                 f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding}')
             if azure_run is not None:
                 error.exact.log(azure_run.log, 'exact')
@@ -273,6 +276,11 @@ if __name__ == '__main__':
         format=log_format,
         datefmt='%I:%M:%S'
     )
+    # Set the log level of all existing loggers
+    all_loggers = [logging.getLogger()] + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    for mod_logger in all_loggers:
+        mod_logger._cache.clear()  # pylint: disable=protected-access
+        mod_logger.setLevel(logging.getLevelName(loglevel))
 
     if args.smoke:
         args.data_size_limit = 100
@@ -287,7 +295,7 @@ if __name__ == '__main__':
     stats = []
     changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))
     for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(args)):
-        logging.info(model_hyper_parameter)
+        logger.info(model_hyper_parameter)
         # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
         result = main(
             exe_params=ExecutionParameter(**vars(args)),

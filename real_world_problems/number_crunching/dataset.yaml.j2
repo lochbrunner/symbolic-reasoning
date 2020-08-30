@@ -6,19 +6,22 @@ rules:
   counting {{i}}: 1+{{i-1}} <=> {{i}}
   {% endfor -%}
   # counting down (Could be deduced from above later)
-  {% for i in range(1, upper_limit+1) -%}
+  {% for i in range(1, upper_limit) -%}
   de-counting {{i}}: {{i+1}}-1 <=> {{i}}
   {% endfor -%}
   # additional rules
   associative property 1: a+(b+c) <=> (a+b)+c 
   associative property 2: a+(b-c) <=> (a+b)-c 
   commutative property: a+b => b+a
+  commutative property 1: a*b => b*a
+  distributive property 1: a*(b+c) <=> a*b+a*c
+  neutral product: 1*a => a
   # multiplication
   multiplication: a*b = b + (a-1)*b # -> 1*b = b
 premises: [] # no data generation
 problems:
   simple addition: 2+3 = 5
-  # simple multiplication: 2*3 = 6
+  simple multiplication: 2*3 = 6
   # big addition: 24 + 56 = 80
   # big multiplication: 7*8 = 56
 files:

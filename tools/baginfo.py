@@ -122,7 +122,7 @@ def main(args):
 
     for i, (rule, (p_count, n_count)) in rules_tuple[0:]:
         count = p_count + n_count
-        rel_pos = p_count/count if count > 0 else '-'
+        rel_pos = f'{p_count/count*100.:.1f}%' if count > 0 else '-'
         table.add_row(f'{rule.name}', count, f'#{i}', rel_pos, ratio=count/max_count)
 
     table.add_sep()

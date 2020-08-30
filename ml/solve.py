@@ -7,6 +7,8 @@ from time import time
 from pathlib import Path
 from queue import Queue
 
+from typing import List
+
 import numpy as np
 
 import torch
@@ -56,6 +58,13 @@ class ApplyInfo:
     def fit_info(self):
         return FitInfo(self.rule_id, self.path, self.contributed)
 
+    @property
+    def trace(self):
+        step = self
+        while step is not None:
+            yield step
+            step = step.previous
+
 
 class Statistics:
     def __init__(self, initial):
@@ -78,6 +87,22 @@ class Statistics:
             'fit_tries': self.fit_tries,
             'fit_results': self.fit_results,
         }
+
+
+def solution_summary(solutions: List[ApplyInfo]):
+    # tops:
+    # tops begin with 1
+    tops = {}
+    total = 0
+    for solution in solutions:
+        for step in solution.trace:
+            if step.top in tops:
+                tops[step.top] += 1
+            else:
+                tops[step.top] = 1
+        total += 1
+    tops['total'] = total
+    return {'tops': tops}
 
 
 class Inferencer:
@@ -217,7 +242,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     for _ in range(num_epochs):
         for prev in statistics.trace:
             policies = inference(prev.current, beam_size)
-            for top, (rule_id, path, confidence) in enumerate(policies):
+            for top, (rule_id, path, confidence) in enumerate(policies, 1):
                 rule = rule_mapping[rule_id-1]
                 result = fit_at_and_apply(variable_generator, prev.current, rule, path)
                 statistics.fit_tries += 1
@@ -231,7 +256,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     continue
                 seen.add(s)
                 apply_info = ApplyInfo(
-                    rule_name=rule.name, rule_formula=str(rule),
+                    rule_name=rule.name, rule_formula=rule.verbose,
                     current=deduced,
                     previous=prev, mapping=mapping,
                     confidence=confidence,
@@ -248,13 +273,12 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, black_list_terms, black_list_rules, **kwargs):
+def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, black_list_terms, black_list_rules, max_size, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
-    seen = set()
     black_list_terms = set(black_list_terms)
     black_list_rules = set(black_list_rules)
+    seen = set([initial.verbose])
     statistics = Statistics(initial)
-    logging.info(f'num_epochs: {num_epochs}')
     for epoch in range(num_epochs):
         logging.debug(f'epoch: {epoch}')
         successfull_epoch = False
@@ -274,7 +298,6 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                         j, confidence = next((i, conf) for i, (pr, pp, conf) in enumerate(policies)
                                              if pr == rule_id and pp == fit_result.path)
                     except StopIteration:
-                        # print(policies)
                         for k, v in rule_mapping.items():
                             print(f'#{k}: {v}')
                         raise RuntimeError(f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}')
@@ -287,11 +310,14 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
             possible_fits = ((*args, deduced) for *args, deduced in possible_fits if deduced.verbose
                              not in seen and deduced.verbose not in black_list_terms)
 
-            for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits):
+            for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits, 1):
                 seen.add(deduced.verbose)
+                if deduced.size > max_size:
+                    continue
                 rule = rule_mapping[rule_id]
+                # print(deduced.verbose)
                 apply_info = ApplyInfo(
-                    rule_name=rule.name, rule_formula=str(rule),
+                    rule_name=rule.name, rule_formula=rule.verbose,
                     current=deduced,
                     previous=prev, mapping=fit_result.variable,
                     confidence=confidence, top=top, rule_id=rule_id, path=fit_result.path)
@@ -396,6 +422,7 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
             training_statistics.append(training_statistic)
 
     problem_statistics = []
+    problem_solutions = []
 
     def variable_generator():
         return Symbol.parse(context, 'u')
@@ -415,17 +442,13 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
                                                    [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
 
         if solution is not None:
-            trace = []
-            while solution is not None:
-                trace.append(solution)
-                solution = solution.previous
-
-            for step in reversed(trace):
+            problem_solutions.append(solution)
+            for step in reversed(list(solution.trace)):
                 if step.previous is not None:
                     mapping = ', '.join([f'{a} -> {b}' for a, b in step.mapping.items()])
                     if mapping:
                         mapping = f' ({mapping})'
-                    print(f'{step.rule_name} ({step.rule_formula}): {step.previous.current} => {step.current}{mapping}')
+                    print(f'{step.rule_name} ({step.rule_formula}): {step.previous.current.verbose} => {step.current.verbose}{mapping}')
                 else:
                     print(f'Initial: {step.current}')
 
@@ -439,8 +462,11 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
 
     logging.info(f'Writing results to {results_filename}')
     with open(results_filename, 'w') as f:
-        yaml.dump({'problems': problem_statistics,
-                   'training-traces': training_statistics}, f)
+        yaml.dump({
+            'problems': problem_statistics,
+            'problem-statistics': solution_summary(problem_solutions),
+            'training-traces': training_statistics
+        }, f)
 
 
 def load_config(filename):
@@ -480,6 +506,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-epochs', type=int)
     parser.add_argument('--black-list-terms', nargs='+')
     parser.add_argument('--black-list-rules', nargs='+')
+    parser.add_argument('--max-size', type=int)
     parser.add_argument('--policy-last', action='store_true', default=False)
 
     # Model

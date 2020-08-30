@@ -286,7 +286,7 @@ impl PyBag {
 
     fn update_meta(&mut self) -> PyResult<()> {
         let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |(_, r)| r);
-        let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len() + 1];
+        let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len()];
         for container in self.samples_data.iter() {
             for sample in container.samples.iter() {
                 for part in sample.data.initial.inner.iter_bfs() {
