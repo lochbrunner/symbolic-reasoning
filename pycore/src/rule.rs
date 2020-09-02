@@ -17,6 +17,17 @@ pub struct PyRule {
 
 #[pymethods]
 impl PyRule {
+    #[new]
+    fn py_new(condition: PySymbol, conclusion: PySymbol, name: &str) -> Self {
+        PyRule {
+            inner: Arc::new(Rule {
+                condition: (*condition.inner).clone(),
+                conclusion: (*conclusion.inner).clone(),
+            }),
+            name: name.to_owned(),
+        }
+    }
+
     #[staticmethod]
     fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
         match Rule::parse(&context.inner, &code) {

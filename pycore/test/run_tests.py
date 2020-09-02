@@ -6,6 +6,7 @@ from fit import *
 from symbol_builder import *
 from symbol import *
 # from trace import *
+from rule import *
 
 import unittest
 

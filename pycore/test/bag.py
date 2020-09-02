@@ -78,8 +78,9 @@ class TestSample(unittest.TestCase):
         container.add_sample(sample)
 
         rule = Rule.parse(context, 'a => b')
+        padding = Rule.parse(context, 'a => a')
 
-        bag = Bag(rules=[('Test', rule)])
+        bag = Bag(rules=[('padding', padding), ('Test', rule)])
         bag.add_container(container)
         bag.update_meta()
 

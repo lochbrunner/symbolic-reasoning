@@ -13,7 +13,7 @@ import numpy as np
 
 import torch
 
-from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply, Bag, FitInfo, Sample, Container
+from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply, Bag, FitInfo, Sample, Container, Rule
 
 from common import io
 from common.timer import Timer
@@ -53,6 +53,12 @@ class ApplyInfo:
         self.contributed = True
         if self.previous is not None:
             self.previous.contribute()
+
+    def new_rules(self):
+        '''Rules from all previous step to current'''
+        for i, step in enumerate(self.trace, 1):
+            if step.previous is not None:
+                yield Rule(condition=step.previous.current, conclusion=self.current, name=f'New rule {i}')
 
     @property
     def fit_info(self):
@@ -383,9 +389,21 @@ def dump_trainings_data(statistics: Statistics, solver_trainings_data: str, init
     bag.clear_containers()
     bag.add_container(container)
     bag.update_meta()
-    Path(solver_trainings_data).parent.mkdir(exist_ok=True, parents=True)
+    solver_trainings_data.parent.mkdir(exist_ok=True, parents=True)
     logging.info(f'Dumping trainings data to {solver_trainings_data}')
-    bag.dump(solver_trainings_data)
+    bag.dump(str(solver_trainings_data))
+
+
+def dump_new_rules(solutions: List[ApplyInfo], new_rules_filename: Path, **kwargs):
+
+    new_rules = [rule.verbose for solution in solutions
+                 for rule in solution.new_rules()]
+    new_rules_filename.parent.mkdir(exist_ok=True, parents=True)
+    logging.info(f'Dumping new rules to {new_rules_filename}')
+    with new_rules_filename.open('w') as f:
+        yaml.dump({
+            'rules': new_rules
+        }, f)
 
 
 def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, policy_last, **kwargs):
@@ -460,6 +478,8 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         logging.info(statistics)
         problem_statistics.append(statistics.as_dict())
 
+    dump_new_rules(solutions=problem_solutions, **kwargs)
+
     logging.info(f'Writing results to {results_filename}')
     with open(results_filename, 'w') as f:
         yaml.dump({
@@ -502,7 +522,8 @@ if __name__ == '__main__':
     parser.add_argument('--training-traces')
     parser.add_argument('--training-data-max-steps')
     parser.add_argument('--training-data-beam-size')
-    parser.add_argument('--solver-trainings-data')
+    parser.add_argument('--solver-trainings-data', type=Path)
+    parser.add_argument('--new-rules-filename', type=Path)
     parser.add_argument('--num-epochs', type=int)
     parser.add_argument('--black-list-terms', nargs='+')
     parser.add_argument('--black-list-rules', nargs='+')

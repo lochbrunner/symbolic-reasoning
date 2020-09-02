@@ -27,7 +27,7 @@ class TestSymbol(unittest.TestCase):
 
     def test_dumping(self):
         context = Context.standard()
-        symbol = Symbol.parse(context, "a/b")
+        symbol = Symbol.parse(context, 'a/b')
 
         self.assertEqual(symbol.latex, '\\frac{a}{b}')
         self.assertEqual(str(symbol), 'a/b')
@@ -36,7 +36,7 @@ class TestSymbol(unittest.TestCase):
 
     def test_dumping_with_decoration(self):
         context = Context.standard()
-        symbol = Symbol.parse(context, "a+b")
+        symbol = Symbol.parse(context, 'a+b')
         latex = symbol.latex_with_deco([Decoration([], '<C>', '</C>'),
                                         Decoration([0], '<A>', '</A>'),
                                         Decoration([1], '<B>', '</B>')])
@@ -44,13 +44,13 @@ class TestSymbol(unittest.TestCase):
 
     def test_dumping_with_colors(self):
         context = Context.standard()
-        symbol = Symbol.parse(context, "a+b")
+        symbol = Symbol.parse(context, 'a+b')
         latex = symbol.latex_with_colors([('red', [0])])
         self.assertEqual(latex, '\\textcolor{red}{a}+b')
 
     def test_dump_latex_verbose(self):
         context = Context.standard()
-        symbol = Symbol.parse(context, "a+(b+c)")
+        symbol = Symbol.parse(context, 'a+(b+c)')
         latex = symbol.latex_verbose.strip()
         self.assertEqual(latex, 'a+\\left( b+c\\right)')
 
