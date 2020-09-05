@@ -63,6 +63,46 @@ pub struct FitInfo {
     pub policy: Policy,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum FitCompare {
+    Unrelated,
+    Contradicting,
+    Matching,
+}
+
+impl FitInfo {
+    pub fn compare(&self, other: &Self) -> FitCompare {
+        if self.path != other.path || self.rule_id != other.rule_id {
+            FitCompare::Unrelated
+        } else {
+            if self.policy == other.policy {
+                FitCompare::Matching
+            } else {
+                FitCompare::Contradicting
+            }
+        }
+    }
+
+    pub fn compare_many<'a, T>(
+        &self,
+        others: &'a [T],
+        unpack: fn(&'a T) -> &'a Self,
+    ) -> FitCompare {
+        for other in others.iter().map(unpack) {
+            match self.compare(other) {
+                FitCompare::Contradicting => {
+                    return FitCompare::Contradicting;
+                }
+                FitCompare::Matching => {
+                    return FitCompare::Matching;
+                }
+                _ => {}
+            }
+        }
+        FitCompare::Unrelated
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct Sample {
     pub initial: Symbol,
@@ -351,5 +391,113 @@ mod specs {
         assert_eq!(actual_container.max_depth, expected_container.max_depth);
         assert_eq!(actual_container.max_spread, expected_container.max_spread);
         assert_vec_eq!(actual_container.samples, expected_container.samples);
+    }
+
+    #[test]
+    fn fits_compare() {
+        let a = FitInfo {
+            policy: Policy::Negative,
+            rule_id: 0,
+            path: vec![0, 1],
+        };
+
+        let same = FitInfo {
+            policy: Policy::Negative,
+            rule_id: 0,
+            path: vec![0, 1],
+        };
+
+        assert_eq!(a.compare(&same), FitCompare::Matching);
+
+        let other_rule = FitInfo {
+            policy: Policy::Negative,
+            rule_id: 1,
+            path: vec![0, 1],
+        };
+
+        assert_eq!(a.compare(&other_rule), FitCompare::Unrelated);
+
+        let other_path = FitInfo {
+            policy: Policy::Negative,
+            rule_id: 0,
+            path: vec![1, 0],
+        };
+
+        assert_eq!(a.compare(&other_path), FitCompare::Unrelated);
+
+        let contradicting = FitInfo {
+            policy: Policy::Positive,
+            rule_id: 0,
+            path: vec![0, 1],
+        };
+
+        assert_eq!(a.compare(&contradicting), FitCompare::Contradicting);
+    }
+
+    #[test]
+    fn fits_compare_many() {
+        let a = FitInfo {
+            policy: Policy::Negative,
+            rule_id: 0,
+            path: vec![0, 1],
+        };
+
+        let others = [
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 1,
+                path: vec![0, 1],
+            },
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 0,
+                path: vec![1, 0],
+            },
+        ];
+
+        assert_eq!(a.compare_many(&others, |f| f), FitCompare::Unrelated);
+
+        let one_matching = [
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 1,
+                path: vec![0, 1],
+            },
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 0,
+                path: vec![1, 0],
+            },
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 0,
+                path: vec![0, 1],
+            },
+        ];
+
+        assert_eq!(a.compare_many(&one_matching, |f| f), FitCompare::Matching);
+
+        let one_contradicting = [
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 1,
+                path: vec![0, 1],
+            },
+            &FitInfo {
+                policy: Policy::Negative,
+                rule_id: 0,
+                path: vec![1, 0],
+            },
+            &FitInfo {
+                policy: Policy::Positive,
+                rule_id: 0,
+                path: vec![0, 1],
+            },
+        ];
+
+        assert_eq!(
+            a.compare_many(&one_contradicting, |f| f),
+            FitCompare::Contradicting
+        );
     }
 }

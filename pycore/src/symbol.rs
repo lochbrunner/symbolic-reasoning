@@ -1,4 +1,5 @@
 use crate::bag::PyFitInfo;
+use crate::common::op_to_string;
 use crate::context::PyContext;
 use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_symbol_plain};
@@ -474,17 +475,6 @@ impl PySymbol {
             })
             .collect::<Vec<_>>();
         Ok(dump_latex(&self.inner, decorations, false))
-    }
-}
-
-fn op_to_string(op: &CompareOp) -> &str {
-    match op {
-        CompareOp::Lt => "<",
-        CompareOp::Le => "<=",
-        CompareOp::Eq => "==",
-        CompareOp::Ne => "!=",
-        CompareOp::Gt => ">",
-        CompareOp::Ge => ">=",
     }
 }
 

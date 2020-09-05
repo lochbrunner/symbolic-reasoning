@@ -13,7 +13,7 @@ import numpy as np
 
 import torch
 
-from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply, Bag, FitInfo, Sample, Container, Rule
+from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_and_apply, Bag, FitInfo, Sample, Container, Rule, SampleSet
 
 from common import io
 from common.timer import Timer
@@ -378,16 +378,17 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, trai
 
 def dump_trainings_data(statistics: Statistics, solver_trainings_data: str, initial_trainings_data_file: str, **kwargs):
 
-    container = Container()
+    sample_set = SampleSet()
+    # container = Container()
     for apply_info in statistics.trace.iter():
         # For now each fit it's own sample
         if apply_info.rule_id is not None:
             sample = Sample(apply_info.previous.current, [apply_info.fit_info])
-            container.add_sample(sample)
+            sample_set.add(sample)
 
     bag = Bag.load(initial_trainings_data_file)
     bag.clear_containers()
-    bag.add_container(container)
+    bag.add_container(sample_set.to_container())
     bag.update_meta()
     solver_trainings_data.parent.mkdir(exist_ok=True, parents=True)
     logging.info(f'Dumping trainings data to {solver_trainings_data}')

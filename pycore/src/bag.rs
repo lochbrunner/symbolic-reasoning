@@ -1,12 +1,20 @@
+use crate::common::op_to_string;
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
 use core::bag;
+use core::dumper::dump_symbol_plain;
 use core::rule::Rule;
-use pyo3::exceptions::{FileNotFoundError, TypeError};
+use pyo3::class::basic::CompareOp;
+use pyo3::class::{PyObjectProtocol, PySequenceProtocol};
+use pyo3::exceptions::{FileNotFoundError, NotImplementedError, TypeError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use std::cmp;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 
@@ -83,6 +91,31 @@ impl PyFitInfo {
     }
 }
 
+#[pyproto]
+impl PyObjectProtocol for PyFitInfo {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", *self.data))
+    }
+
+    fn __richcmp__(&self, other: Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(*self.data == *other.data),
+            CompareOp::Ne => Ok(*self.data != *other.data),
+            _ => Err(PyErr::new::<NotImplementedError, _>(format!(
+                "Comparison operator {} for Symbol is not implemented yet!",
+                op_to_string(&op)
+            ))),
+        }
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        let mut state = DefaultHasher::new();
+        (*self.data).hash(&mut state);
+        Ok(state.finish() as isize)
+    }
+}
+
+#[derive(Clone)]
 struct SampleData {
     initial: PySymbol,
     fits: Vec<PyFitInfo>,
@@ -165,6 +198,13 @@ impl PyContainer {
         self.max_size = cmp::max(size, self.max_size);
         self.samples.push(sample);
         Ok(())
+    }
+}
+
+#[pyproto]
+impl PySequenceProtocol for PyContainer {
+    fn __len__(&self) -> PyResult<usize> {
+        Ok(self.samples.len())
     }
 }
 
@@ -315,5 +355,74 @@ impl PyBag {
     fn clear_containers(&mut self) -> PyResult<()> {
         self.samples_data.clear();
         Ok(())
+    }
+}
+
+#[pyclass(name=SampleSet,subclass)]
+pub struct PySampleSet {
+    samples: HashMap<String, SampleData>,
+}
+
+/// Manages creating new samples
+/// Avoids duplicates and merges the fit resuĺts in case of collisions
+#[pymethods]
+impl PySampleSet {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            samples: HashMap::new(),
+        }
+    }
+
+    /// Returns true if the initial of the sample was not present yet.
+    fn add(&mut self, sample: PySample) -> PyResult<bool> {
+        let key = dump_symbol_plain(&(*sample.data.initial.inner), true);
+
+        match self.samples.get_mut(&key) {
+            None => {
+                self.samples.insert(key, (*sample.data).clone());
+            }
+            Some(ref mut prev_sample) => {
+                // Does the fit already exists?
+                // If contradicting use the positive
+                for new_fitinfo in sample.data.fits.iter().map(|f| &(*f.data)) {
+                    match new_fitinfo.compare_many(&(prev_sample.fits), |f| &(*f.data)) {
+                        bag::FitCompare::Unrelated => prev_sample.fits.push(PyFitInfo {
+                            data: Arc::new(new_fitinfo.clone()),
+                        }),
+                        bag::FitCompare::Matching => {} // Sample already known
+                        bag::FitCompare::Contradicting => {} // Let's try with the positive
+                    }
+                }
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn to_container(&self) -> PyResult<PyContainer> {
+        let samples = self
+            .samples
+            .iter()
+            .map(|(_, s)| PySample {
+                data: Arc::new((*s).clone()),
+            })
+            .collect();
+        let max_depth = 0;
+        let max_spread = 0;
+        let max_size = 0;
+        Ok(PyContainer {
+            max_depth,
+            max_spread,
+            max_size,
+            samples,
+        })
+    }
+}
+
+#[pyproto]
+impl PySequenceProtocol for PySampleSet {
+    fn __len__(&self) -> PyResult<usize> {
+        Ok(self.samples.len())
     }
 }

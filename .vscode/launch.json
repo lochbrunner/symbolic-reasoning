@@ -20,6 +20,18 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "pycore",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pycore/test/run_tests.py",
+            "args": [
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "generator test",
             "type": "lldb",
             "request": "launch",
@@ -55,7 +67,7 @@
             "program": "${workspaceFolder}/ml/train.py",
             "args": [
                 "-c",
-                "real_world_problems/basics/dataset.yaml",
+                "real_world_problems/number_crunching/dataset.yaml",
                 "-v"
             ],
             "console": "integratedTerminal",

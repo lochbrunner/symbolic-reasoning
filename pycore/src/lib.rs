@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 
 mod apply;
 mod bag;
+mod common;
 mod context;
 mod fit;
 mod rule;
@@ -26,6 +27,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::PyFitInfo>()?;
     m.add_class::<bag::PyContainer>()?;
     m.add_class::<bag::PySample>()?;
+    m.add_class::<bag::PySampleSet>()?;
     m.add_class::<scenario::PyScenario>()?;
     fit::register(m)?;
     apply::register(m)?;

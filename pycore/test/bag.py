@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycore import Bag, Sample, Symbol, Context, FitInfo, Container, Rule
+from pycore import Bag, Sample, Symbol, Context, FitInfo, Container, Rule, SampleSet
 
 import unittest
 
@@ -87,6 +87,46 @@ class TestSample(unittest.TestCase):
         self.assertEqual(bag.meta.idents, ['a'])
         self.assertEqual(bag.meta.rule_distribution, [(0, 0), (1, 1)])
         self.assertEqual(bag.containers[0].samples[0].initial.verbose, 'a')
+
+
+class TestSampleSet(unittest.TestCase):
+    def test_two_samples(self):
+        context = Context.standard()
+        symbol_a = Symbol.parse(context, "a")
+        symbol_b = Symbol.parse(context, "b")
+        sample_set = SampleSet()
+        sample_set.add(Sample(symbol_a, [FitInfo(0, [1, 2], True)]))
+        sample_set.add(Sample(symbol_a, [FitInfo(1, [1, 2], True)]))
+        sample_set.add(Sample(symbol_b, [FitInfo(0, [1, 2], True)]))
+
+        self.assertEqual(len(sample_set), 2)
+
+        container = sample_set.to_container()
+        self.assertEqual(len(container), 2)
+
+    def test_multiple_fits(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, "a")
+        sample_set = SampleSet()
+        sample_set.add(Sample(symbol, [FitInfo(0, [1, 2], True)]))
+        sample_set.add(Sample(symbol, [FitInfo(1, [1, 2], True)]))
+        sample_set.add(Sample(symbol, [FitInfo(0, [1, 2], False)]))
+        sample_set.add(Sample(symbol, [FitInfo(0, [1, 3], False)]))
+
+        self.assertEqual(len(sample_set), 1)
+
+        container = sample_set.to_container()
+        sample = container.samples[0]
+
+        self.assertEqual(sample.initial.verbose, 'a')
+        self.assertEqual(len(sample.fits), 3)
+
+        self.assertEqual(FitInfo(0, [1, 2], True), FitInfo(0, [1, 2], True))
+
+        # Expect to 3. sample to be missing
+        self.assertCountEqual(sample.fits, [FitInfo(0, [1, 2], True),
+                                            FitInfo(1, [1, 2], True),
+                                            FitInfo(0, [1, 3], False)])
 
 
 if __name__ == '__main__':
