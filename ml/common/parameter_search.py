@@ -13,6 +13,15 @@ class LearningParmeter:
         self.gradient_clipping = gradient_clipping
         self.model_hyper_parameter = model_hyper_parameter or {}
 
+    @staticmethod
+    def add_parsers(parser, all_models: list):
+        parser.add_argument('-n', '--num-epochs', type=int, default=30)
+        parser.add_argument('-b', '--batch-size', type=int, default=32)
+        parser.add_argument('-l', '--learning-rate', type=float, default=1.0)
+        parser.add_argument('-g', '--gradient-clipping', type=float, default=0.1)
+        parser.add_argument('-m', '--model', choices=all_models,
+                            default='TreeCnnSegmenter', dest='model_name')
+
 
 class MarchSearch:
     '''

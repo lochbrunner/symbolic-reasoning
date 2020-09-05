@@ -47,10 +47,27 @@ class ExecutionParameter:
         self.report_rate = report_rate
         self.load_model = load_model or update_model
         self.save_model = save_model or update_model
-        self.device = device
+        if device == 'auto':
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = device
         self.tensorboard = tensorboard
         self.statistics = statistics
         self.manual_seed = manual_seed
+
+    @staticmethod
+    def add_parsers(parser: ArgumentParser):
+        parser.add_argument('-i', '--load-model', type=str,
+                            default=None, help='Path to the model')
+        parser.add_argument('-o', '--save-model', type=str,
+                            default=None, help='Path to the model')
+        parser.add_argument('-u', '--update-model', type=str,
+                            default=None, help='Path to the model')
+        parser.add_argument('-r', '--report-rate', type=int, default=20)
+        parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
+        parser.add_argument('--tensorboard', action='store_true', default=False)
+        parser.add_argument('--statistics', default=None)
+        parser.add_argument('--manual-seed', action='store_true', default=False)
 
 
 def dump_statistics(params: ExecutionParameter, logbooks):
@@ -216,56 +233,8 @@ def load_config(filename):
         return config['training']
 
 
-if __name__ == '__main__':
-
-    parser = ArgumentParser('-c', '--config-file', loader=load_config,
-                            prog='deep training')
-    parser.add_argument('--log', help='Set the log level', default='warning')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False)
-    parser.add_argument('--smoke', action='store_true', default=False,
-                        help='Make a very fast run. (data_size_limit: 100, num_epochs: 1)')
-
-    # Execution parameter
-    parser.add_argument('-i', '--load-model', type=str,
-                        default=None, help='Path to the model')
-    parser.add_argument('-o', '--save-model', type=str,
-                        default=None, help='Path to the model')
-    parser.add_argument('-u', '--update-model', type=str,
-                        default=None, help='Path to the model')
-    parser.add_argument('-r', '--report-rate', type=int, default=20)
-    parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
-    parser.add_argument('--tensorboard', action='store_true', default=False)
-    parser.add_argument('--statistics', default=None)
-    parser.add_argument('--manual-seed', action='store_true', default=False)
-    parser.add_argument('--use-solver-data', action='store_true', default=False)
-
-    # Learning parameter
-    parser.add_argument('-n', '--num-epochs', type=int, default=30)
-    parser.add_argument('-b', '--batch-size', type=int, default=32)
-    parser.add_argument('-l', '--learning-rate', type=float, default=1.0)
-    parser.add_argument('-g', '--gradient-clipping', type=float, default=0.1)
-    parser.add_argument('-m', '--model', choices=all_models,
-                        default='TreeCnnSegmenter', dest='model_name')
-    parser.add_argument('--optimizer', choices=[''])
-
-    # Scenario
-    parser.add_argument('-s', '--scenario', type=str,
-                        default='pattern', choices=scenarios_choices())
-    parser.add_argument('--depth', type=int, default=2,
-                        help='The depth of the used nodes.')
-    parser.add_argument('--pattern-depth', type=int, default=1,
-                        help='The depth of the pattern nodes.')
-    parser.add_argument('--spread', type=int, default=2)
-    parser.add_argument('--max-size', type=int, default=120)
-    parser.add_argument('--num-labels', type=int, default=2)
-    parser.add_argument('--bag-filename', type=str, default=None, dest='filename')
-    parser.add_argument('--solver-bag-filename', type=str, default=None, dest='solver_filename')
-    parser.add_argument('--data-size-limit', type=int, default=None,
-                        help='Limits the size of the loaded bag file data. For testing purpose.')
-
-    args, model_hyper_parameters = parser.parse_args()
-    # Logging
-    loglevel = 'INFO' if args.verbose else args.log.upper()
+def setup_loggin(verbose, log, **kwargs):
+    loglevel = 'INFO' if verbose else log.upper()
     if sys.stdin.isatty():
         log_format = '%(message)s'
     else:
@@ -282,15 +251,28 @@ if __name__ == '__main__':
         mod_logger._cache.clear()  # pylint: disable=protected-access
         mod_logger.setLevel(logging.getLevelName(loglevel))
 
+
+if __name__ == '__main__':
+
+    parser = ArgumentParser('-c', '--config-file', loader=load_config,
+                            prog='deep training')
+    parser.add_argument('--log', help='Set the log level', default='warning')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('--smoke', action='store_true', default=False,
+                        help='Make a very fast run. (data_size_limit: 100, num_epochs: 1)')
+
+    ExecutionParameter.add_parsers(parser)
+    LearningParmeter.add_parsers(parser, all_models=all_models)
+    ScenarioParameter.add_parsers(parser)
+    # parser.add_argument('--optimizer', choices=[''])
+
+    args, model_hyper_parameters = parser.parse_args()
+
+    setup_loggin(**vars(args))
+
     if args.smoke:
         args.data_size_limit = 100
         args.num_epochs = 1
-
-    if args.device == 'auto':
-        args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    if args.use_solver_data:
-        args.filename = args.solver_filename
 
     stats = []
     changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))

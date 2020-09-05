@@ -8,15 +8,36 @@ from .transformers import SegEmbedder, TagEmbedder, Padder, Uploader
 
 class ScenarioParameter:
     def __init__(self, scenario: str, depth: int, spread: int, max_size: int,
-                 pattern_depth: int, num_labels: int, filename: str, data_size_limit: int, **kwargs):
+                 pattern_depth: int, num_labels: int, filename: str, solver_filename: str,
+                 data_size_limit: int, use_solver_data: bool, **kwargs):
         self.scenario = scenario
         self.depth = depth
         self.spread = spread
         self.max_size = max_size
         self.pattern_depth = pattern_depth
         self.num_labels = num_labels
-        self.filename = filename
         self.data_size_limit = data_size_limit
+        if use_solver_data:
+            self.filename = solver_filename
+        else:
+            self.filename = filename
+
+    @staticmethod
+    def add_parsers(parser):
+        parser.add_argument('-s', '--scenario', type=str,
+                            default='pattern', choices=scenarios_choices())
+        parser.add_argument('--depth', type=int, default=2,
+                            help='The depth of the used nodes.')
+        parser.add_argument('--pattern-depth', type=int, default=1,
+                            help='The depth of the pattern nodes.')
+        parser.add_argument('--spread', type=int, default=2)
+        parser.add_argument('--max-size', type=int, default=120)
+        parser.add_argument('--num-labels', type=int, default=2)
+        parser.add_argument('--bag-filename', type=str, default=None, dest='filename')
+        parser.add_argument('--solver-bag-filename', type=str, default=None, dest='solver_filename')
+        parser.add_argument('--use-solver-data', action='store_true', default=False)
+        parser.add_argument('--data-size-limit', type=int, default=None,
+                            help='Limits the size of the loaded bag file data. For testing purpose.')
 
 
 def scenarios_choices():
