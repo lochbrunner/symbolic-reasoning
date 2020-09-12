@@ -284,7 +284,7 @@ impl<'a> Iterator for DenseTraceIter<'a> {
             None
         } else {
             let steps = self.get_steps();
-            while let Err(_) = self.try_go_sideward() {
+            while self.try_go_sideward().is_err() {
                 // Go upwards
                 if self.cursor.is_empty() {
                     break;

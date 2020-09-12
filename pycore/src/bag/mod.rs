@@ -1,17 +1,17 @@
+pub mod sample;
+
 use crate::common::op_to_string;
 use crate::rule::PyRule;
-use crate::symbol::PySymbol;
 use core::bag;
-use core::dumper::dump_symbol_plain;
 use core::rule::Rule;
 use pyo3::class::basic::CompareOp;
 use pyo3::class::{PyObjectProtocol, PySequenceProtocol};
 use pyo3::exceptions::{FileNotFoundError, NotImplementedError, TypeError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use sample::PySample;
 use std::cmp;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::fs::File;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -115,38 +115,6 @@ impl PyObjectProtocol for PyFitInfo {
     }
 }
 
-#[derive(Clone)]
-struct SampleData {
-    initial: PySymbol,
-    fits: Vec<PyFitInfo>,
-}
-
-#[pyclass(name=Sample,subclass)]
-#[derive(Clone)]
-pub struct PySample {
-    data: Arc<SampleData>,
-}
-
-#[pymethods]
-impl PySample {
-    #[new]
-    fn py_new(initial: PySymbol, fits: Vec<PyFitInfo>) -> Self {
-        PySample {
-            data: Arc::new(SampleData { initial, fits }),
-        }
-    }
-
-    #[getter]
-    fn initial(&self) -> PyResult<PySymbol> {
-        Ok(self.data.initial.clone())
-    }
-
-    #[getter]
-    fn fits(&self) -> PyResult<Vec<PyFitInfo>> {
-        Ok(self.data.fits.clone())
-    }
-}
-
 #[pyclass(name=Container,subclass)]
 #[derive(Clone)]
 pub struct PyContainer {
@@ -189,7 +157,7 @@ impl PyContainer {
     }
 
     fn add_sample(&mut self, sample: PySample) -> PyResult<()> {
-        let symbol = &sample.data.initial.inner;
+        let symbol = &sample.get_initial();
         let size = symbol.size();
         let spread = symbol.max_spread();
         let depth = symbol.depth;
@@ -252,16 +220,7 @@ impl PyBag {
                 max_depth: c.max_depth,
                 max_spread: c.max_spread,
                 max_size: c.max_size,
-                samples: c
-                    .samples
-                    .into_iter()
-                    .map(|s| PySample {
-                        data: Arc::new(SampleData {
-                            initial: PySymbol::new(s.initial),
-                            fits: s.fits.into_iter().map(PyFitInfo::new).collect(),
-                        }),
-                    })
-                    .collect(),
+                samples: c.samples.into_iter().map(PySample::from).collect(),
             })
             .collect();
 
@@ -288,10 +247,9 @@ impl PyBag {
                     .samples
                     .iter()
                     .map(|sample| bag::Sample {
-                        initial: (*sample.data.initial.inner).clone(),
+                        initial: (**sample.get_initial()).clone(),
                         fits: sample
-                            .data
-                            .fits
+                            .get_fits()
                             .iter()
                             .map(|fit| (*fit.data).clone())
                             .collect(),
@@ -303,7 +261,7 @@ impl PyBag {
         let bag = bag::Bag { meta, samples };
 
         bag.write_bincode(writer)
-            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+            .map_err(PyErr::new::<TypeError, _>)?;
         Ok(())
     }
 
@@ -329,12 +287,12 @@ impl PyBag {
         let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len()];
         for container in self.samples_data.iter() {
             for sample in container.samples.iter() {
-                for part in sample.data.initial.inner.iter_bfs() {
+                for part in sample.get_initial().iter_bfs() {
                     if !idents.contains(&part.ident) {
                         idents.insert(part.ident.clone());
                     }
                 }
-                for fit in sample.data.fits.iter() {
+                for fit in sample.get_fits().iter() {
                     let (ref mut positive, ref mut negative) =
                         rule_distribution[fit.data.rule_id as usize];
                     if fit.data.policy == bag::Policy::Positive {
@@ -355,74 +313,5 @@ impl PyBag {
     fn clear_containers(&mut self) -> PyResult<()> {
         self.samples_data.clear();
         Ok(())
-    }
-}
-
-#[pyclass(name=SampleSet,subclass)]
-pub struct PySampleSet {
-    samples: HashMap<String, SampleData>,
-}
-
-/// Manages creating new samples
-/// Avoids duplicates and merges the fit resuĺts in case of collisions
-#[pymethods]
-impl PySampleSet {
-    #[new]
-    fn py_new() -> Self {
-        Self {
-            samples: HashMap::new(),
-        }
-    }
-
-    /// Returns true if the initial of the sample was not present yet.
-    fn add(&mut self, sample: PySample) -> PyResult<bool> {
-        let key = dump_symbol_plain(&(*sample.data.initial.inner), true);
-
-        match self.samples.get_mut(&key) {
-            None => {
-                self.samples.insert(key, (*sample.data).clone());
-            }
-            Some(ref mut prev_sample) => {
-                // Does the fit already exists?
-                // If contradicting use the positive
-                for new_fitinfo in sample.data.fits.iter().map(|f| &(*f.data)) {
-                    match new_fitinfo.compare_many(&(prev_sample.fits), |f| &(*f.data)) {
-                        bag::FitCompare::Unrelated => prev_sample.fits.push(PyFitInfo {
-                            data: Arc::new(new_fitinfo.clone()),
-                        }),
-                        bag::FitCompare::Matching => {} // Sample already known
-                        bag::FitCompare::Contradicting => {} // Let's try with the positive
-                    }
-                }
-            }
-        }
-
-        Ok(true)
-    }
-
-    fn to_container(&self) -> PyResult<PyContainer> {
-        let samples = self
-            .samples
-            .iter()
-            .map(|(_, s)| PySample {
-                data: Arc::new((*s).clone()),
-            })
-            .collect();
-        let max_depth = 0;
-        let max_spread = 0;
-        let max_size = 0;
-        Ok(PyContainer {
-            max_depth,
-            max_spread,
-            max_size,
-            samples,
-        })
-    }
-}
-
-#[pyproto]
-impl PySequenceProtocol for PySampleSet {
-    fn __len__(&self) -> PyResult<usize> {
-        Ok(self.samples.len())
     }
 }

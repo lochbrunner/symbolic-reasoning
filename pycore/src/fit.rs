@@ -1,6 +1,5 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
@@ -93,7 +92,7 @@ fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Opti
     Ok(core::fit::fit_at(&outer.inner, &inner.inner, &path)
         .iter()
         .map(PyFitMap::new)
-        .nth(0))
+        .next())
 }
 
 #[pyfunction]
@@ -154,7 +153,7 @@ fn fit_at_and_apply(
             Ok(r) => Ok((PySymbol::new(r), PyFitMap::new(&m))),
             Err(e) => Err(e),
         })
-        .nth(0)
+        .next()
     {
         None => Ok(None),
         Some(v) => match v {

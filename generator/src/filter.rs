@@ -10,23 +10,20 @@ fn check_trivial_subtree(sub: &Symbol) -> bool {
         let op = &sub.ident;
         let mut var: Option<&str> = None;
         for c in sub.iter_bfs() {
-            if c.operator() {
-                if c.ident != *op {
+            if c.operator() && c.ident != *op {
+                return true;
+            }
+            if let Some(v) = var {
+                if v != c.ident {
                     return true;
                 }
             } else {
-                if let Some(v) = var {
-                    if v != c.ident {
-                        return true;
-                    }
-                } else {
-                    var = Some(&c.ident);
-                }
+                var = Some(&c.ident);
             }
         }
         return false;
     }
-    return true;
+    true
 }
 
 /// Filters out non sense symbols in the sene of e.g. a^0^0^0^0^0 ...

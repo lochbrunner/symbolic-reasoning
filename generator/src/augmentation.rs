@@ -47,7 +47,7 @@ fn create_combinations<'a, T>(
     combinations
 }
 
-pub fn augment_with_permuted_free_idents<'a>(
+pub fn augment_with_permuted_free_idents(
     free_idents: &HashSet<&str>,
     leafs: &[&Symbol],
     strategy: AugmentationStrategy,

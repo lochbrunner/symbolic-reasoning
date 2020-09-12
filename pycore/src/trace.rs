@@ -149,7 +149,7 @@ impl PyIterProtocol for PyTraceIter {
             None
         } else {
             let steps = s.get_steps();
-            while let Err(_) = s.try_go_sideward() {
+            while s.try_go_sideward().is_err() {
                 // Go deeper
                 if s.cursor.is_empty() {
                     break;

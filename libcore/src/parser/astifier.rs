@@ -275,26 +275,23 @@ impl ParseStack {
 
 fn astify(context: &Context, stack: &mut ParseStack, till: Precedence) -> Result<(), String> {
     while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
-        match stack.infix.pop().unwrap() {
-            Operation { ident, r#type, .. } => {
-                let childs = match r#type {
-                    OperationType::Infix => {
-                        let b = stack.pop_as_symbol(context)?;
-                        let a = stack.pop_as_symbol(context)?;
-                        vec![a, b] // Order has to be reverted
-                    }
-                    OperationType::Prefix => vec![stack.pop_as_symbol(context)?],
-                    _ => return Err(format!("Invalid argument count {:?}", r#type)),
-                };
-                stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
-                    depth: Symbol::calc_depth(&childs),
-                    flags: context.flags(&ident),
-                    ident,
-                    childs,
-                    value: None,
-                }));
+        let Operation { ident, r#type, .. } = stack.infix.pop().unwrap();
+        let childs = match r#type {
+            OperationType::Infix => {
+                let b = stack.pop_as_symbol(context)?;
+                let a = stack.pop_as_symbol(context)?;
+                vec![a, b] // Order has to be reverted
             }
-        }
+            OperationType::Prefix => vec![stack.pop_as_symbol(context)?],
+            _ => return Err(format!("Invalid argument count {:?}", r#type)),
+        };
+        stack.symbol.push(IdentOrSymbol::Symbol(Symbol {
+            depth: Symbol::calc_depth(&childs),
+            flags: context.flags(&ident),
+            ident,
+            childs,
+            value: None,
+        }));
     }
     Ok(())
 }

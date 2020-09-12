@@ -74,12 +74,10 @@ impl FitInfo {
     pub fn compare(&self, other: &Self) -> FitCompare {
         if self.path != other.path || self.rule_id != other.rule_id {
             FitCompare::Unrelated
+        } else if self.policy == other.policy {
+            FitCompare::Matching
         } else {
-            if self.policy == other.policy {
-                FitCompare::Matching
-            } else {
-                FitCompare::Contradicting
-            }
+            FitCompare::Contradicting
         }
     }
 

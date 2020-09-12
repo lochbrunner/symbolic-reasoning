@@ -337,13 +337,13 @@ impl Symbol {
             .map(|(i, s)| {
                 ref_to_index.insert(s, i as i16);
                 dict.get(&s.ident)
-                    .and_then(|i| {
-                        Some(vec![
+                    .map(|i| {
+                        vec![
                             *i as i64,
                             one_encode(s.operator()),
                             one_encode(s.fixed()),
                             one_encode(s.is_number()),
-                        ])
+                        ]
                     })
                     .ok_or(format!("Unknown ident {}", s.ident))
             })
@@ -392,12 +392,12 @@ impl Symbol {
             policy[index] = fit.policy.value();
         }
 
-        return Ok(Embedding {
+        Ok(Embedding {
             embedded,
             index_map,
             label,
             policy,
-        });
+        })
     }
 
     /// Returns the item at the specified path
