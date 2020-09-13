@@ -243,18 +243,7 @@ impl PyBag {
                 max_depth: container.max_depth,
                 max_spread: container.max_spread,
                 max_size: container.max_size,
-                samples: container
-                    .samples
-                    .iter()
-                    .map(|sample| bag::Sample {
-                        initial: (**sample.get_initial()).clone(),
-                        fits: sample
-                            .get_fits()
-                            .iter()
-                            .map(|fit| (*fit.data).clone())
-                            .collect(),
-                    })
-                    .collect(),
+                samples: container.samples.iter().map(bag::Sample::from).collect(),
             })
             .collect();
 

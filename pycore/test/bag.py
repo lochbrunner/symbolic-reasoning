@@ -3,6 +3,7 @@
 from pycore import Bag, Sample, Symbol, Context, FitInfo, Container, Rule, SampleSet
 
 import unittest
+import numpy.testing as npt
 
 
 @unittest.skip('No bagfile available')
@@ -87,6 +88,32 @@ class TestSample(unittest.TestCase):
         self.assertEqual(bag.meta.idents, ['a'])
         self.assertEqual(bag.meta.rule_distribution, [(0, 0), (1, 1)])
         self.assertEqual(bag.containers[0].samples[0].initial.verbose, 'a')
+
+    def test_embed(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, 'a+b=c*d')
+        embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
+        fits = [FitInfo(2, [0], True)]
+        useful = True
+        sample = Sample(symbol, fits, useful)
+        spread = 2
+        embedding, indices, label, policy, value = sample.embed(embed_dict, 0, spread)
+
+        npt.assert_equal(embedding[:, 0], [1, 2, 3, 4, 5, 6, 7, 0])
+        npt.assert_equal(embedding[:, 1], [1, 1, 1, 0, 0, 0, 0, 0])  # is operator
+        npt.assert_equal(embedding[:, 2], [1, 1, 1, 0, 0, 0, 0, 0])  # is fixed
+        npt.assert_equal(embedding[:, 3], [0, 0, 0, 0, 0, 0, 0, 0])  # is number
+        npt.assert_equal(indices, [[0, 1, 2, 7],
+                                   [1, 3, 4, 0],
+                                   [2, 5, 6, 0],
+                                   [3, 7, 7, 1],
+                                   [4, 7, 7, 1],
+                                   [5, 7, 7, 2],
+                                   [6, 7, 7, 2],
+                                   [7, 7, 7, 7]])
+        npt.assert_equal(label, [0, 2, 0, 0, 0, 0, 0, 0])
+        npt.assert_equal(policy, [0, 1., 0, 0, 0, 0, 0, 0])
+        npt.assert_equal(value, [1])
 
 
 class TestSampleSet(unittest.TestCase):

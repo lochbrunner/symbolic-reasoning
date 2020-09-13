@@ -6,7 +6,7 @@ use core::dumper::{dump_latex, dump_symbol_plain};
 use core::symbol::Embedding;
 use core::Symbol;
 use ndarray::Array;
-use numpy::{IntoPyArray, PyArray1, PyArray2};
+use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{IndexError, KeyError, NotImplementedError, TypeError};
@@ -224,7 +224,7 @@ impl PyIterProtocol for PySymbolAndPathBfsIter {
     }
 }
 
-fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
+pub fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
 where
     T: numpy::Element,
 {
@@ -335,11 +335,13 @@ impl PySymbol {
         padding: i16,
         spread: usize,
         fits: Vec<PyFitInfo>,
+        useful: bool,
     ) -> PyResult<(
         Py<PyArray2<i64>>,
         Py<PyArray2<i16>>,
         Py<PyArray1<i64>>,
         Py<PyArray1<f32>>,
+        Py<PyArray1<i64>>,
     )> {
         let fits = fits
             .into_iter()
@@ -350,9 +352,10 @@ impl PySymbol {
             index_map,
             label,
             policy,
+            value,
         } = self
             .inner
-            .embed(&dict, padding, spread, &fits)
+            .embed(&dict, padding, spread, &fits, useful)
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
             })?;
@@ -360,8 +363,9 @@ impl PySymbol {
         let index_map = make_2darray(py, index_map)?;
         let label = label.into_pyarray(py).to_owned();
         let policy = policy.into_pyarray(py).to_owned();
+        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
-        Ok((embedded, index_map, label, policy))
+        Ok((embedded, index_map, label, policy, value))
     }
 
     #[classattr]

@@ -129,7 +129,8 @@ class TestSymbol(unittest.TestCase):
         embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
         fits = [FitInfo(2, [0], True)]
         spread = 2
-        embedding, indices, label, policy = symbol.embed(embed_dict, 0, spread, fits)
+        useful = True
+        embedding, indices, label, policy, value = symbol.embed(embed_dict, 0, spread, fits, useful)
 
         npt.assert_equal(embedding[:, 0], [1, 2, 3, 4, 5, 6, 7, 0])
         npt.assert_equal(embedding[:, 1], [1, 1, 1, 0, 0, 0, 0, 0])  # is operator
@@ -145,6 +146,7 @@ class TestSymbol(unittest.TestCase):
                                    [7, 7, 7, 7]])
         npt.assert_equal(label, [0, 2, 0, 0, 0, 0, 0, 0])
         npt.assert_equal(policy, [0, 1., 0, 0, 0, 0, 0, 0])
+        npt.assert_equal(value, [1])
 
     def test_size(self):
         context = Context.standard()

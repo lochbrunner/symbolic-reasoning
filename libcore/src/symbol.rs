@@ -176,6 +176,7 @@ pub struct Embedding {
     pub index_map: Vec<Vec<i16>>,
     pub label: Vec<i64>,
     pub policy: Vec<f32>,
+    pub value: i64,
 }
 
 impl Symbol {
@@ -329,6 +330,7 @@ impl Symbol {
         padding: i16,
         spread: usize,
         fits: &[FitInfo],
+        useful: bool,
     ) -> Result<Embedding, String> {
         let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
         let mut embedded = self
@@ -397,6 +399,7 @@ impl Symbol {
             index_map,
             label,
             policy,
+            value: if useful { 1 } else { 0 },
         })
     }
 
@@ -626,8 +629,9 @@ mod specs {
         let Embedding {
             embedded,
             index_map,
+            value,
             ..
-        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        } = symbol.embed(&dict, padding, spread, &vec![], true).unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
 
         assert_eq!(embedded, vec![1, 2, 3, 4, 5, 6, 7, 0]);
@@ -641,6 +645,8 @@ mod specs {
         assert_eq!(index_map[5], vec![5, 7, 7, 2]); // c
         assert_eq!(index_map[6], vec![6, 7, 7, 2]); // d
         assert_eq!(index_map[7], vec![7, 7, 7, 7]); // d
+
+        assert_eq!(value, 1);
     }
 
     #[test]
@@ -662,7 +668,7 @@ mod specs {
             embedded,
             index_map,
             ..
-        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
+        } = symbol.embed(&dict, padding, spread, &vec![], true).unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
 
         assert_eq!(embedded, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
@@ -709,6 +715,7 @@ mod specs {
                         policy: Policy::Positive,
                     },
                 ],
+                true,
             )
             .unwrap();
 

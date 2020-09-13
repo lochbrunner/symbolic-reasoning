@@ -116,9 +116,11 @@ def pad(sample, width, pad_token=0):
         raise NotImplementedError(f'Padding of {sample.ndim} dim tensor not implemented yet!')
 
 
-def stack(samples, width):
-
-    samples = [torch.as_tensor(pad(sample, width)) for sample in samples]
+def stack(samples, width=None):
+    if width is None:
+        samples = [torch.as_tensor(sample) for sample in samples]
+    else:
+        samples = [torch.as_tensor(pad(sample, width)) for sample in samples]
 
     out = None
     if torch.utils.data.get_worker_info() is not None:
@@ -132,11 +134,12 @@ def stack(samples, width):
 
 
 def dynamic_width_collate(batch):
+    # x, s, y, p, v
     max_width = max([sample[0].shape[0] for sample in batch])
     # Transpose them
-    transposed = zip(*batch)
-
-    return [stack(channel, max_width) for channel in transposed]
+    transposed = list(zip(*batch))
+    # Dont pad value
+    return [stack(channel, max_width) for channel in transposed[:-1]] + [stack(channel) for channel in transposed[-1:]]
 
 
 class BagDataset(Dataset):
@@ -198,10 +201,10 @@ class BagDataset(Dataset):
         return self._rule_map[rule_id]
 
     def _process_sample(self, sample):
-        return sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)
+        return sample.embed(self._ident_dict, self.pad_token, self.spread)
 
-    def embed_custom(self, initial, fits=None):
-        return initial.embed(self._ident_dict, self.pad_token, self.spread, fits or [])
+    def embed_custom(self, initial, fits=None, useful=True):
+        return initial.embed(self._ident_dict, self.pad_token, self.spread, fits or [], useful)
 
     @property
     def max_depth(self):

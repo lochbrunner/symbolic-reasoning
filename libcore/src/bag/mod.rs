@@ -104,6 +104,8 @@ impl FitInfo {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct Sample {
     pub initial: Symbol,
+    /// For value network
+    pub useful: bool,
     pub fits: Vec<FitInfo>,
 }
 
@@ -220,6 +222,7 @@ impl Bag {
                     .filter(|(initial, _)| initial.depth == depth)
                     .map(|(initial, fits)| Sample {
                         initial: (*initial).clone(),
+                        useful: true,
                         fits: fits.to_vec(),
                     })
                     .collect();
@@ -364,6 +367,7 @@ mod specs {
                             path: vec![0, 0],
                             policy: Policy::Positive,
                         }],
+                        useful: true,
                     },
                     Sample {
                         initial: b,
@@ -372,6 +376,7 @@ mod specs {
                             path: vec![0, 0],
                             policy: Policy::Positive,
                         }],
+                        useful: true,
                     },
                 ],
             }],

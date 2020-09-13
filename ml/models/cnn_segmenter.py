@@ -99,6 +99,41 @@ class SequentialByPass(nn.Sequential):
         return x
 
 
+class ValueHead(nn.Module):
+    def __init__(self, embedding_size, kernel_size):
+        super(ValueHead, self).__init__()
+        self.linear = nn.Linear(embedding_size, 2)  # Good or bad
+        self.embedding_size = embedding_size
+        self.cnn = IConv(in_size=embedding_size, out_size=embedding_size, kernel_size=kernel_size)
+
+    def forward(self, x, s):
+        x = self.cnn(x, s)
+        b, l, j = x.shape
+        assert(self.embedding_size == j)
+        # x: blj
+        # blj -> (bl)j
+        x = x.view([-1, j])
+        x = self.linear(x)
+        x = x.view([b, l, 2])
+        x = x.max(dim=1, keepdim=False).values
+        return F.log_softmax(x, dim=1)
+
+
+class PolicyHead(nn.Module):
+    def __init__(self, embedding_size, kernel_size, tagset_size):
+        super(PolicyHead, self).__init__()
+        self.cnn = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
+
+    def forward(self, x, s, p):
+        x = self.cnn(x, s)
+        # negative policy indicates that the rule at that possition should not be applied
+        # x_blj * p_bl = y_blj
+        x = x * p.unsqueeze(2).expand(x.shape)
+        # j must be second index: b,j,...
+        y = F.log_softmax(x, dim=2)
+        return torch.transpose(y, 1, 2)
+
+
 class TreeCnnUniqueIndices(nn.Module):
     def __init__(self, vocab_size, tagset_size, pad_token, kernel_size, hyper_parameter, **kwargs):
         super(TreeCnnUniqueIndices, self).__init__()
@@ -134,7 +169,10 @@ class TreeCnnUniqueIndices(nn.Module):
                                                  create_layer(),
                                                  nn.LeakyReLU(inplace=True),
                                                  nn.Dropout(p=self.config['dropout'], inplace=False)]])
-        self.cnn_end = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
+
+        # Heads
+        self.policy = PolicyHead(embedding_size=embedding_size, kernel_size=kernel_size, tagset_size=tagset_size)
+        self.value = ValueHead(embedding_size=embedding_size, kernel_size=kernel_size)
 
     def forward(self, x, s, p, *args):  # pylint: disable=arguments-differ
         # p: b,l
@@ -149,13 +187,8 @@ class TreeCnnUniqueIndices(nn.Module):
         else:
             x = e
         x = self.cnn_hidden(x, s)
-        x = self.cnn_end(x, s)
-        # negative policy indicates that the rule at that possition should not be applied
-        # x_blj * p_bl = y_blj
-        x = x * p.unsqueeze(2).expand(x.shape)
-        # j must be second index: b,j,...
-        y = F.log_softmax(x, dim=2)
-        return torch.transpose(y, 1, 2)
+
+        return self.policy(x, s, p), self.value(x, s)
 
     @staticmethod
     def activation_names():
@@ -168,6 +201,8 @@ class TreeCnnUniqueIndices(nn.Module):
 
 class TreeCnnSegmenter(nn.Module):
     '''
+    Deprected
+
     TODO:
      * use layer-normalisation
      * use bilinear instead of concat for feature combination (-> to inputs)

@@ -125,12 +125,12 @@ class Inferencer:
 
     def __call__(self, initial, count=None):
         # x, s, _ = self.dataset.embed_custom(initial)
-        x, s, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [])
+        x, s, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [], True)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
         p = torch.ones(x.shape[:-1])
 
-        y = self.model(x, s, p)
+        y, _ = self.model(x, s, p)
         y = y.squeeze()  # shape: rules, localisation
         y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
 
@@ -383,7 +383,7 @@ def dump_trainings_data(statistics: Statistics, solver_trainings_data: str, init
     for apply_info in statistics.trace.iter():
         # For now each fit it's own sample
         if apply_info.rule_id is not None:
-            sample = Sample(apply_info.previous.current, [apply_info.fit_info])
+            sample = Sample(apply_info.previous.current, [apply_info.fit_info], apply_info.contributed)
             sample_set.add(sample)
 
     bag = Bag.load(initial_trainings_data_file)

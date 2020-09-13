@@ -6,6 +6,25 @@ from torch.utils.data import DataLoader
 from common.terminal_utils import printHistogram
 
 
+class Mean:
+    def __init__(self):
+        self.total = 0.
+        self.correct = 0.0
+
+    def __add__(self, correct):
+        self.total += 1.
+        self.correct += correct
+        return self
+
+    @property
+    def summary(self):
+        return self.correct / self.total
+
+    def __str__(self):
+        v = self.summary * 100
+        return f'{v:.2f}%'
+
+
 class Ratio:
     def __init__(self, size=10, count_print=3):
         assert size >= count_print
@@ -102,8 +121,9 @@ class Error:
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader):
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
+    value_error = Mean()
 
-    for x, *s, y, p in dataloader:
+    for x, *s, y, p, v in dataloader:
         x = x.to(model.device)
         y = y.to(model.device)
         # Dimensions
@@ -111,16 +131,19 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
         # y: batch * length
         if len(s) > 0:
             s = s[0].to(model.device)
-            x = model(x, s, p)
+            py, pv = model(x, s, p)
         else:
-            x = model(x)
-        assert x.size(0) == y.size(0), f'{x.size(0)} == {y.size(0)}'
-        batch_size = x.size(0)
-        x = x.cpu().numpy()
+            py, pv = model(x)
+        assert py.size(0) == y.size(0), f'{py.size(0)} == {y.size(0)}'
+        batch_size = py.size(0)
+        py = py.cpu().numpy()
         y = y.cpu().numpy()
+        pv = pv.cpu().numpy()
+        v = v.cpu().numpy()
         for i in range(batch_size):
+            # policy
             truth = y[i, :]
-            predict = x[i, :, :]
+            predict = py[i, :, :]
             predicted_padding = np.copy(predict)
             predicted_padding[0, :] = np.finfo('f').min
 
@@ -129,7 +152,10 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
             error.exact.update_global(None, predict, truth)
             error.exact_no_padding.update_global(None, predicted_padding, truth)
 
-    return error
+            # value
+            value_error += np.exp(pv[i, 1-v[i]]).item()
+
+    return error, value_error
 
 
 class TestRatio(unittest.TestCase):

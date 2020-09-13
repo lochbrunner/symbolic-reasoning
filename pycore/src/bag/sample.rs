@@ -1,9 +1,13 @@
 use crate::bag::{PyContainer, PyFitInfo};
+use crate::symbol::make_2darray;
 use crate::symbol::PySymbol;
 use core::bag;
 use core::dumper::dump_symbol_plain;
+use core::symbol::Embedding;
 use core::symbol::Symbol;
+use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::PySequenceProtocol;
+use pyo3::exceptions::KeyError;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::convert::From;
@@ -12,6 +16,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 struct SampleData {
     initial: PySymbol,
+    useful: bool,
     fits: Vec<PyFitInfo>,
 }
 
@@ -24,9 +29,14 @@ pub struct PySample {
 #[pymethods]
 impl PySample {
     #[new]
-    fn py_new(initial: PySymbol, fits: Vec<PyFitInfo>) -> Self {
+    #[args(initial, fits, useful = "true")]
+    fn py_new(initial: PySymbol, fits: Vec<PyFitInfo>, useful: bool) -> Self {
         PySample {
-            data: Arc::new(SampleData { initial, fits }),
+            data: Arc::new(SampleData {
+                initial,
+                fits,
+                useful,
+            }),
         }
     }
 
@@ -39,14 +49,84 @@ impl PySample {
     fn fits(&self) -> PyResult<Vec<PyFitInfo>> {
         Ok(self.data.fits.clone())
     }
+
+    #[getter]
+    fn useful(&self) -> PyResult<bool> {
+        Ok(self.data.useful)
+    }
+
+    fn embed(
+        &self,
+        py: Python,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+    ) -> PyResult<(
+        Py<PyArray2<i64>>,
+        Py<PyArray2<i16>>,
+        Py<PyArray1<i64>>,
+        Py<PyArray1<f32>>,
+        Py<PyArray1<i64>>,
+    )> {
+        let fits = self
+            .data
+            .fits
+            .iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let Embedding {
+            embedded,
+            index_map,
+            label,
+            policy,
+            value,
+        } = self
+            .data
+            .initial
+            .inner
+            .embed(&dict, padding, spread, &fits, self.data.useful)
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!(
+                    "Could not embed {}: \"{}\"",
+                    self.data.initial.inner, msg
+                ))
+            })?;
+
+        let index_map = make_2darray(py, index_map)?;
+        let label = label.into_pyarray(py).to_owned();
+        let policy = policy.into_pyarray(py).to_owned();
+        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
+        let embedded = make_2darray(py, embedded)?;
+        Ok((embedded, index_map, label, policy, value))
+    }
 }
 impl From<core::bag::Sample> for PySample {
     fn from(orig: core::bag::Sample) -> Self {
+        let core::bag::Sample {
+            useful,
+            initial,
+            fits,
+        } = orig;
         Self {
             data: Arc::new(SampleData {
-                initial: PySymbol::new(orig.initial),
-                fits: orig.fits.into_iter().map(PyFitInfo::new).collect(),
+                initial: PySymbol::new(initial),
+                useful,
+                fits: fits.into_iter().map(PyFitInfo::new).collect(),
             }),
+        }
+    }
+}
+impl From<&PySample> for core::bag::Sample {
+    fn from(orig: &PySample) -> Self {
+        Self {
+            initial: (*orig.data.initial.inner).clone(),
+            useful: orig.data.useful,
+            fits: orig
+                .data
+                .fits
+                .iter()
+                .map(|fit| (*fit.data).clone())
+                .collect(),
         }
     }
 }
@@ -85,6 +165,9 @@ impl PySampleSet {
                 self.samples.insert(key, (*sample.data).clone());
             }
             Some(ref mut prev_sample) => {
+                // Useful samples dominate
+                prev_sample.useful |= sample.data.useful;
+
                 // Does the fit already exists?
                 // If contradicting use the positive
                 for new_fitinfo in sample.data.fits.iter().map(|f| &(*f.data)) {

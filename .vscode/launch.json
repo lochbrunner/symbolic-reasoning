@@ -75,6 +75,21 @@
             "justMyCode": false
         },
         {
+            "name": "train (solver data)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/train.py",
+            "args": [
+                "-c",
+                "real_world_problems/number_crunching/dataset.yaml",
+                "-v",
+                "--use-solver-data"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "solve",
             "type": "python",
             "request": "launch",

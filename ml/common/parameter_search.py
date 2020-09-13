@@ -5,12 +5,14 @@ from copy import deepcopy
 class LearningParmeter:
     def __init__(self, model_name, num_epochs: int = 10, learning_rate: float = 0.1,
                  batch_size: int = 10, gradient_clipping: float = 0.1,
+                 value_loss_weight: float = 0.5,
                  model_hyper_parameter: dict = None, **kwargs):
         self.model_name = model_name
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.gradient_clipping = gradient_clipping
+        self.value_loss_weight = value_loss_weight
         self.model_hyper_parameter = model_hyper_parameter or {}
 
     @staticmethod
@@ -21,6 +23,7 @@ class LearningParmeter:
         parser.add_argument('-g', '--gradient-clipping', type=float, default=0.1)
         parser.add_argument('-m', '--model', choices=all_models,
                             default='TreeCnnSegmenter', dest='model_name')
+        parser.add_argument('--value-loss-weight', type=float, default=0.5)
 
 
 class MarchSearch:
