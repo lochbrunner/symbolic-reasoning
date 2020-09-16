@@ -100,6 +100,7 @@ class SequentialByPass(nn.Sequential):
 
 
 class ValueHead(nn.Module):
+
     def __init__(self, embedding_size, kernel_size):
         super(ValueHead, self).__init__()
         self.linear = nn.Linear(embedding_size, 2)  # Good or bad
@@ -115,11 +116,13 @@ class ValueHead(nn.Module):
         x = x.view([-1, j])
         x = self.linear(x)
         x = x.view([b, l, 2])
+        # bl2 -> b2
         x = x.max(dim=1, keepdim=False).values
         return F.log_softmax(x, dim=1)
 
 
 class PolicyHead(nn.Module):
+
     def __init__(self, embedding_size, kernel_size, tagset_size):
         super(PolicyHead, self).__init__()
         self.cnn = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
