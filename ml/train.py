@@ -113,9 +113,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     if exe_params.load_model:
         dataset, model, optimizer, _ = io.load(exe_params.exe_params.load_model, device)
     else:
-        pad_token = 0
         timer = Timer('Creating fresh workspace')
-        dataset = create_scenario(params=scenario_params, device=device, pad_token=pad_token)
+        dataset = create_scenario(params=scenario_params, device=device)
         model = create_model(learn_params.model_name,
                              hyper_parameter=learn_params.model_hyper_parameter,
                              **dataset.model_params)

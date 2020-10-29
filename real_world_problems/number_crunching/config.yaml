@@ -1,0 +1,83 @@
+name: number-crunching
+files:
+  scenario: real_world_problems/number_crunching/dataset.yaml
+  working-folder: experiments
+  trainings-data: &bag experiments/number-crunching.bin
+  new-rules: &new-rules experiments/number-crunching/new-rules.yaml
+  solver-trainings-data: &solver-data experiments/number-crunching/solver-trainings-data.bin
+  trainings-data-traces: experiments/number-crunching_*.tr
+  model: &model experiments/number-crunching.sp
+  training-statistics: &training-statistics experiments/number-crunching/training-statistics.yaml
+  evaluation-results: experiments/number-crunching/evaluation-results.yaml
+generation:
+  stages: []
+  max-depth: 8
+  max-size: 7
+  min-working-density: 0.1
+  min-result-density: 0.05
+  distribution-suppression-exponent: 1.8
+  augmentation: 
+    enabled: false # Not relevant here
+    factor: 10
+  blacklist-pattern: []
+training:
+  save-model: *model
+  device: cpu
+  # Learning
+  num-epochs: 50
+  report-rate: 2
+  batch-size: 32
+  learning-rate: 0.1
+  gradient-clipping: 0.1
+  value-loss-weight: 0.5
+  model-name: TreeCnnUniqueIndices
+  # Scenario
+  scenario: bag
+  filename: *bag
+  solver-filename: *solver-data
+  statistics: *training-statistics
+  data-size-limit: -1
+  model-parameter:
+    embedding_size: 24
+    hidden_layers: 2
+    dropout: 0
+    use_props: True
+evaluation:
+  num-epochs: 30
+  problems:
+    beam-size: 70
+    num_epochs: 10
+  trainings-data:
+    beam-size: '1:15'
+    max-steps: -1
+  solver-trainings-data: *solver-data
+  new-rules-filename: *new-rules
+  # blacklists
+  max-size: 7
+  black-list-terms: []
+    # - 2*(1+2)
+    # - 3+(2-1)*3
+    # - (3-1)*3
+    # - (1+1)*(1+2)
+    # - 3+(1+1-1)*3
+    # - 3*2
+    # - (1+2)*2
+    # - 1+1+(3-1)*(1+1)
+    # - (1+2)*(1+1)
+    # - (1+2)*1+3*1
+    # - 3*1+1+(3-1)*1
+    # - 3*1+(1+2)*1
+    # - 1+(3-1)*1+3*1
+    # - 3*1+1+(3-1)*1
+    # - 3*1+(1+(3-1)*1)
+    # - 1*3+(1+(3-1)*1)
+  #  - 3+2
+  #  - 2+(1+2)
+  #  - 2+(4-1)
+  #  - 3-1+3
+  #  - 1+1+(1+2)
+  #  - 3+(1+1)
+  black-list-rules: []
+  #  - counting 1 (i)
+  #  - de-counting 1 (i)
+  #  - de-counting 3 (i)

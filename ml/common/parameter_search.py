@@ -16,6 +16,18 @@ class LearningParmeter:
         self.model_hyper_parameter = model_hyper_parameter or {}
 
     @staticmethod
+    def from_config(config):
+        training = config.training
+        return LearningParmeter(model_name=training.model_name,
+                                num_epochs=training.num_epochs,
+                                learning_rate=training.learning_rate,
+                                batch_size=training.batch_size,
+                                gradient_clipping=training.gradient_clipping,
+                                value_loss_weight=training.value_loss_weight,
+                                model_hyper_parameter=vars(training.model_parameter)
+                                )
+
+    @staticmethod
     def add_parsers(parser, all_models: list):
         parser.add_argument('-n', '--num-epochs', type=int, default=30)
         parser.add_argument('-b', '--batch-size', type=int, default=32)

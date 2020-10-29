@@ -10,7 +10,10 @@ from pycore import Symbol, Scenario, Trace, fit, apply, fit_at_and_apply, fit_an
 
 from common import io
 from common.timer import Timer
-from common.config_and_arg_parser import Parser as ArgumentParser
+from common.config_and_arg_parser import ArgumentParser
+from common.parameter_search import LearningParmeter
+from common import grid_search
+from dataset import ScenarioParameter
 
 from solver.inferencer import Inferencer
 from solver.trace import ApplyInfo, Statistics, solution_summary, TrainingsDataDumper, dump_new_rules
@@ -119,12 +122,10 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
     return None, statistics
 
 
-def solve_training_problems(training_traces, scenario, model, rule_mapping, training_data_max_steps, **kwargs):
+def solve_training_problems(training_traces, scenario, rule_mapping, trainings_data_max_steps, inferencer: Inferencer, **kwargs):
 
     def variable_generator():
         return Symbol.parse(scenario.declarations, 'u')
-
-    inferencer = Inferencer(model)
 
     failed = 0
     succeeded = 0
@@ -135,7 +136,7 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, trai
         trace = Trace.load(filename)
         for calculation in trace.unroll:
             conclusion = calculation.steps[0].initial
-            steps_count = min(training_data_max_steps, len(calculation.steps)-1)
+            steps_count = min(trainings_data_max_steps, len(calculation.steps)-1)
             condition = calculation.steps[steps_count].initial
             if condition in seen:
                 continue
@@ -154,12 +155,12 @@ def solve_training_problems(training_traces, scenario, model, rule_mapping, trai
     return {'succeeded': succeeded, 'failed': failed, 'total': total, 'mean-duration': total_duration / total}
 
 
-def main(scenario, model, results_filename, training_traces, solve_training, problems_beam_size, training_data_beam_size, policy_last, **kwargs):
-    with Timer('Loading model'):
-        scenario = Scenario.load(scenario)
+def main(self_args, config):
+    with Timer('Loading scenario'):
+        scenario = Scenario.load(config.files.scenario)
 
     # model, idents, rules = io.load_model(model, depth=9)
-    rules = io.load_rules(model)
+    rules = io.load_rules(config.files.model)
     rule_mapping = {}
     used_rules = set()
     max_width = max(len(s.name) for s in scenario.rules.values())+1
@@ -173,9 +174,11 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         if str(scenario_rule) not in used_rules:
             logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
+    inferencer = Inferencer(fresh_model=self_args.fresh_model, config=config, use_solver_data=True)
+
     training_statistics = []
-    if solve_training:
-        bs = [int(s) for s in str(training_data_beam_size).split(':')]
+    if self_args.solve_training:
+        bs = [int(s) for s in str(config.evaluation.trainings_data.beam_size).split(':')]
         if len(bs) == 1:
             beam_size_range = bs
         else:
@@ -183,7 +186,9 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         for bs in beam_size_range:
             logging.info(f'Using beam size {bs}')
             training_statistic = solve_training_problems(
-                training_traces, scenario, model, rule_mapping, beam_size=bs, **kwargs)
+                training_traces=config.files.trainings_data_traces, scenario=config.scenario,
+                rule_mapping=rule_mapping, beam_size=bs,
+                trainings_data_max_steps=config.evaluation.training_data.max_steps, inferencer=inferencer)
             training_statistic['beam-size'] = bs
             training_statistics.append(training_statistic)
 
@@ -193,9 +198,9 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
     def variable_generator():
         return Symbol.parse(context, 'u')
     context = scenario.declarations
-    inferencer = Inferencer(model)
 
-    trainings_data_dumper = TrainingsDataDumper(**kwargs)
+    trainings_data_dumper = TrainingsDataDumper(config)
+    eval_config = config.evaluation
 
     for problem_name in scenario.problems:
         problem = scenario.problems[problem_name]
@@ -206,9 +211,14 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         target = problem.conclusion
 
         with Timer(f'Solving problem "{problem_name}"'):
-            search_strategy = beam_search_policy_last if policy_last else beam_search
+            search_strategy = beam_search_policy_last if self_args.policy_last else beam_search
             solution, statistics = search_strategy(inferencer, rule_mapping, problem.condition,
-                                                   [problem.conclusion], variable_generator, beam_size=problems_beam_size, **kwargs)
+                                                   [problem.conclusion], variable_generator,
+                                                   beam_size=eval_config.problems.beam_size,
+                                                   num_epochs=eval_config.problems.num_epochs,
+                                                   black_list_terms=eval_config.black_list_terms,
+                                                   black_list_rules=eval_config.black_list_rules,
+                                                   max_size=eval_config.max_size)
         if solution is not None:
             problem_solutions.append(solution)
             for step in reversed(list(solution.trace)):
@@ -228,11 +238,12 @@ def main(scenario, model, results_filename, training_traces, solve_training, pro
         logging.info(statistics)
         problem_statistics.append(statistics)
 
-    dump_new_rules(solutions=problem_solutions, **kwargs)
+    dump_new_rules(solutions=problem_solutions, new_rules_filename=eval_config.new_rules_filename)
     trainings_data_dumper.dump()
 
+    results_filename = Path(config.files.evaluation_results)
     logging.info(f'Writing results to {results_filename}')
-    with open(results_filename, 'w') as f:
+    with results_filename.open('w') as f:
         yaml.dump({
             'problems': [d.as_dict() for d in problem_statistics],
             'problem-statistics': solution_summary(problem_solutions),
@@ -252,7 +263,7 @@ def load_config(filename):
             if type(value) in (str, int, float, list):
                 yield (f'{parent}{key}', value)
             elif type(value) is dict:
-                for pair in unroll_nested_dict(value, f'{parent}{key}-'):
+                for pair in unroll_nested_dict(value, f'{parent}{key}--'):
                     yield pair
             else:
                 raise NotImplementedError(f'Loading config does not support type {type(value)}')
@@ -263,39 +274,41 @@ def load_config(filename):
                 'results-filename': config['files']['evaluation-results'],
                 'training-traces': config['files']['trainings-data-traces'],
                 'initial-trainings-data-file': config['files']['trainings-data'],
+                'model-parameter': config['training']['model-parameter'],
+                'training': config['training'],
                 **{k: v for k, v in unroll_nested_dict(config['evaluation'])}
                 }
 
 
+def get_learning_params(args, model_hyper_parameters, defaults):
+    # get trainings parameter
+    # trainings_param = dict((n.replace('training__', ''), v)
+    #                        for n, v in vars(args).items() if n.startswith('training_'))
+    trainings_param = defaults['training']
+    model_hyper_parameter, arg = next(grid_search.unroll_many(model_hyper_parameters, vars(trainings_param)))
+    learn_params = LearningParmeter(model_hyper_parameter=model_hyper_parameter, **arg)
+    scenario_params = ScenarioParameter(**arg)
+    return learn_params, scenario_params
+
+
 if __name__ == '__main__':
-    parser = ArgumentParser('-c', '--config-file', config_name='scenario', loader=load_config,
-                            prog='solver')
+    parser = ArgumentParser(domain='evaluation', prog='solver', exclude="scenario-*")
     # Common
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
-    parser.add_argument('--problems-beam-size', default=10)
     parser.add_argument('--results-filename')
-    parser.add_argument('--training-traces')
-    parser.add_argument('--training-data-max-steps')
-    parser.add_argument('--training-data-beam-size')
-    parser.add_argument('--solver-trainings-data', type=Path)
-    parser.add_argument('--new-rules-filename', type=Path)
-    parser.add_argument('--num-epochs', type=int)
-    parser.add_argument('--black-list-terms', nargs='+')
-    parser.add_argument('--black-list-rules', nargs='+')
-    parser.add_argument('--max-size', type=int)
     parser.add_argument('--policy-last', action='store_true', default=False)
 
     # Model
-    parser.add_argument('-m', '--model', help='Filename of the model snapshot')
-    args = parser.parse_args()
+    parser.add_argument('--fresh-model', help='Creates a fresh model')
 
-    args, _ = parser.parse_args()
-    loglevel = 'DEBUG' if args.verbose else args.log.upper()
+    config_args, self_args = parser.parse_args()
+    loglevel = 'DEBUG' if self_args.verbose else self_args.log.upper()
 
     logging.basicConfig(
         level=logging.getLevelName(loglevel),
         format='%(message)s'
     )
-    main(**vars(args))
+
+    main(self_args, config_args)

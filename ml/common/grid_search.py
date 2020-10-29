@@ -18,11 +18,17 @@ class Range:
     def __len__(self):
         return len(self.values)
 
+    def __repr__(self):
+        return self.name
+
 
 class Constant:
     def __init__(self, name, value):
         self.name = name
         self.value = value
+
+    def __repr__(self):
+        return self.name
 
 
 class MonteCarloSampling:
@@ -48,7 +54,7 @@ class Unroller:
             else:
                 self.constants.append(Constant(k, v))
 
-        self.combination_count = prod([len(range) for range in self.ranges])
+        self.combination_count = prod([len(r) for r in self.ranges])
 
     def __len__(self):
         return self.combination_count
@@ -66,6 +72,9 @@ class Unroller:
             return Namespace(**arg)
         else:
             return arg
+
+    def __repr__(self):
+        return ', '.join(repr(r) for r in self.ranges) + ' | ' + ', '.join(repr(c) for c in self.constants)
 
 
 def unroll(args, sampling=None):

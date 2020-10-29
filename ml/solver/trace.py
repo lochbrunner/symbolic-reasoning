@@ -155,10 +155,10 @@ class Statistics:
 class TrainingsDataDumper:
     '''Stores all samples and dumps them on demand.'''
 
-    def __init__(self, solver_trainings_data: Path, initial_trainings_data_file: str, **kwargs):
+    def __init__(self, config):
         self.sample_set = SampleSet()
-        self.solver_trainings_data = solver_trainings_data
-        self.initial_trainings_data_file = initial_trainings_data_file
+        self.solver_trainings_data = config.evaluation.solver_trainings_data
+        self.initial_trainings_data_file = config.files.trainings_data
 
     def __add__(self, statistics: Statistics):
         for apply_info in statistics.trace.iter():
@@ -168,7 +168,7 @@ class TrainingsDataDumper:
         return self
 
     def dump(self):
-        bag = Bag.load(self.initial_trainings_data_file)
+        bag = Bag.load(str(self.initial_trainings_data_file))
         bag.clear_containers()
         bag.add_container(self.sample_set.to_container())
         bag.update_meta()

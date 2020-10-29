@@ -99,7 +99,7 @@ training:
     dropout: 0
     use_props: [False, True]
 evaluation:
-  num_epochs: 30
+  num-epochs: 30
   problems:
     beam-size: 70
   training-data:

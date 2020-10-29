@@ -48,7 +48,7 @@ def load_model(filename, spread=None, depth=None, kernel_size=None):
                              vocab_size=vocab_size,
                              tagset_size=tag_size,
                              pad_token=padding_index,
-                             spread=spread or snapshot['spread']if 'spread' in snapshot else None,
+                             spread=spread or snapshot['spread'] if 'spread' in snapshot else None,
                              depth=depth or snapshot['depth'] if 'depth' in snapshot else None,
                              kernel_size=kernel_size or snapshot['kernel_size'] if 'kernel_size' in snapshot else None,
                              hyper_parameter=learn_params.model_hyper_parameter)

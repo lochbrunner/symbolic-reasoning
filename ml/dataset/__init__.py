@@ -7,10 +7,13 @@ from .transformers import SegEmbedder, TagEmbedder, Padder, Uploader
 
 
 class ScenarioParameter:
-    def __init__(self, scenario: str, depth: int, spread: int, max_size: int,
-                 pattern_depth: int, num_labels: int, filename: str, solver_filename: str,
-                 data_size_limit: int, use_solver_data: bool, **kwargs):
-        self.scenario = scenario
+    def __init__(self, scenario: str,
+                 filename: str, solver_filename: str,
+                 data_size_limit: int, use_solver_data: bool,
+                 pattern_depth: int = None, num_labels: int = None,
+                 depth: int = None, spread: int = None, max_size: int = None,
+                 **kwargs):
+        self.scenario = scenario  # deprecated
         self.depth = depth
         self.spread = spread
         self.max_size = max_size
@@ -21,6 +24,17 @@ class ScenarioParameter:
             self.filename = solver_filename
         else:
             self.filename = filename
+
+    @staticmethod
+    def from_config(config, use_solver_data=False):
+        training = config.training
+        files = config.files
+        return ScenarioParameter(scenario=training.scenario,
+                                 use_solver_data=use_solver_data,
+                                 data_size_limit=training.data_size_limit,
+                                 filename=files.trainings_data,
+                                 solver_filename=files.solver_trainings_data
+                                 )
 
     @staticmethod
     def add_parsers(parser):

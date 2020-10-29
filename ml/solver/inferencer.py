@@ -4,15 +4,47 @@ import torch
 
 # project
 from dataset.transformers import Padder, Embedder, ident_to_id
+from models import create_model
 from common import io
+from common.timer import Timer
+from common.parameter_search import LearningParmeter
+from dataset import create_scenario
+from dataset import ScenarioParameter
+
+
+def get_model(exe_params, learn_params, scenario_params):
+    # Creating dataset and model
+    device = torch.device(exe_params.device)
+    if exe_params.load_model:
+        dataset, model, optimizer, _ = io.load(exe_params.exe_params.load_model, device)
+    else:
+        timer = Timer('Creating fresh workspace')
+        dataset = create_scenario(params=scenario_params, device=device)
+        model = create_model(learn_params.model_name,
+                             hyper_parameter=learn_params.model_hyper_parameter,
+                             **dataset.model_params)
+        model.to(device)
+
+        optimizer = torch.optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
+        timer.stop_and_log()
+    return dataset, model, optimizer
 
 
 class Inferencer:
     ''' Standard inferencer for unique index map per sample
     '''
 
-    def __init__(self, model_filename: str):
-        self.model, snapshot = io.load_model(model_filename)
+    def __init__(self, config, fresh_model: bool, use_solver_data: bool):
+        learn_params = LearningParmeter.from_config(config)
+        scenario_params = ScenarioParameter.from_config(config, use_solver_data=use_solver_data)
+        if fresh_model:
+            device = torch.device('cpu')
+            dataset = create_scenario(params=scenario_params, device=device)
+            self.model = create_model(learn_params.model_name,
+                                      hyper_parameter=learn_params.model_hyper_parameter,
+                                      **dataset.model_params)
+        else:
+            self.model, snapshot = io.load_model(config.files.model)
         self.model.eval()
         # Copy of BagDataset
         self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(snapshot['idents'])}
