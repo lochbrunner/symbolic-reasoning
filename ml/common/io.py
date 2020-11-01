@@ -33,6 +33,7 @@ def load(filename, device=torch.device('cpu'), transform=None):
 
 
 def load_rules(filename):
+    '''Deprecated: Use rules from scenario instead.'''
     snapshot = torch.load(filename)
     return snapshot['rules']
 

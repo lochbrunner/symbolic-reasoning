@@ -34,24 +34,41 @@ class Inferencer:
     ''' Standard inferencer for unique index map per sample
     '''
 
-    def __init__(self, config, fresh_model: bool, use_solver_data: bool):
+    def __init__(self, config, scenario, fresh_model: bool, use_solver_data: bool):
         learn_params = LearningParmeter.from_config(config)
         scenario_params = ScenarioParameter.from_config(config, use_solver_data=use_solver_data)
         if fresh_model:
             device = torch.device('cpu')
             dataset = create_scenario(params=scenario_params, device=device)
+            idents = dataset.idents
+            self.spread = dataset.spread
+            self.pad_token = dataset.pad_token
+            # TODO: use params from scenario(idents, tagset_size)
+            model_params = dataset.model_params
+            model_params['vocab_size'] = len(scenario.idents)
+            model_params['tagset_size'] = len(scenario.rules) + 1
             self.model = create_model(learn_params.model_name,
                                       hyper_parameter=learn_params.model_hyper_parameter,
-                                      **dataset.model_params)
+                                      **model_params)
+            self.weights = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
         else:
             self.model, snapshot = io.load_model(config.files.model)
+            idents = snapshot['idents']
+            self.spread = snapshot['kernel_size'] - 2
+            self.pad_token = snapshot['pad_token']
+            self.weights = None
+
         self.model.eval()
         # Copy of BagDataset
-        self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(snapshot['idents'])}
-        self.spread = snapshot['kernel_size'] - 2
-        self.pad_token = snapshot['pad_token']
+        self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(idents)}
 
     def __call__(self, initial, count=None):
+        '''
+        returns a tuple:
+          * [(rule id, path)]
+          * value
+        '''
+
         # x, s, _ = self.dataset.embed_custom(initial)
         x, s, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [], True)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)

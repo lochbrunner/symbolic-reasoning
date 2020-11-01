@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from pycore import Bag
+from pycore import Bag, BagMeta
 
 from .transformers import PAD_INDEX
 from .symbol_builder import SymbolBuilder
@@ -138,7 +138,7 @@ def dynamic_width_collate(batch):
     max_width = max([sample[0].shape[0] for sample in batch])
     # Transpose them
     transposed = list(zip(*batch))
-    # Dont pad value
+    # Don't pad value
     return [stack(channel, max_width) for channel in transposed[:-1]] + [stack(channel) for channel in transposed[-1:]]
 
 
@@ -147,13 +147,25 @@ class BagDataset(Dataset):
     pad_token = 0
     spread = 2
 
-    def __init__(self, params, preprocess=False):
+    @staticmethod
+    def from_scenario_params(params, preprocess=False):
+        return BagDataset.load(filename=params.filename, data_size_limit=params.data_size_limit, preprocess=preprocess)
+
+    @staticmethod
+    def from_container(container, meta: BagMeta, data_size_limit: int = None, preprocess: bool = False):
+        return BagDataset(meta, container.samples, container.max_depth, container.max_size, data_size_limit, preprocess)
+
+    @staticmethod
+    def load(filename, data_size_limit=None, preprocess=False):
+        logger.info(f'Loading samples from {filename}')
+        bag = Bag.load(str(filename))
+        samples = [sample for container in bag.containers for sample in container.samples]
+        max_depth = bag.containers[-1].max_depth
+        max_size = bag.containers[-1].max_size
+        return BagDataset(bag.meta, samples, max_depth, max_size, data_size_limit, preprocess)
+
+    def __init__(self, meta, samples, max_depth, max_size, data_size_limit=None, preprocess=False):
         self.preprocess = preprocess
-
-        logger.info(f'Loading samples from {params.filename}')
-        bag = Bag.load(params.filename)
-
-        meta = bag.meta
 
         self.rule_conditions = [rule.condition for rule in meta.rules]
 
@@ -167,15 +179,14 @@ class BagDataset(Dataset):
 
         # Merge use largest
 
-        if params.data_size_limit is None:
+        if data_size_limit is None:
             limit = -1
         else:
-            limit = params.data_size_limit
+            limit = data_size_limit
 
-        self.container = [sample for container in bag.containers for sample in container.samples][:limit]
-        self._max_spread = bag.containers[-1].max_spread
-        self._max_depth = bag.containers[-1].max_depth
-        self._max_size = bag.containers[-1].max_size
+        self.container = samples[:limit]
+        self._max_depth = max_depth
+        self._max_size = max_size
         logger.info(f'max size: {self._max_size}')
         logger.info(f'number of samples: {len(self.container)}')
         logger.info(f'number of rules: {len(self._rule_map)}')
@@ -250,6 +261,4 @@ class BagDataset(Dataset):
             'idents': self.idents
         }
 
-    @property
-    def collate_fn(self):
-        return dynamic_width_collate
+    collate_fn = dynamic_width_collate

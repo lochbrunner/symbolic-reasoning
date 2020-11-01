@@ -69,4 +69,14 @@ impl PyScenario {
             inner: self.inner.declarations.clone(),
         })
     }
+
+    #[getter]
+    fn idents(&self) -> PyResult<Vec<String>> {
+        Ok(self.inner.idents())
+    }
+
+    #[getter]
+    fn tagset_size(&self) -> PyResult<usize> {
+        Ok(self.inner.rules.len())
+    }
 }

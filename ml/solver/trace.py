@@ -5,6 +5,8 @@ from typing import List
 from queue import Queue
 from pathlib import Path
 
+from dataset.bag import BagDataset
+
 from pycore import Rule, FitInfo, SampleSet, Sample, Bag
 
 
@@ -157,8 +159,8 @@ class TrainingsDataDumper:
 
     def __init__(self, config):
         self.sample_set = SampleSet()
-        self.solver_trainings_data = config.evaluation.solver_trainings_data
-        self.initial_trainings_data_file = config.files.trainings_data
+        self.solver_trainings_data = Path(config.evaluation.solver_trainings_data)
+        self.initial_bag = Bag.load(str(config.files.trainings_data))
 
     def __add__(self, statistics: Statistics):
         for apply_info in statistics.trace.iter():
@@ -168,13 +170,35 @@ class TrainingsDataDumper:
         return self
 
     def dump(self):
-        bag = Bag.load(str(self.initial_trainings_data_file))
+        bag = self.initial_bag
         bag.clear_containers()
         bag.add_container(self.sample_set.to_container())
         bag.update_meta()
         self.solver_trainings_data.parent.mkdir(exist_ok=True, parents=True)
         logging.info(f'Dumping trainings data to {self.solver_trainings_data}')
         bag.dump(str(self.solver_trainings_data))
+
+    def append(self):
+        '''Appends itself to the solver trainings data if available. Else creates new file.'''
+
+        if self.solver_trainings_data.exists():
+            bag = Bag.load(str(self.solver_trainings_data))
+            for container in bag.containers:
+                self.sample_set.merge(SampleSet.from_container(container))
+        else:
+            bag = self.initial_bag
+            bag.clear_containers()
+
+        bag.add_container(self.sample_set.to_container())
+        bag.update_meta()
+        self.solver_trainings_data.parent.mkdir(exist_ok=True, parents=True)
+        logging.info(f'Appending trainings data to {self.solver_trainings_data}')
+        bag.dump(str(self.solver_trainings_data))
+
+    def get_dataset(self):
+        container = self.sample_set.to_container()
+        return BagDataset(meta=self.initial_bag.meta, samples=container.samples,
+                          max_depth=container.max_depth, max_size=container.max_size)
 
 
 def dump_new_rules(solutions: List[ApplyInfo], new_rules_filename: Path, **kwargs):

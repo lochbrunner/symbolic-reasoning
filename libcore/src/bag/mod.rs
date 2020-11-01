@@ -1,6 +1,8 @@
 use crate::{Rule, Symbol};
 use std::collections::{HashMap, HashSet};
 
+pub mod fitinfo;
+pub use fitinfo::{FitCompare, FitInfo, Policy};
 pub mod trace;
 
 pub fn extract_idents_from_rules<T>(rules: &[T], unpack: fn(&T) -> &Rule) -> HashSet<String> {
@@ -28,77 +30,7 @@ pub struct Meta {
     pub rule_distribution: Vec<(u32, u32)>,
     /// Rule at index 0 is padding
     pub rules: Vec<(String, Rule)>,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
-pub enum Policy {
-    Positive,
-    Negative,
-}
-
-impl Policy {
-    pub fn value(&self) -> f32 {
-        match self {
-            Self::Positive => 1.,
-            Self::Negative => -1.,
-        }
-    }
-
-    pub fn new(positive: bool) -> Self {
-        if positive {
-            Self::Positive
-        } else {
-            Self::Negative
-        }
-    }
-}
-
-// Clone is needed as long sort_map is not available
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
-pub struct FitInfo {
-    /// Starting with 1 for better embedding
-    pub rule_id: u32,
-    pub path: Vec<usize>,
-    /// For positive and negative samples
-    pub policy: Policy,
-}
-
-#[derive(PartialEq, Debug)]
-pub enum FitCompare {
-    Unrelated,
-    Contradicting,
-    Matching,
-}
-
-impl FitInfo {
-    pub fn compare(&self, other: &Self) -> FitCompare {
-        if self.path != other.path || self.rule_id != other.rule_id {
-            FitCompare::Unrelated
-        } else if self.policy == other.policy {
-            FitCompare::Matching
-        } else {
-            FitCompare::Contradicting
-        }
-    }
-
-    pub fn compare_many<'a, T>(
-        &self,
-        others: &'a [T],
-        unpack: fn(&'a T) -> &'a Self,
-    ) -> FitCompare {
-        for other in others.iter().map(unpack) {
-            match self.compare(other) {
-                FitCompare::Contradicting => {
-                    return FitCompare::Contradicting;
-                }
-                FitCompare::Matching => {
-                    return FitCompare::Matching;
-                }
-                _ => {}
-            }
-        }
-        FitCompare::Unrelated
-    }
+    // Should we add the scenario file name?
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
@@ -109,6 +41,10 @@ pub struct Sample {
     pub fits: Vec<FitInfo>,
 }
 
+/// TODO:
+///  * make sure that Samples are unique -> Use HashMap
+///  * Method to merge containers
+///  * Move functionality from pycore to core
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct SampleContainer {
     pub max_depth: u32,
@@ -120,7 +56,7 @@ pub struct SampleContainer {
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 pub struct Bag {
     pub meta: Meta,
-    pub samples: Vec<SampleContainer>,
+    pub containers: Vec<SampleContainer>,
 }
 
 impl Bag {
@@ -215,7 +151,7 @@ impl Bag {
                 )
             });
 
-        let samples = (1..max_depth)
+        let containers = (1..max_depth)
             .map(|depth| {
                 let samples = initials
                     .iter()
@@ -241,7 +177,7 @@ impl Bag {
                 rules,
                 rule_distribution,
             },
-            samples,
+            containers,
         }
     }
 
@@ -266,7 +202,7 @@ impl Bag {
                 rules,
                 idents: idents.into_iter().collect(),
             },
-            samples: vec![SampleContainer {
+            containers: vec![SampleContainer {
                 max_size: 0,
                 max_depth: 0,
                 max_spread,
@@ -355,7 +291,7 @@ mod specs {
                 rule_distribution: vec![(0, 0), (1, 0), (1, 0)],
                 rules: vec![pad_rule, r1, r2],
             },
-            samples: vec![SampleContainer {
+            containers: vec![SampleContainer {
                 max_depth: 1,
                 max_spread: 2,
                 max_size: 1,
@@ -389,8 +325,8 @@ mod specs {
             expected.meta.rule_distribution
         );
 
-        let actual_container = &expected.samples[0];
-        let expected_container = &expected.samples[0];
+        let actual_container = &expected.containers[0];
+        let expected_container = &expected.containers[0];
         assert_eq!(actual_container.max_depth, expected_container.max_depth);
         assert_eq!(actual_container.max_spread, expected_container.max_spread);
         assert_vec_eq!(actual_container.samples, expected_container.samples);

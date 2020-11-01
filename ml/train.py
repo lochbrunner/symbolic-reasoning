@@ -36,6 +36,7 @@ from common.parameter_search import LearningParmeter
 from common import io
 from common.validation import validate
 from common import grid_search
+from training import train
 
 logger = logging.getLogger(__name__)
 
@@ -151,8 +152,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
     weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
-    policy_loss_function = nn.NLLLoss(reduction='mean', weight=weight, ignore_index=-1)
-    value_loss_function = nn.NLLLoss(reduction='mean')
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -175,51 +174,24 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     timer = Timer('Training per sample:')
     model.train()
 
-    for epoch in range(learn_params.num_epochs):
-        epoch_loss = 0
-        model.zero_grad()
-        for x, *s, y, p, v in training_dataloader:
-            x = x.to(device)
-            y = y.to(device)
-            optimizer.zero_grad()
-            if len(s) > 0:
-                s = s[0].to(device)
-                py, pv = model(x, s, p)
-            else:
-                py, pv = model(x)
-            # batch x tags
-            policy_loss = policy_loss_function(py, y)
-            v = v.squeeze()
-            # print(f'pv: {pv.shape}  v: {v.shape}')
-            value_loss = value_loss_function(pv, v)
-            loss = policy_loss + value_loss*learn_params.value_loss_weight
-            loss.backward()
-            torch.nn.utils.clip_grad_value_(
-                model.parameters(), learn_params.gradient_clipping)
-            optimizer.step()
-            epoch_loss += loss
-        if epoch % exe_params.report_rate == 0:
-            timer.pause()
-            model.eval()
-            error, value_error = validate(model, validation_dataloader)
-            model.train()
-            clearProgressBar()
-            loss = learn_params.batch_size * epoch_loss
-            logbook.append((epoch, error, loss))
-            logger.info(
-                f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error: {value_error}')
-            if azure_run is not None:
-                error.exact.log(azure_run.log, 'exact')
-                error.exact_no_padding.log(azure_run.log, 'exact (np)')
-                error.with_padding.log(azure_run.log, 'class')
-                error.when_rule.log(azure_run.log, 'class (np)')
-                azure_run.log('loss', loss.item())
-            timer.resume()
-        printProgressBar(epoch, learn_params.num_epochs)
-    clearProgressBar()
-    duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(dataset))
-    if azure_run is not None:
-        azure_run.log('duration_per_sample', duration_per_sample)
+    def report(epoch, epoch_loss):
+        model.eval()
+        error, value_error = validate(model, validation_dataloader)
+        model.train()
+        clearProgressBar()
+        loss = learn_params.batch_size * epoch_loss
+        logbook.append((epoch, error, loss))
+        logger.info(
+            f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error: {value_error}')
+        if azure_run is not None:
+            error.exact.log(azure_run.log, 'exact')
+            error.exact_no_padding.log(azure_run.log, 'exact (np)')
+            error.with_padding.log(azure_run.log, 'class')
+            error.when_rule.log(azure_run.log, 'class (np)')
+            azure_run.log('loss', loss.item())
+
+    train(learn_params=learn_params, model=model, optimizer=optimizer,
+          training_dataloader=training_dataloader, weight=weight, report_hook=report, azure_run=azure_run)
 
     signal.signal(signal.SIGINT, original_sigint_handler)
     error, value_error = validate(model, validation_dataloader)

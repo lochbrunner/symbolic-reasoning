@@ -13,7 +13,11 @@ class Mean:
 
     def __add__(self, correct):
         self.total += 1.
-        self.correct += correct
+        if isinstance(correct, bool):
+            if correct:
+                self.correct += 1.
+        else:
+            self.correct += correct
         return self
 
     @property

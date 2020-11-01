@@ -9,6 +9,7 @@ use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::PySequenceProtocol;
 use pyo3::exceptions::KeyError;
 use pyo3::prelude::*;
+use std::cmp;
 use std::collections::HashMap;
 use std::convert::From;
 use std::sync::Arc;
@@ -185,7 +186,43 @@ impl PySampleSet {
         Ok(true)
     }
 
+    fn merge(&mut self, other: &PySampleSet) -> PyResult<()> {
+        for (key, sample) in other.samples.iter() {
+            match self.samples.get_mut(key) {
+                None => {
+                    self.samples.insert(key.clone(), sample.clone());
+                }
+                Some(ref mut prev_sample) => {
+                    // Useful samples dominate
+                    prev_sample.useful |= sample.useful;
+                    // Does the fit already exists?
+                    // If contradicting use the positive
+                    for new_fitinfo in sample.fits.iter().map(|f| &(*f.data)) {
+                        match new_fitinfo.compare_many(&(prev_sample.fits), |f| &(*f.data)) {
+                            bag::FitCompare::Unrelated => prev_sample.fits.push(PyFitInfo {
+                                data: Arc::new(new_fitinfo.clone()),
+                            }),
+                            bag::FitCompare::Matching => {} // Sample already known
+                            bag::FitCompare::Contradicting => {} // Let's try with the positive
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn to_container(&self) -> PyResult<PyContainer> {
+        let max_size = self
+            .samples
+            .iter()
+            .map(|(_, s)| s.initial.inner.size())
+            .fold(0, |p, c| cmp::max(p, c));
+        let max_depth = self
+            .samples
+            .iter()
+            .map(|(_, s)| s.initial.inner.depth)
+            .fold(0, |p, c| cmp::max(p, c));
         let samples = self
             .samples
             .iter()
@@ -193,15 +230,25 @@ impl PySampleSet {
                 data: Arc::new((*s).clone()),
             })
             .collect();
-        let max_depth = 0;
-        let max_spread = 0;
-        let max_size = 0;
+
+        let max_spread = 2;
         Ok(PyContainer {
             max_depth,
             max_spread,
             max_size,
             samples,
         })
+    }
+
+    #[staticmethod]
+    fn from_container(container: PyContainer) -> PyResult<Self> {
+        let mut sample_set = Self {
+            samples: HashMap::new(),
+        };
+        for sample in container.samples.iter() {
+            sample_set.add(sample.clone())?;
+        }
+        Ok(sample_set)
     }
 }
 

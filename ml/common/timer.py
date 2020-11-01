@@ -2,20 +2,23 @@ from time import time
 from datetime import timedelta
 import logging
 
+module_logger = logging.getLogger(__name__)
+
 
 class Timer:
-    def __init__(self, label):
+    def __init__(self, label, logger: logging.Logger = module_logger):
         self.label = label
         self.begin = time()
         self.paused_seconds = 0.0
         self.pause_time = None
+        self.logger = logger
 
     def start(self):
         self.begin = time()
 
     def pause(self):
         if self.pause_time is not None:
-            logging.error('Timer already paused')
+            self.logger.error('Timer already paused')
             return
         self.pause_time = time()
 
@@ -36,7 +39,7 @@ class Timer:
     def stop_and_log(self):
         seconds = time() - self.begin - self.paused_seconds
         delta_str = Timer._format_time(seconds)
-        logging.info(f'{self.label} took {delta_str}')
+        self.logger.info(f'{self.label} took {delta_str}')
         return seconds
 
     def stop_and_log_average(self, iterations):
@@ -44,7 +47,7 @@ class Timer:
         seconds = (end-self.begin-self.paused_seconds)/max(iterations, 1)
 
         delta_str = Timer._format_time(seconds)
-        logging.info(f'{self.label} took {delta_str}')
+        self.logger.info(f'{self.label} took {delta_str}')
         return seconds
 
     def __enter__(self):

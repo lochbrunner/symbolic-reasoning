@@ -1,5 +1,5 @@
 use super::{Context, Declaration, Rule, Symbol};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 extern crate serde_yaml;
 
@@ -78,6 +78,31 @@ impl Scenario {
     pub fn load_from_yaml(filename: &str) -> Result<Scenario, String> {
         let file = File::open(filename).map_err(|msg| msg.to_string())?;
         Scenario::load_from_yaml_reader(file)
+    }
+
+    pub fn idents(&self) -> Vec<String> {
+        let mut idents = HashSet::new();
+
+        let mut add = |ident: &String| {
+            if !idents.contains(ident) {
+                idents.insert(ident.clone());
+            }
+        };
+
+        for (ident, _) in self.declarations.declarations.iter() {
+            add(ident);
+        }
+
+        for (_, rule) in self.rules.iter() {
+            for symbol in rule.condition.iter_df() {
+                add(&symbol.ident);
+            }
+            for symbol in rule.conclusion.iter_df() {
+                add(&symbol.ident);
+            }
+        }
+
+        idents.into_iter().collect()
     }
 }
 

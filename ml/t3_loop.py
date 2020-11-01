@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+
+import logging
+import yaml
+from glob import glob
+from time import time
+from pathlib import Path
+
+import torch.optim as optim
+
+from pycore import Symbol, Scenario, Trace
+from torch.utils import data
+
+from common import io
+from common.timer import Timer
+from common.config_and_arg_parser import ArgumentParser
+from common.parameter_search import LearningParmeter
+from common import grid_search
+from common.validation import Mean
+from dataset import ScenarioParameter
+from solver.inferencer import Inferencer
+from solver.trace import ApplyInfo, solution_summary, TrainingsDataDumper, dump_new_rules
+from solver.beam_search import beam_search, beam_search_policy_last
+from solver.solve_problems import solve_problems
+from training import train
+from dataset.bag import BagDataset
+
+
+def main(options, config):
+    with Timer('Loading scenario'):
+        scenario = Scenario.load(config.files.scenario)
+
+    # model, idents, rules = io.load_model(model, depth=9)
+    rule_mapping = {}
+    used_rules = set()
+    max_width = max(len(s.name) for s in scenario.rules.values())+1
+    for i, rule in enumerate(scenario.rules.values(), 1):
+        rule_mapping[i] = rule
+        used_rules.add(str(rule))
+        logging.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
+
+    for scenario_rule in scenario.rules.values():
+        if str(scenario_rule) not in used_rules:
+            logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
+
+    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model, use_solver_data=True)
+    solver_logger = logging.Logger('solver')
+    solver_logger.setLevel(logging.WARNING)
+
+    iterations = 1
+
+    learn_params = LearningParmeter.from_config(config)
+    data_loader_config = {'batch_size': learn_params.batch_size,
+                          'shuffle': True,
+                          'num_workers': 0,
+                          'collate_fn': BagDataset.collate_fn}
+
+    optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
+
+    trainings_data_dumper = TrainingsDataDumper(config)
+
+    for iteration in range(iterations):
+        # Try
+        _, problem_statistics = solve_problems(
+            options, config, scenario, inferencer, rule_mapping, logger=solver_logger)
+        mean = Mean()
+        for problem_statistic in problem_statistics:
+            mean += problem_statistic.success
+            if problem_statistic:
+                trainings_data_dumper += problem_statistic
+
+        training_dataloader = data.DataLoader(trainings_data_dumper.get_dataset(), **data_loader_config)
+        # Train
+        train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
+              training_dataloader=training_dataloader, weight=inferencer.weights, report_hook=None)
+
+        logging.info(f'Solved: {mean} in iteration {iteration}')
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser(domain='evaluation', prog='solver', exclude="scenario-*")
+    # Common
+    parser.add_argument('--log', help='Set the log level', default='warning')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
+    parser.add_argument('--results-filename')
+    parser.add_argument('--policy-last', action='store_true', default=False)
+
+    # Model
+    parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')
+
+    config_args, self_args = parser.parse_args()
+    loglevel = 'DEBUG' if self_args.verbose else self_args.log.upper()
+
+    logging.basicConfig(
+        level=logging.getLevelName(loglevel),
+        format='%(message)s'
+    )
+
+    main(self_args, config_args)

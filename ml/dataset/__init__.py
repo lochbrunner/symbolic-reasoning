@@ -71,4 +71,4 @@ def create_scenario(params: ScenarioParameter, device, pad_token=0, transform=No
     elif params.scenario == 'shared-bag':
         return BagDatasetSharedIndex(params=params, preprocess=True)
     elif params.scenario == 'bag':
-        return BagDataset(params=params, preprocess=True)
+        return BagDataset.from_scenario_params(params=params, preprocess=True)

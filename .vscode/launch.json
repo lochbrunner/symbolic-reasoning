@@ -8,7 +8,18 @@
             "name": "core test",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/core-1e03707c472cb4fc",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib=core",
+                    "--package=core",
+                ],
+                "filter": {
+                    "name": "core",
+                    "kind": "lib"
+                }
+            },
             "args": [
                 "--test",
                 "associative_property",

@@ -15,6 +15,8 @@ from .fcn_tagger import FullyConnectedTagger
 from .fcn_segmenter import FullyConnectedSegmenter
 from .cnn_segmenter import TreeCnnSegmenter, TreeCnnUniqueIndices
 
+logger = logging.getLogger(__name__)
+
 all_models = {'LstmTreeTagger': LstmTreeTagger,
               'GruTreeTagger': GruTreeTagger,
               'FullyConnectedTagger': FullyConnectedTagger,
@@ -25,7 +27,7 @@ all_models = {'LstmTreeTagger': LstmTreeTagger,
 
 
 def create_model(model_name, **kwargs):
-    logging.info(f'Loading model {model_name}')
+    logger.info(f'Creating model {model_name}')
     if model_name in all_models:
         model = all_models[model_name](**kwargs)
     else:
@@ -33,5 +35,5 @@ def create_model(model_name, **kwargs):
 
     num_parameters = sum([reduce(
         operator.mul, p.size()) for p in model.parameters()])
-    logging.info(f'Number of parameters: {num_parameters}')
+    logger.info(f'Number of parameters: {num_parameters}')
     return model

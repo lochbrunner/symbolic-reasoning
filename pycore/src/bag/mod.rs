@@ -13,8 +13,7 @@ use sample::PySample;
 use std::cmp;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
-use std::hash::Hash;
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 
@@ -180,7 +179,7 @@ impl PySequenceProtocol for PyContainer {
 pub struct PyBag {
     /// Arc<bag::Meta> would be more performing but hard to update
     meta_data: bag::Meta,
-    samples_data: Vec<PyContainer>,
+    containers: Vec<PyContainer>,
 }
 
 #[pymethods]
@@ -201,20 +200,20 @@ impl PyBag {
                 rule_distribution: vec![(0, 0); rules.len()],
                 rules,
             },
-            samples_data: vec![],
+            containers: vec![],
         })
     }
 
     #[staticmethod]
     fn load(path: String) -> PyResult<PyBag> {
-        let file =
-            File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
+        let file = File::open(path.clone())
+            .map_err(|msg| PyErr::new::<FileNotFoundError, _>(format!("{}: \"{}\"", msg, path)))?;
         let reader = BufReader::new(file);
         let bag = bag::Bag::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
 
         let meta_data = bag.meta;
-        let samples_data = bag
-            .samples
+        let containers = bag
+            .containers
             .into_iter()
             .map(|c| PyContainer {
                 max_depth: c.max_depth,
@@ -226,7 +225,7 @@ impl PyBag {
 
         Ok(PyBag {
             meta_data,
-            samples_data,
+            containers,
         })
     }
 
@@ -236,8 +235,8 @@ impl PyBag {
         let writer = BufWriter::new(file);
         let meta = self.meta_data.clone();
 
-        let samples: Vec<bag::SampleContainer> = self
-            .samples_data
+        let containers: Vec<bag::SampleContainer> = self
+            .containers
             .iter()
             .map(|container| bag::SampleContainer {
                 max_depth: container.max_depth,
@@ -247,7 +246,7 @@ impl PyBag {
             })
             .collect();
 
-        let bag = bag::Bag { meta, samples };
+        let bag = bag::Bag { meta, containers };
 
         bag.write_bincode(writer)
             .map_err(PyErr::new::<TypeError, _>)?;
@@ -263,18 +262,18 @@ impl PyBag {
 
     #[getter]
     fn containers(&self) -> PyResult<Vec<PyContainer>> {
-        Ok(self.samples_data.clone())
+        Ok(self.containers.clone())
     }
 
     fn add_container(&mut self, container: PyContainer) -> PyResult<()> {
-        self.samples_data.push(container);
+        self.containers.push(container);
         Ok(())
     }
 
     fn update_meta(&mut self) -> PyResult<()> {
         let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |(_, r)| r);
         let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len()];
-        for container in self.samples_data.iter() {
+        for container in self.containers.iter() {
             for sample in container.samples.iter() {
                 for part in sample.get_initial().iter_bfs() {
                     if !idents.contains(&part.ident) {
@@ -300,7 +299,7 @@ impl PyBag {
     }
 
     fn clear_containers(&mut self) -> PyResult<()> {
-        self.samples_data.clear();
+        self.containers.clear();
         Ok(())
     }
 }
