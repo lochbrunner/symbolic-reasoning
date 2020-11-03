@@ -42,7 +42,8 @@ def train(learn_params, model, optimizer: optim.Optimizer, training_dataloader, 
             timer.pause()
             report_hook(epoch, epoch_loss)
             timer.resume()
-        printProgressBar(epoch, learn_params.num_epochs)
+        printProgressBar(epoch, learn_params.num_epochs, prefix='train')
+
     clearProgressBar()
     duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(training_dataloader))
     if azure_run is not None:

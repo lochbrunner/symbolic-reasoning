@@ -236,8 +236,7 @@ fn main() {
     let config_filename = matches.value_of("config").unwrap();
     let config = Configuration::load(config_filename, &matches)
         .expect(&format!("load config {}", config_filename));
-
-    let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
+    let scenario = Scenario::load_from_yaml(&config.scenario_filename).unwrap();
 
     let rules = scenario
         .rules
@@ -246,8 +245,8 @@ fn main() {
         .collect::<Vec<_>>();
 
     let alphabet = create_alphabet();
-    let mut context = Context::load(&config_filename)
-        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config_filename));
+    let mut context = Context::load(&config.scenario_filename)
+        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config.scenario_filename));
     context.register_standard_operators();
 
     if scenario.premises.is_empty() {

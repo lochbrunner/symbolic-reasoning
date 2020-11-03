@@ -187,9 +187,9 @@ class BagDataset(Dataset):
         self.container = samples[:limit]
         self._max_depth = max_depth
         self._max_size = max_size
-        logger.info(f'max size: {self._max_size}')
-        logger.info(f'number of samples: {len(self.container)}')
-        logger.info(f'number of rules: {len(self._rule_map)}')
+        logger.debug(f'max size: {self._max_size}')
+        logger.debug(f'number of samples: {len(self.container)}')
+        logger.debug(f'number of rules: {len(self._rule_map)}')
 
         if preprocess:
             def progress(i, sample):

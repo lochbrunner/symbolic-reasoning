@@ -13,6 +13,7 @@ perf.*
 *.prof
 flame*.svg
 runs
+logs
 *.log
 *.aux
 *.toc

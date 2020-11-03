@@ -50,7 +50,8 @@ class Inferencer:
             self.model = create_model(learn_params.model_name,
                                       hyper_parameter=learn_params.model_hyper_parameter,
                                       **model_params)
-            self.weights = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
+            self.weights = torch.as_tensor([1. for _ in range(model_params['tagset_size'])],
+                                           device=device, dtype=torch.float)
         else:
             self.model, snapshot = io.load_model(config.files.model)
             idents = snapshot['idents']

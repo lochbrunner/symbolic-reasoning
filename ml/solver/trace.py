@@ -1,7 +1,7 @@
 
 import logging
 import yaml
-from typing import List
+from typing import List, Dict
 from queue import Queue
 from pathlib import Path
 
@@ -114,10 +114,13 @@ class LocalTrace:
         return self.as_dict_recursive(self.root)
 
 
-def solution_summary(solutions: List[ApplyInfo]):
+def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
     # tops:
     # tops begin with 1
-    tops = {}
+    if prev_tops:
+        tops = {**prev_tops}
+    else:
+        tops = {}
     total = 0
     for solution in solutions:
         for step in solution.trace:
@@ -131,6 +134,7 @@ def solution_summary(solutions: List[ApplyInfo]):
 
 
 class Statistics:
+    '''Holds all relevant information of a solve try.'''
 
     def __init__(self, initial):
         self.name = ''

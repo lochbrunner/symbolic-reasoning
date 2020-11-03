@@ -47,6 +47,7 @@ evaluation:
   problems:
     beam-size: 70
     num_epochs: 10
+    iterations: 5
   trainings-data:
     beam-size: '1:15'
     max-steps: -1

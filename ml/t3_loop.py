@@ -10,25 +10,32 @@ import torch.optim as optim
 
 from pycore import Symbol, Scenario, Trace
 from torch.utils import data
+from torch.utils.tensorboard import SummaryWriter
 
+from common import grid_search
 from common import io
-from common.timer import Timer
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
-from common import grid_search
+from common.reports import report_tops
+from common.timer import Timer
 from common.validation import Mean
 from dataset import ScenarioParameter
-from solver.inferencer import Inferencer
-from solver.trace import ApplyInfo, solution_summary, TrainingsDataDumper, dump_new_rules
-from solver.beam_search import beam_search, beam_search_policy_last
-from solver.solve_problems import solve_problems
-from training import train
 from dataset.bag import BagDataset
+from solver.beam_search import beam_search, beam_search_policy_last
+from solver.inferencer import Inferencer
+from solver.solve_problems import solve_problems
+from solver.trace import TrainingsDataDumper
+from training import train
 
 
 def main(options, config):
     with Timer('Loading scenario'):
         scenario = Scenario.load(config.files.scenario)
+
+    if options.tensorboard_dir:
+        writer = SummaryWriter(log_dir=options.tensorboard_dir)
+    else:
+        writer = None
 
     # model, idents, rules = io.load_model(model, depth=9)
     rule_mapping = {}
@@ -47,8 +54,6 @@ def main(options, config):
     solver_logger = logging.Logger('solver')
     solver_logger.setLevel(logging.WARNING)
 
-    iterations = 1
-
     learn_params = LearningParmeter.from_config(config)
     data_loader_config = {'batch_size': learn_params.batch_size,
                           'shuffle': True,
@@ -59,10 +64,13 @@ def main(options, config):
 
     trainings_data_dumper = TrainingsDataDumper(config)
 
-    for iteration in range(iterations):
+    for iteration in range(config.evaluation.problems.iterations):
         # Try
-        _, problem_statistics = solve_problems(
+        _, problem_statistics, tops = solve_problems(
             options, config, scenario, inferencer, rule_mapping, logger=solver_logger)
+        report_tops(tops, epoch=iteration, writer=writer, label='tops/solve')
+
+        # Trace
         mean = Mean()
         for problem_statistic in problem_statistics:
             mean += problem_statistic.success
@@ -70,11 +78,15 @@ def main(options, config):
                 trainings_data_dumper += problem_statistic
 
         training_dataloader = data.DataLoader(trainings_data_dumper.get_dataset(), **data_loader_config)
+
         # Train
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
               training_dataloader=training_dataloader, weight=inferencer.weights, report_hook=None)
 
         logging.info(f'Solved: {mean} in iteration {iteration}')
+
+    if writer:
+        writer.close()
 
 
 if __name__ == '__main__':
@@ -85,6 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
     parser.add_argument('--results-filename')
     parser.add_argument('--policy-last', action='store_true', default=False)
+    parser.add_argument('--tensorboard-dir')
 
     # Model
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')

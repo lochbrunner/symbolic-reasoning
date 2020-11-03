@@ -1,7 +1,39 @@
-import matplotlib.pyplot as plt
 from os import path, makedirs
-import pickle
+from typing import Dict
 import logging
+import matplotlib.pyplot as plt
+import pickle
+
+from torch.utils.tensorboard import SummaryWriter
+
+
+def report_tops(tops: Dict[int, int], epoch: int, writer: SummaryWriter = None, label='tops') -> None:
+    total = float(sum(tops.values()))
+
+    N = 7
+
+    def top_k_str(i):
+        if i in tops:
+            v = tops[i] / total
+        else:
+            v = 0.
+        return f'#{i}: {v:.3f}'
+
+    def top_k(i):
+        if i in tops:
+            return tops[i] / total
+        return 0.
+
+    rest = sum(v for i, v in tops.items() if isinstance(i, int) and i >= N) / total
+
+    if writer:
+        scalars = {f'top_{i}': top_k(i) for i in range(1, N)}
+        scalars['rest'] = rest
+        writer.add_scalars(label, scalars, epoch)
+        writer.flush()
+
+    if not writer:
+        print(f'{label}: ' + ', '.join(top_k_str(i) for i in range(1, N)) + f', rest: {rest:.3f}')
 
 
 class TrainingProgress:

@@ -18,6 +18,7 @@ from solver.beam_search import beam_search
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
 from solver.trace import ApplyInfo, solution_summary
+from solver.trace import dump_new_rules
 
 
 def solve_training_problems(training_traces, scenario, rule_mapping, trainings_data_max_steps, inferencer: Inferencer, **kwargs):
@@ -102,6 +103,7 @@ def main(options, config):
             training_statistics.append(training_statistic)
 
     problem_solutions, problem_statistics = solve_problems(options, config, scenario, inferencer, rule_mapping)
+    dump_new_rules(solutions=problem_solutions, new_rules_filename=config.evaluation.new_rules_filename)
     for problem_solution in problem_solutions:
         if problem_solution:
             print_solution(problem_solution)
