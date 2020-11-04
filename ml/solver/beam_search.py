@@ -93,7 +93,9 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     rule_name=rule.name, rule_formula=rule.verbose,
                     current=deduced,
                     previous=prev, mapping=fit_result.variable,
-                    confidence=confidence, top=top, rule_id=rule_id, path=fit_result.path)
+                    confidence=confidence, top=top,
+                    rule_id=rule_id, path=fit_result.path)
+
                 statistics.trace.add(apply_info)
                 successfull_epoch = True
 

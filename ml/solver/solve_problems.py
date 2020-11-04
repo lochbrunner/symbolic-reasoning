@@ -7,7 +7,6 @@ from common.timer import Timer
 from common.terminal_utils import printProgressBar, clearProgressBar
 from solver.beam_search import beam_search, beam_search_policy_last
 from solver.inferencer import Inferencer
-from solver.trace import solution_summary
 
 
 module_logger = logging.getLogger(__name__)
@@ -26,8 +25,6 @@ def solve_problems(options, config, scenario: Scenario, inferencer: Inferencer,
         return Symbol.parse(context, 'u')
 
     eval_config = config.evaluation
-
-    tops = {}
 
     for i, problem_name in enumerate(scenario.problems):
         if show_progress:
@@ -58,9 +55,7 @@ def solve_problems(options, config, scenario: Scenario, inferencer: Inferencer,
         logger.info(statistics)
         problem_statistics.append(statistics)
 
-        tops = solution_summary(problem_solutions, prev_tops=tops)['tops']
-
     if show_progress:
         clearProgressBar()
 
-    return problem_solutions, problem_statistics, tops
+    return problem_solutions, problem_statistics

@@ -28,6 +28,9 @@ class Mean:
         v = self.summary * 100
         return f'{v:.2f}%'
 
+    def __float__(self):
+        return self.summary
+
 
 class Ratio:
     def __init__(self, size=10, count_print=3):

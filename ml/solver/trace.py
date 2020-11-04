@@ -1,4 +1,3 @@
-
 import logging
 import yaml
 from typing import List, Dict
@@ -11,13 +10,14 @@ from pycore import Rule, FitInfo, SampleSet, Sample, Bag
 
 
 class ApplyInfo:
-    def __init__(self, rule_name: str, rule_formula, current, previous,
+    def __init__(self, rule_name: str, rule_formula: str, current, previous,
                  mapping, confidence, top: int, rule_id: int, path: list):
         self.rule_name = rule_name
         self.rule_formula = rule_formula
         self.current = current
         self.value = None
         self.previous = previous
+        self.subsequent: List[ApplyInfo] = []
         self.mapping = mapping
         self.rule_id = rule_id
         self.path = path
@@ -45,7 +45,7 @@ class ApplyInfo:
             self.previous.contribute()
 
     def new_rules(self):
-        '''Rules from all previous step to current'''
+        '''Rules from all previous steps to current'''
         for i, step in enumerate(self.trace, 1):
             if step.previous is not None:
                 yield Rule(condition=step.previous.current, conclusion=self.current, name=f'New rule {i}')
@@ -92,6 +92,8 @@ class LocalTrace:
         self.current_index = None
 
     def add(self, apply_info):
+        if apply_info.previous:
+            apply_info.previous.subsequent.append(apply_info)
         node = LocalTrace.Node(apply_info)
         self.current_stage[self.current_index].childs.append(node)
         self.next_stage.append(node)
@@ -114,23 +116,68 @@ class LocalTrace:
         return self.as_dict_recursive(self.root)
 
 
-def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
-    # tops:
-    # tops begin with 1
-    if prev_tops:
-        tops = {**prev_tops}
-    else:
-        tops = {}
-    total = 0
+class Tops:
+    def __init__(self, N=5, prev=None):
+        self.N = N
+        if prev:
+            self.values = {**prev}
+        else:
+            self.values = {}
+        self.total = 0
+
+    def __add__(self, index):
+        if index not in self.values:
+            self.values[index] = 1
+        else:
+            self.values[index] += 1
+        self.total += 1
+        return self
+
+    @property
+    def worst(self):
+        return max(self.values.keys())
+
+
+def calculate_policy_tops(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
+    # # tops:
+    # # tops begin with 1
+    # if prev_tops:
+    #     tops = {**prev_tops}
+    # else:
+    #     tops = {}
+    # total = 0
+    tops = Tops()
     for solution in solutions:
         for step in solution.trace:
-            if step.top in tops:
-                tops[step.top] += 1
-            else:
-                tops[step.top] = 1
-        total += 1
-    tops['total'] = total
-    return {'tops': tops}
+            tops += step.top
+
+    return tops
+
+
+def calculate_value_tops(solutions: List[ApplyInfo]):
+    tops = Tops()
+
+    for solution in solutions:
+        for step in solution.trace:
+            if step.previous is None:
+                continue
+            if step.value is None:
+                continue
+
+            sisters = [s for s in step.previous.subsequent if s.value]
+            sisters.sort(key=lambda info: info.value, reverse=True)
+            self_index = next(i for i, sister in enumerate(sisters) if sister is step)
+            tops += self_index
+
+    return tops
+
+
+def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
+
+    return {
+        'policy': calculate_policy_tops(solutions, prev_tops),
+        'value': calculate_value_tops(solutions)
+    }
 
 
 class Statistics:

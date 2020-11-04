@@ -24,7 +24,7 @@ from dataset.bag import BagDataset
 from solver.beam_search import beam_search, beam_search_policy_last
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
-from solver.trace import TrainingsDataDumper
+from solver.trace import TrainingsDataDumper, solution_summary
 from training import train
 
 
@@ -66,9 +66,11 @@ def main(options, config):
 
     for iteration in range(config.evaluation.problems.iterations):
         # Try
-        _, problem_statistics, tops = solve_problems(
+        problem_solutions, problem_statistics = solve_problems(
             options, config, scenario, inferencer, rule_mapping, logger=solver_logger)
-        report_tops(tops, epoch=iteration, writer=writer, label='tops/solve')
+        tops = solution_summary(problem_solutions)
+        report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
+        report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
 
         # Trace
         mean = Mean()
@@ -83,6 +85,7 @@ def main(options, config):
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
               training_dataloader=training_dataloader, weight=inferencer.weights, report_hook=None)
 
+        writer.add_scalar('solved', float(mean), iteration)
         logging.info(f'Solved: {mean} in iteration {iteration}')
 
     if writer:
