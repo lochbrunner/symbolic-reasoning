@@ -28,7 +28,7 @@ def report_tops(tops: Tops, epoch: int, writer: SummaryWriter = None, label='top
         scalars = {f'top_{i}': top_k(i) for i in range(1, N)}
         scalars['rest'] = rest
         writer.add_scalars(label, scalars, epoch)
-        writer.add_scalar(f'{label}/worst', tops.worst, epoch)
+        writer.add_scalar(f'{label}/worst', float(tops.worst), epoch)
         writer.flush()
 
     if not writer:

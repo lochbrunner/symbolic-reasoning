@@ -85,7 +85,7 @@ def main(options, config):
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
               training_dataloader=training_dataloader, weight=inferencer.weights, report_hook=None)
 
-        writer.add_scalar('solved', float(mean), iteration)
+        writer.add_scalar('solved/relative', mean.summary, iteration)
         logging.info(f'Solved: {mean} in iteration {iteration}')
 
     if writer:

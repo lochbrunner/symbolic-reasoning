@@ -117,7 +117,7 @@ class LocalTrace:
 
 
 class Tops:
-    def __init__(self, N=5, prev=None):
+    def __init__(self, N=8, prev=None):
         self.N = N
         if prev:
             self.values = {**prev}
