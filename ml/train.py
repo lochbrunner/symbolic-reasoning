@@ -18,7 +18,6 @@ except azureml.exceptions.RunEnvironmentException:
     azure_run = None
 
 import torch
-from torch import nn
 import torch.optim as optim
 from torch.utils import data
 try:
@@ -26,59 +25,53 @@ try:
 except ImportError:
     pass
 
-from dataset import create_scenario, scenarios_choices, ScenarioParameter
+from dataset import create_scenario, ScenarioParameter
 from models import create_model, all_models
 
-from common.timer import Timer
-from common.config_and_arg_parser import Parser as ArgumentParser
-from common.terminal_utils import printProgressBar, clearProgressBar
-from common.parameter_search import LearningParmeter
-from common import io
-from common.validation import validate
 from common import grid_search
+from common import io
+from common.config_and_arg_parser import ArgumentParser
+from common.parameter_search import LearningParmeter
+from common.terminal_utils import printProgressBar, clearProgressBar
+from common.timer import Timer
+from common.utils import setup_logging
+from common.validation import validate
 from training import train
 
 logger = logging.getLogger(__name__)
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int = 10, update_model: str = None, load_model: str = None,
-                 save_model: str = None, device: str = 'auto', tensorboard: bool = False, statistics: str = None,
-                 manual_seed: bool = False, **kwargs):
+    def __init__(self, report_rate: int, device: str, tensorboard: bool,
+                 manual_seed: bool, use_solved_problems: bool, create_fresh_model: bool, **kwargs):
         self.report_rate = report_rate
-        self.load_model = load_model or update_model
-        self.save_model = save_model or update_model
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
             self.device = device
         self.tensorboard = tensorboard
-        self.statistics = statistics
         self.manual_seed = manual_seed
+        self.use_solved_problems = use_solved_problems
+        self.create_fresh_model = create_fresh_model
 
     @staticmethod
     def add_parsers(parser: ArgumentParser):
-        parser.add_argument('-i', '--load-model', type=str,
-                            default=None, help='Path to the model')
-        parser.add_argument('-o', '--save-model', type=str,
-                            default=None, help='Path to the model')
-        parser.add_argument('-u', '--update-model', type=str,
-                            default=None, help='Path to the model')
         parser.add_argument('-r', '--report-rate', type=int, default=20)
-        parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='auto')
+        parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='cpu')
         parser.add_argument('--tensorboard', action='store_true', default=False)
-        parser.add_argument('--statistics', default=None)
         parser.add_argument('--manual-seed', action='store_true', default=False)
+        parser.add_argument('--create-fresh-model', action='store_true', default=False)
+        parser.add_argument('--use-solved-problems', action='store_true', default=False)
 
 
-def dump_statistics(params: ExecutionParameter, logbooks):
+def dump_statistics(config, logbooks):
     '''Dumps statistics '''
     stat = [{'parameter': hp,
              'results': [{'error': error.as_dict(), 'epoch': epoch} for (epoch, error, loss) in logbook]
              }
             for (hp, logbook) in logbooks]
 
-    filename = Path(params.statistics)
+    filename = Path(config.files.training_statistics)
     filename.parent.mkdir(exist_ok=True)
     with filename.open('w') as f:
         yaml.dump(stat, f)
@@ -111,10 +104,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     logger.info(f'Using device: {device}')
 
     # Creating dataset and model
-    if exe_params.load_model:
-        dataset, model, optimizer, _ = io.load(exe_params.exe_params.load_model, device)
-    else:
+    if exe_params.create_fresh_model:
         timer = Timer('Creating fresh workspace')
+        if exe_params.use_solved_problems:
+            scenario_params.filename = config.files.solver_trainings_data
         dataset = create_scenario(params=scenario_params, device=device)
         model = create_model(learn_params.model_name,
                              hyper_parameter=learn_params.model_hyper_parameter,
@@ -123,12 +116,14 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
         optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
         timer.stop_and_log()
+    else:
+        dataset, model, optimizer, _ = io.load(config.files.model, device)
 
     def save_snapshot():
-        io.save(exe_params.save_model, model, optimizer, scenario_params, learn_params, dataset)
+        io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset)
 
     if len(dataset) == 0:
-        logger.info('Loaded empty bagfile')
+        logger.info('Loaded empty bagfile. Skip training.')
         save_snapshot()
         return []
 
@@ -142,12 +137,14 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
                            'num_workers': 0,
-                           'collate_fn': dataset.collate_fn}
+                           'drop_last': True,
+                           'collate_fn': dataset.get_collate_fn()}
 
     validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
                               'num_workers': 0,
-                              'collate_fn': dataset.collate_fn}
+                              'drop_last': True,
+                              'collate_fn': dataset.get_collate_fn()}
     training_dataloader = data.DataLoader(train_set, **train_loader_params)
     validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
@@ -162,75 +159,66 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         save_snapshot()
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
+    try:
 
-    if exe_params.tensorboard:
-        writer = SummaryWriter()
-        x, s, _ = next(iter(validation_dataloader))
-        writer.add_graph(model, (x, s))
-        writer.close()
+        if exe_params.tensorboard:
+            writer = SummaryWriter()
+            x, s, _, p, _ = next(iter(validation_dataloader))
+            device = model.device
+            x = x.to(device)
+            s = s.to(device)
+            writer.add_graph(model, (x, s, p))
+        else:
+            writer = None
 
-    logbook = []
+        logbook = []
 
-    timer = Timer('Training per sample:')
-    model.train()
-
-    def report(epoch, epoch_loss):
-        model.eval()
-        error, value_error = validate(model, validation_dataloader)
+        timer = Timer('Training per sample:')
         model.train()
-        clearProgressBar()
-        loss = learn_params.batch_size * epoch_loss
-        logbook.append((epoch, error, loss))
-        logger.info(
-            f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error: {value_error}')
-        if azure_run is not None:
-            error.exact.log(azure_run.log, 'exact')
-            error.exact_no_padding.log(azure_run.log, 'exact (np)')
-            error.with_padding.log(azure_run.log, 'class')
-            error.when_rule.log(azure_run.log, 'class (np)')
-            azure_run.log('loss', loss.item())
 
-    train(learn_params=learn_params, model=model, optimizer=optimizer,
-          training_dataloader=training_dataloader, weight=weight, report_hook=report, azure_run=azure_run)
+        def report(epoch, epoch_loss):
+            model.eval()
+            error = validate(model, validation_dataloader)
+            model.train()
+            clearProgressBar()
+            loss = learn_params.batch_size * epoch_loss
+            logbook.append((epoch, error, loss))
+            if not writer:
+                logger.info(
+                    f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error: {error.value_error}')
+            if azure_run is not None:
+                error.exact.log(azure_run.log, 'exact')
+                error.exact_no_padding.log(azure_run.log, 'exact (np)')
+                error.with_padding.log(azure_run.log, 'class')
+                error.when_rule.log(azure_run.log, 'class (np)')
+                azure_run.log('loss', loss.item())
+            if writer:
+                error.exact.log_bundled(writer, 'policy/exact', epoch)
+                error.exact_no_padding.log_bundled(writer, 'policy/exact (no padding)', epoch)
+                error.with_padding.log_bundled(writer, 'policy/class', epoch)
+                error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
+                writer.add_scalar('loss', loss.item(), epoch)
+                writer.add_scalar('value/error', float(error.value_error), epoch)
 
-    signal.signal(signal.SIGINT, original_sigint_handler)
-    error, value_error = validate(model, validation_dataloader)
-    if logging.INFO >= logging.root.level:
-        error.exact_no_padding.printHistogram()
+        train(learn_params=learn_params, model=model, optimizer=optimizer,
+              training_dataloader=training_dataloader, weight=weight, report_hook=report, azure_run=azure_run)
 
-    logbook.append((learn_params.num_epochs, error, None))
-    save_snapshot()
-    return logbook
+        signal.signal(signal.SIGINT, original_sigint_handler)
+        error = validate(model, validation_dataloader)
+        if logging.INFO >= logging.root.level:
+            error.exact_no_padding.printHistogram()
 
-
-def load_config(filename):
-    with open(filename, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-        return config['training']
-
-
-def setup_loggin(verbose, log, **kwargs):
-    loglevel = 'INFO' if verbose else log.upper()
-    if sys.stdin.isatty():
-        log_format = '%(message)s'
-    else:
-        log_format = '%(asctime)s %(message)s'
-
-    logging.basicConfig(
-        level=logging.getLevelName(loglevel),
-        format=log_format,
-        datefmt='%I:%M:%S'
-    )
-    # Set the log level of all existing loggers
-    all_loggers = [logging.getLogger()] + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    for mod_logger in all_loggers:
-        mod_logger._cache.clear()  # pylint: disable=protected-access
-        mod_logger.setLevel(logging.getLevelName(loglevel))
+        logbook.append((learn_params.num_epochs, error, None))
+        save_snapshot()
+        return logbook
+    finally:
+        if writer:
+            writer.close()
 
 
 if __name__ == '__main__':
 
-    parser = ArgumentParser('-c', '--config-file', loader=load_config,
+    parser = ArgumentParser('-c', '--config-file', exclude="scenario-*",
                             prog='deep training')
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
@@ -238,28 +226,26 @@ if __name__ == '__main__':
                         help='Make a very fast run. (data_size_limit: 100, num_epochs: 1)')
 
     ExecutionParameter.add_parsers(parser)
-    LearningParmeter.add_parsers(parser, all_models=all_models)
-    ScenarioParameter.add_parsers(parser)
-    # parser.add_argument('--optimizer', choices=[''])
 
-    args, model_hyper_parameters = parser.parse_args()
+    config, options = parser.parse_args()
 
-    setup_loggin(**vars(args))
+    setup_logging(**vars(options))
 
-    if args.smoke:
-        args.data_size_limit = 100
-        args.num_epochs = 1
+    if options.smoke:
+        config.training.data_size_limit = 100
+        config.training.num_epochs = 1
 
     stats = []
-    changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(args))
-    for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(args)):
+    model_hyper_parameters = config.training.model_parameter
+    changed_parameters = grid_search.get_range_names(model_hyper_parameters, vars(config))
+    for model_hyper_parameter, arg in grid_search.unroll_many(model_hyper_parameters, vars(config)):
         logger.info(model_hyper_parameter)
         # If there might be conflicts in argument names use https://stackoverflow.com/a/18677482/6863221
         result = main(
-            exe_params=ExecutionParameter(**vars(args)),
-            learn_params=LearningParmeter(model_hyper_parameter=model_hyper_parameter,
-                                          **arg),
-            scenario_params=ScenarioParameter(**arg)
+            exe_params=ExecutionParameter(**vars(config), **vars(options)),
+            learn_params=LearningParmeter.from_config_and_hyper(
+                config=config, model_hyper_parameter=model_hyper_parameter),
+            scenario_params=ScenarioParameter.from_config(config)
         )
         stats.append((grid_search.strip_keys(model_hyper_parameter, arg, names=changed_parameters), result))
-    dump_statistics(ExecutionParameter(**vars(args)), stats)
+    dump_statistics(config=config, logbooks=stats)

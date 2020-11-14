@@ -78,7 +78,7 @@
             "program": "${workspaceFolder}/ml/train.py",
             "args": [
                 "-c",
-                "real_world_problems/number_crunching/dataset.yaml",
+                "real_world_problems/number_crunching/config.yaml",
                 "-v"
             ],
             "console": "integratedTerminal",
@@ -92,9 +92,10 @@
             "program": "${workspaceFolder}/ml/train.py",
             "args": [
                 "-c",
-                "real_world_problems/number_crunching/dataset.yaml",
+                "real_world_problems/number_crunching/config.yaml",
                 "-v",
-                "--use-solver-data"
+                "--use-solved-problems",
+                "--create-fresh-model"
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",

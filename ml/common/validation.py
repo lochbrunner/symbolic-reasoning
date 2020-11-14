@@ -33,7 +33,7 @@ class Mean:
 
 
 class Ratio:
-    def __init__(self, size=10, count_print=3):
+    def __init__(self, size=10, count_print=6):
         assert size >= count_print
         self.tops = np.zeros(size, dtype=np.uint16)
         self.sum = 0
@@ -57,6 +57,12 @@ class Ratio:
         vs = [(1. - self.topk(i+1)) * 100 for i in range(self.count_print)]
         for i, v in enumerate(vs, 1):
             logger(f'{prefix} [{i}]', v)
+
+    def log_bundled(self, logger, label, epoch):
+        if logger is not None:
+            vs = [(1. - self.topk(i+1)) for i in range(self.count_print)]
+            scalars = {f'top [{i}]': v for i, v in enumerate(vs)}
+            logger.add_scalars(label, scalars, epoch)
 
     def update(self, mask, predict, truth):
         '''
@@ -116,19 +122,20 @@ class Error:
         self.when_rule = when_rule or Ratio()
         self.exact = exact or Ratio()
         self.exact_no_padding = exact_no_padding or Ratio()
+        self.value_error = Mean()
 
     def as_dict(self):
         return {'exact': self.exact.as_dict(),
                 'exact-no-padding': self.exact_no_padding.as_dict(),
                 'when-rule': self.when_rule.as_dict(),
                 'with-padding': self.with_padding.as_dict(),
+                'value-error': float(self.value_error),
                 }
 
 
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader):
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
-    value_error = Mean()
 
     for x, *s, y, p, v in dataloader:
         x = x.to(model.device)
@@ -146,7 +153,7 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
         py = py.cpu().numpy()
         y = y.cpu().numpy()
         pv = pv.cpu().numpy()
-        v = v.cpu().numpy()
+        gt_v = v.cpu().numpy()
         for i in range(batch_size):
             # policy
             truth = y[i, :]
@@ -160,9 +167,11 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
             error.exact_no_padding.update_global(None, predicted_padding, truth)
 
             # value
-            value_error += np.exp(pv[i, 1-v[i]]).item()
+            # as the value head is using the log softmax we have to "un-log" it
+            # 1-gt_v as we are interested in the error
+            error.value_error += np.exp(pv[i, 1-gt_v[i]]).item()
 
-    return error, value_error
+    return error
 
 
 class TestRatio(unittest.TestCase):

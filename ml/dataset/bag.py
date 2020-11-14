@@ -262,3 +262,6 @@ class BagDataset(Dataset):
         }
 
     collate_fn = dynamic_width_collate
+
+    def get_collate_fn(self):
+        return dynamic_width_collate
