@@ -248,7 +248,8 @@ class TrainingsDataDumper:
 
     def get_dataset(self):
         container = self.sample_set.to_container()
-        return BagDataset(meta=self.initial_bag.meta, samples=container.samples,
+        meta = self.initial_bag.meta.clone_with_distribution(container.samples)
+        return BagDataset(meta=meta, samples=container.samples,
                           max_depth=container.max_depth, max_size=container.max_size)
 
 

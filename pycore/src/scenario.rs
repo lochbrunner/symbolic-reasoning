@@ -75,8 +75,19 @@ impl PyScenario {
         Ok(self.inner.idents())
     }
 
+    /// With padding
     #[getter]
     fn tagset_size(&self) -> PyResult<usize> {
-        Ok(self.inner.rules.len())
+        Ok(self.inner.rules.len() + 1)
+    }
+
+    #[getter]
+    fn vocab_size(&self) -> PyResult<usize> {
+        Ok(self.inner.idents().len())
+    }
+
+    #[getter]
+    fn spread(&self) -> PyResult<u32> {
+        Ok(2)
     }
 }

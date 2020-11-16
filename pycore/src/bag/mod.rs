@@ -46,6 +46,85 @@ impl PyBagMeta {
     fn rule_distribution(&self) -> PyResult<Vec<(u32, u32)>> {
         Ok(self.data.rule_distribution.clone())
     }
+
+    #[getter]
+    fn value_distribution(&self) -> PyResult<(u32, u32)> {
+        Ok(self.data.value_distribution.clone())
+    }
+
+    fn clear_distributions(&mut self) -> PyResult<()> {
+        let mut meta = Arc::get_mut(&mut self.data)
+            .ok_or(PyErr::new::<TypeError, _>("Can not mutate borrowed bag!"))?;
+        for rule in meta.rule_distribution.iter_mut() {
+            *rule = (0, 0);
+        }
+        meta.value_distribution = (0, 0);
+        Ok(())
+    }
+
+    fn clone_with_distribution(&self, samples: Vec<PySample>) -> PyResult<Self> {
+        let mut positive_value = 0;
+        let mut negative_value = 0;
+
+        let mut rule_distribution = vec![(0, 0); self.data.rule_distribution.len()];
+
+        for sample in samples.iter() {
+            if sample.data.useful {
+                positive_value += sample.data.fits.len() as u32;
+            } else {
+                negative_value += sample.data.fits.len() as u32;
+            }
+            for fitinfo in sample.data.fits.iter() {
+                let (ref mut positive, ref mut negative) =
+                    rule_distribution[fitinfo.data.rule_id as usize];
+                if fitinfo.data.policy == bag::Policy::Positive {
+                    *positive += 1;
+                } else {
+                    *negative += 1;
+                }
+            }
+        }
+
+        Ok(Self {
+            data: Arc::new(bag::Meta {
+                rule_distribution,
+                value_distribution: (positive_value, negative_value),
+                idents: self.data.idents.iter().cloned().collect(),
+                rules: self.data.rules.iter().cloned().collect(),
+            }),
+        })
+    }
+
+    fn update_distributions(&mut self, samples: Vec<PySample>) -> PyResult<()> {
+        let mut meta = Arc::get_mut(&mut self.data)
+            .ok_or(PyErr::new::<TypeError, _>("Can not mutate borrowed bag!"))?;
+        // Clear
+        for rule in meta.rule_distribution.iter_mut() {
+            *rule = (0, 0);
+        }
+        let mut positive_value = 0;
+        let mut negative_value = 0;
+
+        for sample in samples.iter() {
+            if sample.data.useful {
+                positive_value += sample.data.fits.len() as u32;
+            } else {
+                negative_value += sample.data.fits.len() as u32;
+            }
+            for fitinfo in sample.data.fits.iter() {
+                let (ref mut positive, ref mut negative) =
+                    meta.rule_distribution[fitinfo.data.rule_id as usize];
+                if fitinfo.data.policy == bag::Policy::Positive {
+                    *positive += 1;
+                } else {
+                    *negative += 1;
+                }
+            }
+        }
+
+        meta.value_distribution = (positive_value, negative_value);
+        Ok(())
+    }
 }
 
 #[pyclass(name=FitInfo,subclass)]
@@ -198,6 +277,7 @@ impl PyBag {
             meta_data: bag::Meta {
                 idents: vec![],
                 rule_distribution: vec![(0, 0); rules.len()],
+                value_distribution: (0, 0),
                 rules,
             },
             containers: vec![],
@@ -273,6 +353,8 @@ impl PyBag {
     fn update_meta(&mut self) -> PyResult<()> {
         let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |(_, r)| r);
         let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len()];
+        let mut positive_contributions = 0;
+        let mut negative_contributions = 0;
         for container in self.containers.iter() {
             for sample in container.samples.iter() {
                 for part in sample.get_initial().iter_bfs() {
@@ -280,7 +362,13 @@ impl PyBag {
                         idents.insert(part.ident.clone());
                     }
                 }
-                for fit in sample.get_fits().iter() {
+                let fits = sample.get_fits();
+                if sample.data.useful {
+                    positive_contributions += fits.len() as u32;
+                } else {
+                    negative_contributions += fits.len() as u32;
+                }
+                for fit in fits.iter() {
                     let (ref mut positive, ref mut negative) =
                         rule_distribution[fit.data.rule_id as usize];
                     if fit.data.policy == bag::Policy::Positive {
@@ -294,6 +382,7 @@ impl PyBag {
 
         self.meta_data.idents = idents.into_iter().collect();
         self.meta_data.rule_distribution = rule_distribution;
+        self.meta_data.value_distribution = (positive_contributions, negative_contributions);
 
         Ok(())
     }

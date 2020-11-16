@@ -148,7 +148,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     training_dataloader = data.DataLoader(train_set, **train_loader_params)
     validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
-    weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
+    policy_weight = torch.as_tensor(dataset.label_weight, device=device, dtype=torch.float)
+    value_weight = torch.as_tensor(dataset.value_weight, device=device, dtype=torch.float)
 
     # Training
     original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -198,10 +199,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 error.with_padding.log_bundled(writer, 'policy/class', epoch)
                 error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
                 writer.add_scalar('loss', loss.item(), epoch)
-                writer.add_scalar('value/error', float(error.value_error), epoch)
+                writer.add_scalar('value/all', float(error.value_all), epoch)
+                writer.add_scalar('value/positive', float(error.value_positive), epoch)
+                writer.add_scalar('value/negative', float(error.value_negative), epoch)
 
         train(learn_params=learn_params, model=model, optimizer=optimizer,
-              training_dataloader=training_dataloader, weight=weight, report_hook=report, azure_run=azure_run)
+              training_dataloader=training_dataloader, policy_weight=policy_weight, value_weight=value_weight, report_hook=report, azure_run=azure_run)
 
         signal.signal(signal.SIGINT, original_sigint_handler)
         error = validate(model, validation_dataloader)

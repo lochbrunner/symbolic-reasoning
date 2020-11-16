@@ -129,6 +129,7 @@ def main(args):
     total = sum(p+n for p, n in bag.meta.rule_distribution[1:])
     table.add_row('total:', total)
     table.add_row('idents:', ', '.join(bag.meta.idents))
+    table.add_row('values:', ', '.join([f'{v}' for v in bag.meta.value_distribution]))
 
     table.print(args)
 

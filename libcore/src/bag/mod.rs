@@ -28,6 +28,8 @@ pub fn extract_idents_from_rules<T>(rules: &[T], unpack: fn(&T) -> &Rule) -> Has
 pub struct Meta {
     pub idents: Vec<String>,
     pub rule_distribution: Vec<(u32, u32)>,
+    /// contributed, not contributed
+    pub value_distribution: (u32, u32),
     /// Rule at index 0 is padding
     pub rules: Vec<(String, Rule)>,
     // Should we add the scenario file name?
@@ -131,12 +133,16 @@ impl Bag {
         }
 
         let mut rule_distribution = vec![(0, 0); rules.len()];
+        // Assuming each rule was useful
+        let mut value_distribution = (0, 0);
         for (_, fitinfos) in initials.iter() {
             for fitinfo in fitinfos.iter() {
                 let (ref mut positive, ref mut negative) =
                     rule_distribution[fitinfo.rule_id as usize];
                 if fitinfo.policy == Policy::Positive {
                     *positive += 1;
+                    let (ref mut positive_value, _) = value_distribution;
+                    *positive_value += 1;
                 } else {
                     *negative += 1;
                 }
@@ -176,6 +182,7 @@ impl Bag {
                 idents: idents.into_iter().collect(),
                 rules,
                 rule_distribution,
+                value_distribution,
             },
             containers,
         }
@@ -186,6 +193,7 @@ impl Bag {
         let mut rules = vec![("padding".to_string(), Default::default())];
         rules.extend_from_slice(loaded_rules);
         let rule_distribution = vec![(1, 1); rules.len()];
+        let value_distribution = (0, 0);
         // Crawl the idents from the rules
         let mut idents: HashSet<String> = HashSet::new();
         for (_, rule) in rules.iter() {
@@ -199,6 +207,7 @@ impl Bag {
         Bag {
             meta: Meta {
                 rule_distribution,
+                value_distribution,
                 rules,
                 idents: idents.into_iter().collect(),
             },
@@ -289,6 +298,7 @@ mod specs {
                     "d".to_string(),
                 ],
                 rule_distribution: vec![(0, 0), (1, 0), (1, 0)],
+                value_distribution: (2, 0),
                 rules: vec![pad_rule, r1, r2],
             },
             containers: vec![SampleContainer {

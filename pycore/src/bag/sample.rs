@@ -14,17 +14,18 @@ use std::collections::HashMap;
 use std::convert::From;
 use std::sync::Arc;
 
+/// Must be public as no counter part in core is available
 #[derive(Clone)]
-struct SampleData {
+pub struct SampleData {
     initial: PySymbol,
-    useful: bool,
-    fits: Vec<PyFitInfo>,
+    pub useful: bool,
+    pub fits: Vec<PyFitInfo>,
 }
 
 #[pyclass(name=Sample,subclass)]
 #[derive(Clone)]
 pub struct PySample {
-    data: Arc<SampleData>,
+    pub data: Arc<SampleData>,
 }
 
 #[pymethods]

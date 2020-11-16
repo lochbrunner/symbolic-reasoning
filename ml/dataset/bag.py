@@ -143,6 +143,9 @@ def dynamic_width_collate(batch):
 
 
 class BagDataset(Dataset):
+    '''
+    > Note: Returning numpy arrays no torch tensors. 
+    '''
 
     pad_token = 0
     spread = 2
@@ -175,6 +178,7 @@ class BagDataset(Dataset):
         self._ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
 
         self.label_distribution = [p+n for p, n in meta.rule_distribution]
+        self.value_distribution = meta.value_distribution
         self._rule_map = meta.rules
 
         # Merge use largest
@@ -249,7 +253,13 @@ class BagDataset(Dataset):
     @property
     def label_weight(self):
         min_node = max(min(self.label_distribution), 1)
-        return [min_node/max(label, 1) for label in self.label_distribution]
+        return np.array([min_node/max(label, 1) for label in self.label_distribution], dtype=np.float32)
+
+    @property
+    def value_weight(self):
+        p, n = self.value_distribution
+        min_dist = max(min(self.value_distribution), 1)
+        return np.array([p, n], np.float32) / min_dist
 
     @property
     def model_params(self):

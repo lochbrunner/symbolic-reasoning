@@ -2,6 +2,8 @@
 import numpy as np
 import torch
 
+from pycore import Scenario
+
 # project
 from dataset.transformers import Padder, Embedder, ident_to_id
 from models import create_model
@@ -34,30 +36,21 @@ class Inferencer:
     ''' Standard inferencer for unique index map per sample
     '''
 
-    def __init__(self, config, scenario, fresh_model: bool, use_solver_data: bool):
+    def __init__(self, config, scenario: Scenario, fresh_model: bool):
         learn_params = LearningParmeter.from_config(config)
-        scenario_params = ScenarioParameter.from_config(config, use_solver_data=use_solver_data)
         if fresh_model:
-            device = torch.device('cpu')
-            dataset = create_scenario(params=scenario_params, device=device)
-            idents = dataset.idents
-            self.spread = dataset.spread
-            self.pad_token = dataset.pad_token
-            # TODO: use params from scenario(idents, tagset_size)
-            model_params = dataset.model_params
-            model_params['vocab_size'] = len(scenario.idents)
-            model_params['tagset_size'] = len(scenario.rules) + 1
+            idents = scenario.idents
+            self.spread = scenario.spread
+            self.pad_token = 0  # Should be a constant
             self.model = create_model(learn_params.model_name,
                                       hyper_parameter=learn_params.model_hyper_parameter,
-                                      **model_params)
-            self.weights = torch.as_tensor([1. for _ in range(model_params['tagset_size'])],
-                                           device=device, dtype=torch.float)
+                                      vocab_size=scenario.vocab_size, tagset_size=scenario.tagset_size, pad_token=0, kernel_size=scenario.spread+2)
         else:
             self.model, snapshot = io.load_model(config.files.model)
             idents = snapshot['idents']
             self.spread = snapshot['kernel_size'] - 2
             self.pad_token = snapshot['pad_token']
-            self.weights = None
+            # self.weights = None
 
         self.model.eval()
         # Copy of BagDataset

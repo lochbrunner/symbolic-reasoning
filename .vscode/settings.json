@@ -37,6 +37,5 @@
         "serde",
         "staticmethod"
     ],
-    "python.pythonPath": "/bin/python3",
     "vscode-generic-binary-preview.command": "/home/matthias/workspace/github/lochbrunner/symbolic-reasoning/tools/baginfo.py --format html"
 }

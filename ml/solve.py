@@ -84,7 +84,7 @@ def main(options, config):
         if str(scenario_rule) not in used_rules:
             logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
-    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model, use_solver_data=True)
+    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
 
     training_statistics = []
     if options.solve_training:

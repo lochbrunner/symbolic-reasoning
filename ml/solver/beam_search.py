@@ -67,12 +67,14 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
             for rule_id, fits in possible_rules.items():
                 for deduced, fit_result in fits:
                     try:
-                        j, confidence = next((i, conf) for i, (pr, pp, conf) in enumerate(policies)
-                                             if pr == rule_id and pp == fit_result.path)
+                        j, confidence = next((i, conf) for i, (p_rule_id, p_path, conf) in enumerate(policies)
+                                             if p_rule_id == rule_id and p_path == fit_result.path)
                     except StopIteration:
+                        print('Available rules:')
                         for k, v in rule_mapping.items():
                             print(f'#{k}: {v}')
-                        raise RuntimeError(f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}')
+                        raise RuntimeError(
+                            f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}.')
                     # rule id, path, mapping, deduced
                     ranked_fits[j] = (rule_id, fit_result, confidence, deduced)
 

@@ -6,14 +6,15 @@ from common.terminal_utils import printProgressBar, clearProgressBar
 from common.timer import Timer
 
 
-def train(learn_params, model, optimizer: optim.Optimizer, training_dataloader, weight=None, report_hook=None, azure_run=None):
-    '''
-    Returns timer
-    '''
+def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloader, policy_weight=None, value_weight=None, report_hook=None, azure_run=None):
+    if policy_weight is not None:
+        policy_weight = torch.as_tensor(policy_weight, device=model.device)
+    if value_weight is not None:
+        value_weight = torch.as_tensor(value_weight, device=model.device)
 
-    policy_loss_function = nn.NLLLoss(reduction='mean', weight=weight, ignore_index=-1)
-    value_loss_function = nn.NLLLoss(reduction='mean')
-    timer = Timer('Training per sample:')
+    policy_loss_function = nn.NLLLoss(reduction='mean', weight=policy_weight, ignore_index=-1)
+    value_loss_function = nn.NLLLoss(reduction='mean', weight=value_weight)
+    timer = Timer(f'Trained {len(training_dataloader.dataset)} samples. Training per sample:')
     device = model.device
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
@@ -45,6 +46,6 @@ def train(learn_params, model, optimizer: optim.Optimizer, training_dataloader, 
         printProgressBar(epoch, learn_params.num_epochs, prefix='train')
 
     clearProgressBar()
-    duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(training_dataloader))
+    duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(training_dataloader.dataset))
     if azure_run is not None:
         azure_run.log('duration_per_sample', duration_per_sample)

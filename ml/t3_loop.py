@@ -50,7 +50,7 @@ def main(options, config):
         if str(scenario_rule) not in used_rules:
             logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
-    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model, use_solver_data=True)
+    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
     solver_logger = logging.Logger('solver')
     solver_logger.setLevel(logging.WARNING)
 
@@ -79,17 +79,20 @@ def main(options, config):
             if problem_statistic:
                 trainings_data_dumper += problem_statistic
 
-        training_dataloader = data.DataLoader(trainings_data_dumper.get_dataset(), **data_loader_config)
+        dataset = trainings_data_dumper.get_dataset()
+        training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
         # Train
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
-              training_dataloader=training_dataloader, weight=inferencer.weights, report_hook=None)
+              training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
 
         writer.add_scalar('solved/relative', mean.summary, iteration)
         logging.info(f'Solved: {mean} in iteration {iteration}')
 
     if writer:
         writer.close()
+
+    trainings_data_dumper.dump()
 
 
 if __name__ == '__main__':

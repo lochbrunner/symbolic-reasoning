@@ -22,6 +22,8 @@ class Mean:
 
     @property
     def summary(self):
+        if self.total == 0:
+            return -1.
         return self.correct / self.total
 
     def __str__(self):
@@ -33,7 +35,7 @@ class Mean:
 
 
 class Ratio:
-    def __init__(self, size=10, count_print=6):
+    def __init__(self, size=10, count_print=10):
         assert size >= count_print
         self.tops = np.zeros(size, dtype=np.uint16)
         self.sum = 0
@@ -122,14 +124,18 @@ class Error:
         self.when_rule = when_rule or Ratio()
         self.exact = exact or Ratio()
         self.exact_no_padding = exact_no_padding or Ratio()
-        self.value_error = Mean()
+        self.value_all = Mean()
+        self.value_positive = Mean()
+        self.value_negative = Mean()
 
     def as_dict(self):
         return {'exact': self.exact.as_dict(),
                 'exact-no-padding': self.exact_no_padding.as_dict(),
                 'when-rule': self.when_rule.as_dict(),
                 'with-padding': self.with_padding.as_dict(),
-                'value-error': float(self.value_error),
+                'value-all': float(self.value_all),
+                'value-positive': float(self.value_positive),
+                'value-negative': float(self.value_negative),
                 }
 
 
@@ -169,7 +175,11 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
             # value
             # as the value head is using the log softmax we have to "un-log" it
             # 1-gt_v as we are interested in the error
-            error.value_error += np.exp(pv[i, 1-gt_v[i]]).item()
+            error.value_all += np.exp(pv[i, 1-gt_v[i]]).item()
+            if gt_v[i] == 0:
+                error.value_positive += np.exp(pv[i, 1-gt_v[i]]).item()
+            else:
+                error.value_negative += np.exp(pv[i, 1-gt_v[i]]).item()
 
     return error
 
@@ -178,7 +188,7 @@ class TestRatio(unittest.TestCase):
     '''Unit tests for python Ratio class'''
 
     def test_update(self):
-        ratio = Ratio(3)
+        ratio = Ratio(3, 3)
         # n = 2, r = 3
         predict = np.array([[0, 1], [1, 0], [0, 0]])
         truth = np.array([1, 0])
