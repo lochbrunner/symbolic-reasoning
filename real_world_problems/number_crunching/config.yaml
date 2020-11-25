@@ -2,11 +2,11 @@ name: number-crunching
 files:
   scenario: real_world_problems/number_crunching/dataset.yaml
   working-folder: experiments
-  trainings-data: &bag experiments/number-crunching.bin
+  trainings-data: &bag experiments/number-crunching/number-crunching.bin
   new-rules: &new-rules experiments/number-crunching/new-rules.yaml
   solver-trainings-data: &solver-data experiments/number-crunching/solver-trainings-data.bin
-  trainings-data-traces: experiments/number-crunching_*.tr
-  model: &model experiments/number-crunching.sp
+  trainings-data-traces: experiments/number-crunching/trace_*.tr
+  model: &model experiments/number-crunching/number-crunching.sp
   training-statistics: &training-statistics experiments/number-crunching/training-statistics.yaml
   evaluation-results: experiments/number-crunching/evaluation-results.yaml
 generation:
@@ -24,7 +24,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 500
+  num-epochs: 1000
   report-rate: 2
   batch-size: 32
   learning-rate: 0.1
@@ -45,8 +45,9 @@ training:
 evaluation:
   num-epochs: 30
   problems:
-    beam-size: 70
+    beam-size: 10
     num_epochs: 10
+    max_track_loss: 3 # abort if the value is bad for longer  
     iterations: 5
   trainings-data:
     beam-size: '1:15'

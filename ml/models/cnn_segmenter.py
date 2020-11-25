@@ -101,20 +101,27 @@ class SequentialByPass(nn.Sequential):
 
 class ValueHead(nn.Module):
 
-    def __init__(self, embedding_size, kernel_size):
+    def __init__(self, embedding_size: int, config, kernel_size: int):
         super(ValueHead, self).__init__()
-        self.linear = nn.Linear(embedding_size, 2)  # Good or bad
-        self.embedding_size = embedding_size
-        self.cnn = IConv(in_size=embedding_size, out_size=embedding_size, kernel_size=kernel_size)
+        self.hidden_size = config['value_head_hidden_size']
+
+        self.cnn = SequentialByPass(
+            IConv(in_size=embedding_size, out_size=self.hidden_size, kernel_size=kernel_size),
+            nn.LeakyReLU(inplace=True),
+            IConv(in_size=self.hidden_size, out_size=self.hidden_size, kernel_size=kernel_size),
+            nn.LeakyReLU(inplace=True),
+        )
+        self.linear = nn.Linear(self.hidden_size, 2)  # Good or bad
 
     def forward(self, x, s):
         x = self.cnn(x, s)
         b, l, j = x.shape
-        assert(self.embedding_size == j)
+        assert(self.hidden_size == j)
         # x: blj
         # blj -> (bl)j
         x = x.view([-1, j])
         x = self.linear(x)
+        x = F.leaky_relu(x)
         x = x.view([b, l, 2])
         # bl2 -> b2
         x = x.max(dim=1, keepdim=False).values
@@ -139,15 +146,21 @@ class PolicyHead(nn.Module):
 
 class TreeCnnUniqueIndices(nn.Module):
     def __init__(self, vocab_size, tagset_size, pad_token, kernel_size, hyper_parameter, **kwargs):
+        '''tagset_size with padding'''
+
         super(TreeCnnUniqueIndices, self).__init__()
         # Config
         self.config = {
             'embedding_size': 32,
             'hidden_layers': 2,
             'dropout': 0.1,
-            'use_props': True
+            'use_props': True,
+            'value_head_hidden_size': 8
         }
-        self.config.update(hyper_parameter)
+        if isinstance(hyper_parameter, dict):
+            self.config.update(hyper_parameter)
+        else:
+            self.config.update(vars(hyper_parameter))
 
         embedding_size = self.config['embedding_size']
 
@@ -175,7 +188,8 @@ class TreeCnnUniqueIndices(nn.Module):
 
         # Heads
         self.policy = PolicyHead(embedding_size=embedding_size, kernel_size=kernel_size, tagset_size=tagset_size)
-        self.value = ValueHead(embedding_size=embedding_size, kernel_size=kernel_size)
+        self.value = ValueHead(embedding_size=embedding_size, kernel_size=kernel_size,
+                               config=self.config)
 
     def forward(self, x, s, p, *args):  # pylint: disable=arguments-differ
         # p: b,l

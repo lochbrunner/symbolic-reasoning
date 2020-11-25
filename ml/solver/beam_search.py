@@ -5,16 +5,21 @@ from solver.trace import ApplyInfo, Statistics
 from pycore import fit_at_and_apply, fit_and_apply
 
 
-def beam_search(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, **kwargs):
+def beam_search(inference, rule_mapping, initial, targets, variable_generator, beam_size, black_list_terms, black_list_rules, num_epochs, **kwargs):
     '''First apply the policy and then try to fit the suggestions.'''
     seen = set()
+    black_list_terms = set(black_list_terms)
+    black_list_rules = set(black_list_rules)
     statistics = Statistics(initial)
 
-    for _ in range(num_epochs):
+    for epoch in range(num_epochs):
+        logging.debug(f'epoch: {epoch}')
         for prev in statistics.trace:
             policies = inference(prev.current, beam_size)
             for top, (rule_id, path, confidence) in enumerate(policies, 1):
                 rule = rule_mapping[rule_id-1]
+                if rule.name in black_list_rules:
+                    continue
                 result = fit_at_and_apply(variable_generator, prev.current, rule, path)
                 statistics.fit_tries += 1
                 statistics.fit_results += 1 if result is not None else 0
@@ -23,7 +28,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
                     continue
                 deduced, mapping = result
                 s = deduced.verbose
-                if s in seen:
+                if s in seen or s in black_list_terms:
                     continue
                 seen.add(s)
                 apply_info = ApplyInfo(
@@ -44,7 +49,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, beam_size, num_epochs, black_list_terms, black_list_rules, max_size, **kwargs):
+def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, num_epochs, beam_size, max_track_loss, black_list_terms, black_list_rules, max_size, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
     black_list_terms = set(black_list_terms)
     black_list_rules = set(black_list_rules)
@@ -81,8 +86,10 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
             possible_fits = (v for _, v in sorted(ranked_fits.items()))
 
             # filter out already seen terms
-            possible_fits = ((*args, deduced) for *args, deduced in possible_fits if deduced.verbose
-                             not in seen and deduced.verbose not in black_list_terms)
+            possible_fits = [(*args, deduced) for *args, deduced in possible_fits if deduced.verbose
+                             not in seen and deduced.verbose not in black_list_terms]
+            if beam_size is not None:
+                possible_fits = possible_fits[:beam_size]
 
             for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits, 1):
                 seen.add(deduced.verbose)
@@ -97,6 +104,9 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     previous=prev, mapping=fit_result.variable,
                     confidence=confidence, top=top,
                     rule_id=rule_id, path=fit_result.path)
+
+                if apply_info.track_loss > max_track_loss:
+                    continue
 
                 statistics.trace.add(apply_info)
                 successfull_epoch = True

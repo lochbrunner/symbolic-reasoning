@@ -40,11 +40,10 @@ def solve_problems(options, config, scenario: Scenario, inferencer: Inferencer,
             search_strategy = beam_search_policy_last if options.policy_last else beam_search
             solution, statistics = search_strategy(inferencer, rule_mapping, problem.condition,
                                                    [problem.conclusion], variable_generator,
-                                                   beam_size=eval_config.problems.beam_size,
-                                                   num_epochs=eval_config.problems.num_epochs,
                                                    black_list_terms=eval_config.black_list_terms,
                                                    black_list_rules=eval_config.black_list_rules,
-                                                   max_size=eval_config.max_size)
+                                                   max_size=eval_config.max_size,
+                                                   **vars(eval_config.problems))
         if solution is not None:
             problem_solutions.append(solution)
 

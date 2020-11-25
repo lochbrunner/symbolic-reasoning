@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-import logging
 from glob import glob
 from pathlib import Path
 from time import time
+from typing import Dict
+import logging
 
 import yaml
 
-from pycore import Scenario, Symbol, Trace
+from pycore import Scenario, Symbol, Trace, Rule
 
 from common import grid_search
 from common import io
@@ -71,7 +72,7 @@ def main(options, config):
 
     # model, idents, rules = io.load_model(model, depth=9)
     rules = io.load_rules(config.files.model)
-    rule_mapping = {}
+    rule_mapping: Dict[int, Rule] = {}
     used_rules = set()
     max_width = max(len(s.name) for s in scenario.rules.values())+1
     for i, model_rule in enumerate(rules[1:], 1):
@@ -118,10 +119,15 @@ def main(options, config):
         }, f)
 
     logging.info('Summary:')
+    total_fits = 0
+    succeeded_count = 0
     for problem_statistic in problem_statistics:
         success = 'success' if problem_statistic.success else 'failed'
-
-        logging.info(f'{problem_statistic.name}: success {success} fits: {problem_statistic.fit_results}')
+        total_fits += problem_statistic.fit_results
+        if problem_statistic.success:
+            succeeded_count += 1
+        logging.info(f'{problem_statistic.name}: result {success} fits: {problem_statistic.fit_results}')
+    logging.info(f'Solving {succeeded_count}/{len(problem_statistics)} needed {total_fits} fits.')
 
 
 if __name__ == '__main__':

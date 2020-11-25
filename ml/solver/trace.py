@@ -61,6 +61,17 @@ class ApplyInfo:
             yield step
             step = step.previous
 
+    @property
+    def track_loss(self):
+        '''Number of steps to the last good value'''
+
+        i = 0
+        for i, step in enumerate(self.trace):
+            if step.value is not None and step.value < 0.5:
+                break
+
+        return i
+
 
 class LocalTrace:
 
@@ -133,6 +144,9 @@ class Tops:
         self.total += 1
         return self
 
+    def as_dict(self):
+        return {"values": self.values, "total": self.total, "worst": self.worst}
+
     @property
     def worst(self):
         return max(self.values.keys())
@@ -175,8 +189,8 @@ def calculate_value_tops(solutions: List[ApplyInfo]):
 def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
 
     return {
-        'policy': calculate_policy_tops(solutions, prev_tops),
-        'value': calculate_value_tops(solutions)
+        'policy': calculate_policy_tops(solutions, prev_tops).as_dict(),
+        'value': calculate_value_tops(solutions).as_dict()
     }
 
 
