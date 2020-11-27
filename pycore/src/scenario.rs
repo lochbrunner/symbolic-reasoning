@@ -1,4 +1,5 @@
-use core::scenario::Scenario;
+use core::scenario::{Scenario, ScenarioProblems};
+use core::Rule;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;
@@ -6,6 +7,51 @@ use std::sync::Arc;
 
 use crate::context::PyContext;
 use crate::rule::PyRule;
+
+#[pyclass(name=ScenarioProblems,subclass)]
+pub struct PyScenarioProblems {
+    pub inner: Arc<ScenarioProblems>,
+}
+
+fn export_rules<'a, I>(rules: I) -> HashMap<String, PyRule>
+where
+    I: Iterator<Item = (&'a String, &'a Rule)>,
+{
+    rules
+        .map(|(k, v)| {
+            (
+                k.clone(),
+                PyRule {
+                    inner: Arc::new(v.clone()),
+                    name: k.clone(),
+                },
+            )
+        })
+        .collect()
+}
+
+#[pymethods]
+impl PyScenarioProblems {
+    #[getter]
+    fn validation(&self) -> PyResult<HashMap<String, PyRule>> {
+        Ok(export_rules(self.inner.validation.iter()))
+    }
+
+    #[getter]
+    fn training(&self) -> PyResult<HashMap<String, PyRule>> {
+        Ok(export_rules(self.inner.training.iter()))
+    }
+
+    #[getter]
+    fn all(&self) -> PyResult<HashMap<String, PyRule>> {
+        Ok(export_rules(
+            self.inner
+                .training
+                .iter()
+                .chain(self.inner.validation.iter()),
+        ))
+    }
+}
 
 /// Python Wrapper for core::io::Scenario
 #[pyclass(name=Scenario,subclass)]
@@ -46,21 +92,10 @@ impl PyScenario {
     }
 
     #[getter]
-    fn problems(&self) -> PyResult<HashMap<String, PyRule>> {
-        Ok(self
-            .inner
-            .problems
-            .iter()
-            .map(|(k, v)| {
-                (
-                    k.clone(),
-                    PyRule {
-                        inner: Arc::new(v.clone()),
-                        name: k.clone(),
-                    },
-                )
-            })
-            .collect())
+    fn problems(&self) -> PyResult<PyScenarioProblems> {
+        Ok(PyScenarioProblems {
+            inner: Arc::new(self.inner.problems.clone()),
+        })
     }
 
     #[getter]

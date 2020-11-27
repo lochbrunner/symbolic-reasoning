@@ -67,7 +67,7 @@ def main(options, config):
     for iteration in range(config.evaluation.problems.iterations):
         # Try
         problem_solutions, problem_statistics = solve_problems(
-            options, config, scenario, inferencer, rule_mapping, logger=solver_logger)
+            options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger)
         tops = solution_summary(problem_solutions)
         report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
         report_tops(tops['value'], epoch=iteration, writer=writer, label='value')

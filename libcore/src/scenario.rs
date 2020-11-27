@@ -3,12 +3,46 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 extern crate serde_yaml;
 
+#[derive(Serialize, Deserialize, Default)]
+struct ScenarioStringAsProblem {
+    pub training: HashMap<String, String>,
+    pub validation: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScenarioProblems {
+    pub training: HashMap<String, Rule>,
+    pub validation: HashMap<String, Rule>,
+}
+
+impl ScenarioProblems {
+    fn try_from(
+        value: &ScenarioStringAsProblem,
+        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            training: value
+                .training
+                .iter()
+                .map(parse_rule)
+                .flatten()
+                .collect::<Result<HashMap<_, _>, _>>()?,
+            validation: value
+                .validation
+                .iter()
+                .map(parse_rule)
+                .flatten()
+                .collect::<Result<HashMap<_, _>, _>>()?,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct ScenarioStringAsRule {
     pub declarations: HashMap<String, Declaration>,
     pub rules: HashMap<String, String>,
     #[serde(default)]
-    pub problems: HashMap<String, String>,
+    pub problems: ScenarioStringAsProblem,
     /// Used to include other yaml files content
     #[serde(default)]
     pub include: Vec<String>,
@@ -20,7 +54,7 @@ struct ScenarioStringAsRule {
 pub struct Scenario {
     pub declarations: Context,
     pub rules: HashMap<String, Rule>,
-    pub problems: HashMap<String, Rule>,
+    pub problems: ScenarioProblems,
     pub premises: Vec<Symbol>,
 }
 
@@ -55,9 +89,7 @@ impl Scenario {
         let rules: Result<HashMap<String, Rule>, String> =
             ss.rules.iter().map(parse_rule).flatten().collect();
         let rules = rules?;
-        let problems: Result<HashMap<String, Rule>, String> =
-            ss.problems.iter().map(parse_rule).flatten().collect();
-        let problems = problems?;
+        let problems = ScenarioProblems::try_from(&ss.problems, &parse_rule)?;
 
         let premises = ss
             .premises
@@ -141,7 +173,8 @@ mod specs {
         );
 
         assert_eq!(actual.rules.len(), 2);
-        assert!(actual.problems.is_empty());
+        assert!(actual.problems.training.is_empty());
+        assert!(actual.problems.validation.is_empty());
         assert_eq!(actual.premises.len(), 2);
 
         assert_eq!(

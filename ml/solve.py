@@ -87,6 +87,7 @@ def main(options, config):
 
     inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
 
+    # Solving trainings data
     training_statistics = []
     if options.solve_training:
         bs = [int(s) for s in str(config.evaluation.trainings_data.beam_size).split(':')]
@@ -103,7 +104,9 @@ def main(options, config):
             training_statistic['beam-size'] = bs
             training_statistics.append(training_statistic)
 
-    problem_solutions, problem_statistics = solve_problems(options, config, scenario, inferencer, rule_mapping)
+    # Solving problems
+    problem_solutions, problem_statistics = solve_problems(
+        options, config, scenario.problems.validation, inferencer, rule_mapping)
     dump_new_rules(solutions=problem_solutions, new_rules_filename=config.evaluation.new_rules_filename)
     for problem_solution in problem_solutions:
         if problem_solution:
@@ -118,7 +121,7 @@ def main(options, config):
             'training-traces': training_statistics
         }, f)
 
-    logging.info('Summary:')
+    logging.debug('Summary:')
     total_fits = 0
     succeeded_count = 0
     for problem_statistic in problem_statistics:
@@ -126,7 +129,7 @@ def main(options, config):
         total_fits += problem_statistic.fit_results
         if problem_statistic.success:
             succeeded_count += 1
-        logging.info(f'{problem_statistic.name}: result {success} fits: {problem_statistic.fit_results}')
+        logging.debug(f'{problem_statistic.name}: result {success} fits: {problem_statistic.fit_results}')
     logging.info(f'Solving {succeeded_count}/{len(problem_statistics)} needed {total_fits} fits.')
 
 
