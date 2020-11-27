@@ -117,7 +117,7 @@ def main(options, config):
     with results_filename.open('w') as f:
         yaml.dump({
             'problems': [d.as_dict() for d in problem_statistics],
-            'problem-statistics': {'tops': solution_summary(problem_solutions)},
+            'problem-statistics': {'tops': solution_summary(problem_solutions, as_dict=True)},
             'training-traces': training_statistics
         }, f)
 

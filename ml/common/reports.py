@@ -22,7 +22,10 @@ def report_tops(tops: Tops, epoch: int, writer: SummaryWriter = None, label='top
             return tops.values[i] / total
         return 0.
 
-    rest = sum(v for i, v in tops.values.items() if i >= N) / total
+    if total > 0:
+        rest = sum(v for i, v in tops.values.items() if i >= N) / total
+    else:
+        rest = 0
 
     if writer:
         scalars = {f'top_{i}': top_k(i) for i in range(1, N)}

@@ -1,5 +1,6 @@
-import logging
 from typing import Dict
+import itertools
+import logging
 
 from pycore import Symbol, Context, Rule
 
@@ -25,6 +26,9 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         return Symbol.parse(context, 'u')
 
     eval_config = config.evaluation
+
+    if options.smoke:
+        problems = dict(itertools.islice(problems.items(), 1))
 
     for i, problem_name in enumerate(problems):
         if show_progress:

@@ -1,197 +1,22 @@
+pub mod fitinfo;
+pub mod meta;
 pub mod sample;
 
-use crate::common::op_to_string;
+use crate::bag::sample::PySample;
 use crate::rule::PyRule;
+use crate::scenario::PyScenario;
 use core::bag;
 use core::rule::Rule;
-use pyo3::class::basic::CompareOp;
-use pyo3::class::{PyObjectProtocol, PySequenceProtocol};
-use pyo3::exceptions::{FileNotFoundError, NotImplementedError, TypeError};
+use pyo3::class::PySequenceProtocol;
+use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
-use sample::PySample;
 use std::cmp;
-use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
-use std::hash::{Hash, Hasher};
 use std::io::{BufReader, BufWriter};
-use std::sync::Arc;
 
-#[pyclass(name=BagMeta,subclass)]
-pub struct PyBagMeta {
-    data: Arc<bag::Meta>,
-}
-
-#[pymethods]
-impl PyBagMeta {
-    #[getter]
-    fn idents(&self) -> PyResult<Vec<String>> {
-        Ok(self.data.idents.clone())
-    }
-
-    #[getter]
-    fn rules(&self) -> PyResult<Vec<PyRule>> {
-        Ok(self
-            .data
-            .rules
-            .iter()
-            .map(|(l, r)| PyRule {
-                inner: Arc::new(r.clone()),
-                name: l.clone(),
-            })
-            .collect())
-    }
-
-    #[getter]
-    fn rule_distribution(&self) -> PyResult<Vec<(u32, u32)>> {
-        Ok(self.data.rule_distribution.clone())
-    }
-
-    #[getter]
-    fn value_distribution(&self) -> PyResult<(u32, u32)> {
-        Ok(self.data.value_distribution.clone())
-    }
-
-    fn clear_distributions(&mut self) -> PyResult<()> {
-        let mut meta = Arc::get_mut(&mut self.data)
-            .ok_or(PyErr::new::<TypeError, _>("Can not mutate borrowed bag!"))?;
-        for rule in meta.rule_distribution.iter_mut() {
-            *rule = (0, 0);
-        }
-        meta.value_distribution = (0, 0);
-        Ok(())
-    }
-
-    fn clone_with_distribution(&self, samples: Vec<PySample>) -> PyResult<Self> {
-        let mut positive_value = 0;
-        let mut negative_value = 0;
-
-        let mut rule_distribution = vec![(0, 0); self.data.rule_distribution.len()];
-
-        for sample in samples.iter() {
-            if sample.data.useful {
-                positive_value += sample.data.fits.len() as u32;
-            } else {
-                negative_value += sample.data.fits.len() as u32;
-            }
-            for fitinfo in sample.data.fits.iter() {
-                let (ref mut positive, ref mut negative) =
-                    rule_distribution[fitinfo.data.rule_id as usize];
-                if fitinfo.data.policy == bag::Policy::Positive {
-                    *positive += 1;
-                } else {
-                    *negative += 1;
-                }
-            }
-        }
-
-        Ok(Self {
-            data: Arc::new(bag::Meta {
-                rule_distribution,
-                value_distribution: (positive_value, negative_value),
-                idents: self.data.idents.iter().cloned().collect(),
-                rules: self.data.rules.iter().cloned().collect(),
-            }),
-        })
-    }
-
-    fn update_distributions(&mut self, samples: Vec<PySample>) -> PyResult<()> {
-        let mut meta = Arc::get_mut(&mut self.data)
-            .ok_or(PyErr::new::<TypeError, _>("Can not mutate borrowed bag!"))?;
-        // Clear
-        for rule in meta.rule_distribution.iter_mut() {
-            *rule = (0, 0);
-        }
-        let mut positive_value = 0;
-        let mut negative_value = 0;
-
-        for sample in samples.iter() {
-            if sample.data.useful {
-                positive_value += sample.data.fits.len() as u32;
-            } else {
-                negative_value += sample.data.fits.len() as u32;
-            }
-            for fitinfo in sample.data.fits.iter() {
-                let (ref mut positive, ref mut negative) =
-                    meta.rule_distribution[fitinfo.data.rule_id as usize];
-                if fitinfo.data.policy == bag::Policy::Positive {
-                    *positive += 1;
-                } else {
-                    *negative += 1;
-                }
-            }
-        }
-
-        meta.value_distribution = (positive_value, negative_value);
-        Ok(())
-    }
-}
-
-#[pyclass(name=FitInfo,subclass)]
-#[derive(Clone)]
-pub struct PyFitInfo {
-    /// Starting with 1 for better embedding
-    pub data: Arc<bag::FitInfo>,
-}
-
-impl PyFitInfo {
-    pub fn new(orig: bag::FitInfo) -> PyFitInfo {
-        PyFitInfo {
-            data: Arc::new(orig),
-        }
-    }
-}
-
-#[pymethods]
-impl PyFitInfo {
-    #[new]
-    fn py_new(rule_id: u32, path: Vec<usize>, positive: bool) -> Self {
-        PyFitInfo::new(bag::FitInfo {
-            rule_id,
-            path,
-            policy: bag::Policy::new(positive),
-        })
-    }
-
-    #[getter]
-    fn rule(&self) -> PyResult<u32> {
-        Ok(self.data.rule_id)
-    }
-
-    #[getter]
-    fn path(&self) -> PyResult<Vec<usize>> {
-        Ok(self.data.path.clone())
-    }
-
-    #[getter]
-    fn policy(&self) -> PyResult<f32> {
-        Ok(self.data.policy.value())
-    }
-}
-
-#[pyproto]
-impl PyObjectProtocol for PyFitInfo {
-    fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("{:?}", *self.data))
-    }
-
-    fn __richcmp__(&self, other: Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(*self.data == *other.data),
-            CompareOp::Ne => Ok(*self.data != *other.data),
-            _ => Err(PyErr::new::<NotImplementedError, _>(format!(
-                "Comparison operator {} for Symbol is not implemented yet!",
-                op_to_string(&op)
-            ))),
-        }
-    }
-
-    fn __hash__(&self) -> PyResult<isize> {
-        let mut state = DefaultHasher::new();
-        (*self.data).hash(&mut state);
-        Ok(state.finish() as isize)
-    }
-}
+pub use crate::bag::meta::PyBagMeta;
+pub use fitinfo::PyFitInfo;
 
 #[pyclass(name=Container,subclass)]
 #[derive(Clone)]
@@ -285,6 +110,14 @@ impl PyBag {
     }
 
     #[staticmethod]
+    fn from_scenario(scenario: &PyScenario) -> PyResult<Self> {
+        Ok(Self {
+            meta_data: bag::Meta::from_scenario(&scenario.inner),
+            containers: vec![],
+        })
+    }
+
+    #[staticmethod]
     fn load(path: String) -> PyResult<PyBag> {
         let file = File::open(path.clone())
             .map_err(|msg| PyErr::new::<FileNotFoundError, _>(format!("{}: \"{}\"", msg, path)))?;
@@ -335,9 +168,7 @@ impl PyBag {
 
     #[getter]
     fn meta(&self) -> PyResult<PyBagMeta> {
-        Ok(PyBagMeta {
-            data: Arc::new(self.meta_data.clone()),
-        })
+        Ok(PyBagMeta::new(&self.meta_data))
     }
 
     #[getter]

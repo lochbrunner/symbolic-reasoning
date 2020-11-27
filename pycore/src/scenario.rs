@@ -55,6 +55,7 @@ impl PyScenarioProblems {
 
 /// Python Wrapper for core::io::Scenario
 #[pyclass(name=Scenario,subclass)]
+#[derive(Clone)]
 pub struct PyScenario {
     pub inner: Arc<Scenario>,
 }

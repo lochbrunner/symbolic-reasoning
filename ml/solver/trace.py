@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dataset.bag import BagDataset
 
-from pycore import Rule, FitInfo, SampleSet, Sample, Bag
+from pycore import Rule, FitInfo, SampleSet, Sample, Bag, Scenario, BagMeta
 
 
 class ApplyInfo:
@@ -149,7 +149,9 @@ class Tops:
 
     @property
     def worst(self):
-        return max(self.values.keys())
+        if len(self.values) > 0:
+            return max(self.values.keys())
+        return 0
 
 
 def calculate_policy_tops(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
@@ -186,11 +188,15 @@ def calculate_value_tops(solutions: List[ApplyInfo]):
     return tops
 
 
-def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
-
+def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None, as_dict=False):
+    if as_dict:
+        return {
+            'policy': calculate_policy_tops(solutions, prev_tops).as_dict(),
+            'value': calculate_value_tops(solutions).as_dict()
+        }
     return {
-        'policy': calculate_policy_tops(solutions, prev_tops).as_dict(),
-        'value': calculate_value_tops(solutions).as_dict()
+        'policy': calculate_policy_tops(solutions, prev_tops),
+        'value': calculate_value_tops(solutions)
     }
 
 
@@ -222,10 +228,10 @@ class Statistics:
 class TrainingsDataDumper:
     '''Stores all samples and dumps them on demand.'''
 
-    def __init__(self, config):
+    def __init__(self, config, scenario: Scenario):
         self.sample_set = SampleSet()
         self.solver_trainings_data = Path(config.evaluation.solver_trainings_data)
-        self.initial_bag = Bag.load(str(config.files.trainings_data))
+        self.scenario = scenario
 
     def __add__(self, statistics: Statistics):
         for apply_info in statistics.trace.iter():
@@ -235,8 +241,7 @@ class TrainingsDataDumper:
         return self
 
     def dump(self):
-        bag = self.initial_bag
-        bag.clear_containers()
+        bag = Bag.from_scenario(self.scenario)
         bag.add_container(self.sample_set.to_container())
         bag.update_meta()
         self.solver_trainings_data.parent.mkdir(exist_ok=True, parents=True)
@@ -251,8 +256,7 @@ class TrainingsDataDumper:
             for container in bag.containers:
                 self.sample_set.merge(SampleSet.from_container(container))
         else:
-            bag = self.initial_bag
-            bag.clear_containers()
+            bag = Bag.from_scenario(self.scenario)
 
         bag.add_container(self.sample_set.to_container())
         bag.update_meta()
@@ -262,7 +266,8 @@ class TrainingsDataDumper:
 
     def get_dataset(self):
         container = self.sample_set.to_container()
-        meta = self.initial_bag.meta.clone_with_distribution(container.samples)
+        meta = BagMeta.from_scenario(self.scenario)
+        meta = meta.clone_with_distribution(container.samples)
         return BagDataset(meta=meta, samples=container.samples,
                           max_depth=container.max_depth, max_size=container.max_size)
 

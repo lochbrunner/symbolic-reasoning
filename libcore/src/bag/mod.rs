@@ -1,3 +1,4 @@
+use crate::scenario::Scenario;
 use crate::{Rule, Symbol};
 use std::collections::{HashMap, HashSet};
 
@@ -11,6 +12,17 @@ pub fn extract_idents_from_rules<T>(rules: &[T], unpack: fn(&T) -> &Rule) -> Has
     for rule in rules.iter().map(unpack) {
         for part in rule
             .condition
+            .parts()
+            .filter(|s| s.fixed())
+            .map(|s| &s.ident)
+        {
+            if !used_idents.contains(part) {
+                used_idents.insert(part.clone());
+            }
+        }
+
+        for part in rule
+            .conclusion
             .parts()
             .filter(|s| s.fixed())
             .map(|s| &s.ident)
@@ -33,6 +45,29 @@ pub struct Meta {
     /// Rule at index 0 is padding
     pub rules: Vec<(String, Rule)>,
     // Should we add the scenario file name?
+}
+
+impl Meta {
+    pub fn from_scenario(scenario: &Scenario) -> Self {
+        let mut rules: Vec<(String, Rule)> = Vec::new();
+        rules.push(("padding".to_string(), Default::default()));
+        let scenario_rules = scenario
+            .rules
+            .iter()
+            .map(|(k, v)| (k.clone(), v.reverse()))
+            .collect::<Vec<_>>();
+        rules.extend_from_slice(&scenario_rules);
+        let idents = extract_idents_from_rules(&rules, |(_, r)| r)
+            .iter()
+            .cloned()
+            .collect();
+        Self {
+            rule_distribution: vec![(1, 1); rules.len()],
+            value_distribution: (0, 0),
+            rules,
+            idents,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
@@ -189,28 +224,9 @@ impl Bag {
     }
 
     /// Creates a bag with one empty container
-    pub fn empty(max_spread: u32, loaded_rules: &[(String, Rule)]) -> Self {
-        let mut rules = vec![("padding".to_string(), Default::default())];
-        rules.extend_from_slice(loaded_rules);
-        let rule_distribution = vec![(1, 1); rules.len()];
-        let value_distribution = (0, 0);
-        // Crawl the idents from the rules
-        let mut idents: HashSet<String> = HashSet::new();
-        for (_, rule) in rules.iter() {
-            for sub in rule.conclusion.iter_bfs() {
-                idents.insert(sub.ident.clone());
-            }
-            for sub in rule.condition.iter_bfs() {
-                idents.insert(sub.ident.clone());
-            }
-        }
+    pub fn empty(max_spread: u32, scenario: &Scenario) -> Self {
         Bag {
-            meta: Meta {
-                rule_distribution,
-                value_distribution,
-                rules,
-                idents: idents.into_iter().collect(),
-            },
+            meta: Meta::from_scenario(scenario),
             containers: vec![SampleContainer {
                 max_size: 0,
                 max_depth: 0,

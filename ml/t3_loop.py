@@ -62,7 +62,7 @@ def main(options, config):
 
     optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
 
-    trainings_data_dumper = TrainingsDataDumper(config)
+    trainings_data_dumper = TrainingsDataDumper(config, scenario)
 
     for iteration in range(config.evaluation.problems.iterations):
         # Try
@@ -83,6 +83,8 @@ def main(options, config):
         training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
         # Train
+        if options.smoke:
+            learn_params.num_epochs = 1
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
               training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
 
@@ -104,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('--results-filename')
     parser.add_argument('--policy-last', action='store_true', default=False)
     parser.add_argument('--tensorboard-dir')
+    parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
 
     # Model
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')
