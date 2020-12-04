@@ -132,13 +132,13 @@ class PolicyHead(nn.Module):
 
     def __init__(self, embedding_size, kernel_size, tagset_size):
         super(PolicyHead, self).__init__()
-        self.cnn = IConv(embedding_size, tagset_size, kernel_size=kernel_size)
+        self.cnn = IConv(in_size=embedding_size, out_size=tagset_size, kernel_size=kernel_size)
 
     def forward(self, x, s, p):
         x = self.cnn(x, s)
         # negative policy indicates that the rule at that possition should not be applied
         # x_blj * p_bl = y_blj
-        x = x * p.unsqueeze(2).expand(x.shape)
+        x *= p.unsqueeze(2).expand(x.shape)
         # j must be second index: b,j,...
         y = F.log_softmax(x, dim=2)
         return torch.transpose(y, 1, 2)
@@ -197,7 +197,7 @@ class TreeCnnUniqueIndices(nn.Module):
         e = x[:, :, 0].squeeze()
         e = self.embedding(e)
         if self.config['use_props']:
-            props = x[:, :, 1:].type(torch.FloatTensor)
+            props = x[:, :, 1:].type(torch.FloatTensor).to(e.device)
             if e.ndim == 2:
                 e = e.unsqueeze(0)
             x = self.combine(e, props)

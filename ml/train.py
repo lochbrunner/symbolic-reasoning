@@ -134,17 +134,19 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
     train_set, val_set = torch.utils.data.random_split(dataset, [trainings_size, validation_size])
 
     # Loading data
+    common_loader_params = {
+        'num_workers': 0,
+        'drop_last': True,
+        'pin_memory': exe_params.device == 'cuda',
+        'collate_fn': dataset.get_collate_fn()
+    }
     train_loader_params = {'batch_size': learn_params.batch_size,
                            'shuffle': True,
-                           'num_workers': 0,
-                           'drop_last': True,
-                           'collate_fn': dataset.get_collate_fn()}
+                           **common_loader_params}
 
     validate_loader_params = {'batch_size': 8,
                               'shuffle': False,
-                              'num_workers': 0,
-                              'drop_last': True,
-                              'collate_fn': dataset.get_collate_fn()}
+                              **common_loader_params}
     training_dataloader = data.DataLoader(train_set, **train_loader_params)
     validation_dataloader = data.DataLoader(val_set, **validate_loader_params)
 
@@ -168,6 +170,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             device = model.device
             x = x.to(device)
             s = s.to(device)
+            p = p.to(device)
             writer.add_graph(model, (x, s, p))
         else:
             writer = None
@@ -178,6 +181,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         model.train()
 
         def report(epoch, epoch_loss):
+            if epoch % exe_params.report_rate != 0:
+                return
             model.eval()
             error = validate(model, validation_dataloader)
             model.train()
@@ -186,7 +191,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             logbook.append((epoch, error, loss))
             if not writer:
                 logger.info(
-                    f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error: {error.value_error}')
+                    f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error (all): {error.value_all}')
             if azure_run is not None:
                 error.exact.log(azure_run.log, 'exact')
                 error.exact_no_padding.log(azure_run.log, 'exact (np)')

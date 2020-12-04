@@ -19,15 +19,14 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
-        for x, *s, y, p, v in training_dataloader:
+        for x, s, y, p, v in training_dataloader:
             x = x.to(device)
+            s = s.to(device)
             y = y.to(device)
+            p = p.to(device)
+            v = v.to(device)
             optimizer.zero_grad()
-            if len(s) > 0:
-                s = s[0].to(device)
-                py, pv = model(x, s, p)
-            else:
-                py, pv = model(x)
+            py, pv = model(x, s, p)
             # batch x tags
             policy_loss = policy_loss_function(py, y)
             v = v.squeeze()
