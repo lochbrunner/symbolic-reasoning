@@ -10,9 +10,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v1
         with:
-          python-version: 3.7
+          python-version: 3.8
       - name: Install dependencies
-        run: pip3 install torch==1.3.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+        run: pip3 install torch==1.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:

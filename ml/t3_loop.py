@@ -83,6 +83,8 @@ def main(options, config):
         training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
         # Train
+        if options.just_dump_trainings_data:
+            break
         if options.smoke:
             learn_params.num_epochs = 1
         train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
@@ -107,6 +109,8 @@ if __name__ == '__main__':
     parser.add_argument('--policy-last', action='store_true', default=False)
     parser.add_argument('--tensorboard-dir')
     parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
+    parser.add_argument('--just-dump-trainings-data', action='store_true', default=False,
+                        help='Just try, trace and dump trainings data.')
 
     # Model
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')

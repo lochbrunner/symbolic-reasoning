@@ -10,6 +10,7 @@ try:
     from azureml.core import Run
     import azureml
     azure_run = Run.get_context(allow_offline=False)
+    from azureml.tensorboard import Tensorboard
 except ImportError:
     azure_run = None
 except AttributeError:  # Running in offline mode
@@ -76,25 +77,25 @@ def dump_statistics(config, logbooks):
     with filename.open('w') as f:
         yaml.dump(stat, f)
 
-    if azure_run is not None:
-        print(azure_run)
-        for i, logbook in enumerate(logbooks):
-            (_, error, loss) = logbook[-1][0]
+    # if azure_run is not None:
+    #     print(azure_run)
+    #     for i, logbook in enumerate(logbooks):
+    #         (_, error, loss) = logbook[-1][0]
 
-            def sumup(name):
-                ratio = getattr(error, name)
-                return ratio.topk(5)
+    #         def sumup(name):
+    #             ratio = getattr(error, name)
+    #             return ratio.topk(5)
 
-            row = {n: sumup(n) for n in ['exact', 'exact_no_padding']}
-            azure_run.log_row(f'Parameter set {i+1}', **row)
-        # Last error
-        (_, last, _) = logbooks[-1][-1][0]
-        top1 = last.exact_no_padding.topk(1)
-        azure_run.log('top1', top1)
-        top2 = last.exact_no_padding.topk(2)
-        azure_run.log('top2', top2)
-        top3 = last.exact_no_padding.topk(3)
-        azure_run.log('top3', top3)
+    #         row = {n: sumup(n) for n in ['exact', 'exact_no_padding']}
+    #         azure_run.log_row(f'Parameter set {i+1}', **row)
+    #     # Last error
+    #     (_, last, _) = logbooks[-1][-1][0]
+    #     top1 = last.exact_no_padding.topk(1)
+    #     azure_run.log('top1', top1)
+    #     top2 = last.exact_no_padding.topk(2)
+    #     azure_run.log('top2', top2)
+    #     top3 = last.exact_no_padding.topk(3)
+    #     azure_run.log('top3', top3)
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
@@ -163,8 +164,17 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         sys.exit(1)
     signal.signal(signal.SIGINT, early_abort)
     try:
-
+        tb = None
         if exe_params.tensorboard:
+            if azure_run is not None:
+                log_dir = Path('output/tensorboard')
+                log_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    tb = Tensorboard([azure_run], local_root=str(log_dir), port=6006)
+                    tb.start()
+                except Exception as e:
+                    logger.warning(f'Could not start tensorboard: {e}')
+                writer = SummaryWriter(log_dir=str(log_dir))
             writer = SummaryWriter()
             x, s, _, p, _ = next(iter(validation_dataloader))
             device = model.device
@@ -172,6 +182,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
             s = s.to(device)
             p = p.to(device)
             writer.add_graph(model, (x, s, p))
+
         else:
             writer = None
 
@@ -198,6 +209,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 error.with_padding.log(azure_run.log, 'class')
                 error.when_rule.log(azure_run.log, 'class (np)')
                 azure_run.log('loss', loss.item())
+                azure_run.log('value/all', float(error.value_all))
+                azure_run.log('value/positive', float(error.value_positive))
+                azure_run.log('value/negative', float(error.value_negative))
+
             if writer:
                 error.exact.log_bundled(writer, 'policy/exact', epoch)
                 error.exact_no_padding.log_bundled(writer, 'policy/exact (no padding)', epoch)
@@ -218,10 +233,28 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
         logbook.append((learn_params.num_epochs, error, None))
         save_snapshot()
+        if writer:
+            writer.add_hparams(hparam_dict={
+                'batch-size': learn_params.batch_size,
+                'learning-rate': learn_params.learning_rate,
+                'gradient-clipping': learn_params.gradient_clipping,
+                'value-lossweight': learn_params.value_loss_weight,
+                ** vars(learn_params.model_hyper_parameter)
+            },
+                metric_dict={'kpi/value-all': float(error.value_all),
+                             'kpi/exact-no-padding (1)': error.exact_no_padding.topk(1),
+                             'kpi/exact-no-padding (2)': error.exact_no_padding.topk(2),
+                             'kpi/exact-no-padding (3)': error.exact_no_padding.topk(3),
+                             'kpi/exact-no-padding (5)': error.exact_no_padding.topk(5),
+                             'kpi/exact-no-padding (9)': error.exact_no_padding.topk(9),
+                             })
         return logbook
+
     finally:
         if writer:
             writer.close()
+            if tb:
+                tb.stop()
 
 
 if __name__ == '__main__':

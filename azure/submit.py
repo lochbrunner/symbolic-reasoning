@@ -43,12 +43,18 @@ def main(args):
         compute_target=args.compute_target,
         entry_script='./ml/train.py',
         inputs=[generated_dr.as_download(path_on_compute=dir_on_compute)],
-        script_params={'-c': args.dataset,
+        script_params={'-c': args.config,
                        '-v': '',
-                       '--bag-filename': str(path_on_compute),
-                       '--save-model': 'outputs/bag-basic_parameter_search.sp',
-                       '--statistics': 'outputs/training-statistics.yaml'},
-        source_directory=Path(__file__).parents[1],
+                       '--training-solver-filename': str(path_on_compute),
+                       '--files-solver-trainings-data': str(path_on_compute),
+                       '--files-model': 'out/number-crunching.sp',
+                       '--files-training-statistics': 'out/training-statistics.yaml',
+                       '--use-solved-problems': '',
+                       '--tensorboard': '',
+                       '--training-num-epochs': '200',
+                       '-r': '5',
+                       '--create-fresh-model': ''},
+        source_directory=Path(__file__).absolute().parents[1],
         user_managed=True,
         process_count_per_node=1,
         custom_docker_image=docker_image,
@@ -57,15 +63,14 @@ def main(args):
 
     ps = GridParameterSampling(
         {
-            '--embedding-size': choice([16, 24, 32]),
-            '--use-props': choice([1]),
-            '--hidden-layers': choice([1, 2, 3]),
+            '--training-model-parameter-embedding_size': choice([32, 48]),
+            '--training-model-parameter-hidden_layers': choice([1, 2, 3]),
         }
     )
 
     hdc = HyperDriveConfig(estimator=estimator,
                            hyperparameter_sampling=ps,
-                           primary_metric_name='top3',
+                           primary_metric_name='exact (np) [5]',
                            primary_metric_goal=PrimaryMetricGoal.MAXIMIZE,
                            max_total_runs=20,
                            max_concurrent_runs=10)
@@ -83,11 +88,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
     parser.add_argument('--docker-repository', default='train')
-    parser.add_argument('--docker-image', default='7-builder')
-    parser.add_argument('--compute-target', default='cpucore4')
+    parser.add_argument('--docker-image', default='11-builder')
+    parser.add_argument('--compute-target', default='cpucore8   ')
 
-    parser.add_argument('--trainings-data', default='experiments/bag-basic.bin', type=Path)
-    parser.add_argument('--dataset', default='real_world_problems/basics/dataset.yaml', type=Path)
+    parser.add_argument('--trainings-data', default='experiments/number-crunching/solver-trainings-data.bin', type=Path)
+    parser.add_argument('--config', default='real_world_problems/number_crunching/config.yaml', type=Path)
 
     parser.add_argument('--tags', nargs='*', default=[])
     parser.add_argument('--name', default='training')
