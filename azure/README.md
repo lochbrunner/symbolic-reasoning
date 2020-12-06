@@ -16,6 +16,12 @@ Stripping binaries
 azure/submit.py --tags reason:test-slim
 ```
 
+## Download results
+
+```zsh
+./download.py --run-id HD_cd71b1a0-fde0-4fc2-87ab-87e6512cdfa7 --output-directory /tmp/azure/output
+```
+
 ## Open points
 
 * How the get the filenames used by Azureml?

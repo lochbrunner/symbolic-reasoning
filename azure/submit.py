@@ -9,7 +9,7 @@ from azureml.core.datastore import Datastore
 from azureml.data.data_reference import DataReference
 
 from azureml.train.estimator import Estimator
-from azureml.train.hyperdrive import GridParameterSampling, HyperDriveConfig, PrimaryMetricGoal
+from azureml.train.hyperdrive import BayesianParameterSampling, HyperDriveConfig, PrimaryMetricGoal
 from azureml.train.hyperdrive import choice
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,8 @@ def main(args):
                        '--files-training-statistics': 'out/training-statistics.yaml',
                        '--use-solved-problems': '',
                        '--tensorboard': '',
-                       '--training-num-epochs': '200',
-                       '-r': '5',
+                       '--training-num-epochs': '500',
+                       '-r': '10',
                        '--create-fresh-model': ''},
         source_directory=Path(__file__).absolute().parents[1],
         user_managed=True,
@@ -61,21 +61,23 @@ def main(args):
         use_gpu=False
     )
 
-    ps = GridParameterSampling(
+    ps = BayesianParameterSampling(
         {
             '--training-model-parameter-embedding_size': choice([32, 48]),
             '--training-model-parameter-hidden_layers': choice([1, 2, 3]),
+            '--training-batch-size': choice([16, 32, 48]),
+            '--training-value-loss-weight': choice([0.5, 0.25]),
         }
     )
 
     hdc = HyperDriveConfig(estimator=estimator,
                            hyperparameter_sampling=ps,
                            primary_metric_name='exact (np) [5]',
-                           primary_metric_goal=PrimaryMetricGoal.MAXIMIZE,
-                           max_total_runs=20,
-                           max_concurrent_runs=10)
+                           primary_metric_goal=PrimaryMetricGoal.MINIMIZE,
+                           max_total_runs=50,
+                           max_concurrent_runs=4)
 
-    experiment = Experiment(workspace=ws, name='training')
+    experiment = Experiment(workspace=ws, name=args.name)
 
     run = experiment.submit(hdc, tags={k: v for k, v in [i.split(':') for i in args.tags]})
     print(run.get_portal_url())
@@ -88,7 +90,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
     parser.add_argument('--docker-repository', default='train')
-    parser.add_argument('--docker-image', default='11-builder')
+    parser.add_argument('--docker-image', default='12-builder')
     parser.add_argument('--compute-target', default='cpucore8   ')
 
     parser.add_argument('--trainings-data', default='experiments/number-crunching/solver-trainings-data.bin', type=Path)
