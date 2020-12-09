@@ -27,5 +27,5 @@ RUN curl -o ~/miniconda.sh -L -O  https://repo.continuum.io/miniconda/Miniconda3
 # PyTorch Wheels can be found here: https://download.pytorch.org/whl/torch_stable.html
 RUN cd /tmp/ &&  \
     curl -L -O https://download.pytorch.org/whl/cu110/torch-1.7.0%2Bcu110-cp38-cp38-linux_x86_64.whl -o pytorch.whl && \
-    PATH=/opt/conda/envs/pytorch-py37/bin:$PATH pip install *.whl tensorboard azureml-core azureml-tensorboard && \
+    PATH=/opt/conda/envs/pytorch-py37/bin:$PATH pip install *.whl tensorboard matplotlib azureml-core azureml-tensorboard && \
     rm *.whl

@@ -42,4 +42,4 @@ rules:
   equation 3: a / b = 1 => a = b
 premises: [] # no data generation
 problems:
-  filename: experiments/basic/problems.spb
+  filename: experiments/basics/problems.spb

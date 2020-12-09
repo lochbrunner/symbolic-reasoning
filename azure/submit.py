@@ -12,17 +12,13 @@ from azureml.train.estimator import Estimator
 from azureml.train.hyperdrive import BayesianParameterSampling, HyperDriveConfig, PrimaryMetricGoal
 from azureml.train.hyperdrive import choice
 
+from lib.common import add_default_parsers, setup_logging
+
 logger = logging.getLogger(__name__)
 
 
 def main(args):
-    loglevel = 'INFO' if args.verbose else args.log.upper()
-    log_format = '%(message)s'
-    logging.basicConfig(
-        level=logging.getLevelName(loglevel),
-        format=log_format,
-        datefmt='%I:%M:%S'
-    )
+    setup_logging(args)
 
     ws = Workspace.get(name=args.workspace_name,
                        subscription_id=args.subscription_id,
@@ -84,23 +80,14 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Submit Azure ML trainings job')
-    parser.add_argument('--log', help='Set the log level', default='warning')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser = argparse.ArgumentParser('Submit an Azure ML hyper-parameter optimization for training job')
 
-    parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
-    parser.add_argument('--docker-repository', default='train')
-    parser.add_argument('--docker-image', default='12-builder')
-    parser.add_argument('--compute-target', default='cpucore8')
+    add_default_parsers(parser)
 
     parser.add_argument('--trainings-data', default='experiments/number-crunching/solver-trainings-data.bin', type=Path)
     parser.add_argument('--config', default='real_world_problems/number_crunching/config.yaml', type=Path)
 
     parser.add_argument('--tags', nargs='*', default=[])
     parser.add_argument('--name', default='training')
-
-    parser.add_argument('--workspace-name', default='symbolic-reasoning-aml')
-    parser.add_argument('--subscription-id', default='4c2ff317-b3e5-4302-b705-688087514d74')
-    parser.add_argument('--resource-group', default='symbolic-reasoning')
 
     main(parser.parse_args())

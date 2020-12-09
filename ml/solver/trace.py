@@ -234,10 +234,11 @@ class TrainingsDataDumper:
         self.scenario = scenario
 
     def __add__(self, statistics: Statistics):
-        for apply_info in statistics.trace.iter():
-            if apply_info.rule_id is not None:
-                sample = Sample(apply_info.previous.current, [apply_info.fit_info], apply_info.contributed)
-                self.sample_set.add(sample)
+        if statistics.success:
+            for apply_info in statistics.trace.iter():
+                if apply_info.rule_id is not None:
+                    sample = Sample(apply_info.previous.current, [apply_info.fit_info], apply_info.contributed)
+                    self.sample_set.add(sample)
         return self
 
     def dump(self):

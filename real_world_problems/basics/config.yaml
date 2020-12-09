@@ -1,4 +1,4 @@
-name: basic
+name: basics
 files:
   evaluation-results: experiments/evaluation-results.yaml
   model: &model experiments/basics/basics.sp
@@ -10,34 +10,7 @@ files:
   trainings-data: &bag experiments/bag-basic.bin
   working-folder: experiments
 generation:
-  stages:
-    [
-      12,
-      12,
-      8,
-      8,
-      8,
-      7,
-      6,
-      6,
-      6,
-      6,
-      6,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-    ]
+  stages: []
   max-depth: 10
   max-size: 127
   min-working-density: 0.1

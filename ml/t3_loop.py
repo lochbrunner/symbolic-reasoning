@@ -27,74 +27,81 @@ from solver.solve_problems import solve_problems
 from solver.trace import TrainingsDataDumper, solution_summary
 from training import train
 
+logger = logging.getLogger(__name__)
+
 
 def main(options, config):
     with Timer('Loading scenario'):
         scenario = Scenario.load(config.files.scenario)
 
-    if options.tensorboard_dir:
-        writer = SummaryWriter(log_dir=options.tensorboard_dir)
-    else:
-        writer = None
+    try:
+        if options.tensorboard_dir:
+            options.tensorboard_dir.mkdir(parents=True, exist_ok=True)
+            writer = SummaryWriter(log_dir=str(options.tensorboard_dir))
+        else:
+            writer = None
 
-    # model, idents, rules = io.load_model(model, depth=9)
-    rule_mapping = {}
-    used_rules = set()
-    max_width = max(len(s.name) for s in scenario.rules.values())+1
-    for i, rule in enumerate(scenario.rules.values(), 1):
-        rule_mapping[i] = rule
-        used_rules.add(str(rule))
-        logging.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
+        # model, idents, rules = io.load_model(model, depth=9)
+        rule_mapping = {}
+        used_rules = set()
+        max_width = max(len(s.name) for s in scenario.rules.values())+1
+        for i, rule in enumerate(scenario.rules.values(), 1):
+            rule_mapping[i] = rule
+            used_rules.add(str(rule))
+            logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
 
-    for scenario_rule in scenario.rules.values():
-        if str(scenario_rule) not in used_rules:
-            logging.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
+        for scenario_rule in scenario.rules.values():
+            if str(scenario_rule) not in used_rules:
+                logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
-    inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
-    solver_logger = logging.Logger('solver')
-    solver_logger.setLevel(logging.WARNING)
+        inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
+        solver_logger = logging.Logger('solver')
+        solver_logger.setLevel(logging.WARNING)
 
-    learn_params = LearningParmeter.from_config(config)
-    data_loader_config = {'batch_size': learn_params.batch_size,
-                          'shuffle': True,
-                          'num_workers': 0,
-                          'collate_fn': BagDataset.collate_fn}
+        learn_params = LearningParmeter.from_config(config)
+        data_loader_config = {'batch_size': learn_params.batch_size,
+                              'shuffle': True,
+                              'num_workers': 0,
+                              'collate_fn': BagDataset.collate_fn}
 
-    optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
+        optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
 
-    trainings_data_dumper = TrainingsDataDumper(config, scenario)
+        trainings_data_dumper = TrainingsDataDumper(config, scenario)
 
-    for iteration in range(config.evaluation.problems.iterations):
-        # Try
-        problem_solutions, problem_statistics = solve_problems(
-            options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger)
-        tops = solution_summary(problem_solutions)
-        report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
-        report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
+        for iteration in range(config.evaluation.problems.iterations):
+            # Try
+            problem_solutions, problem_statistics = solve_problems(
+                options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger)
+            tops = solution_summary(problem_solutions)
+            report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
+            report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
 
-        # Trace
-        mean = Mean()
-        for problem_statistic in problem_statistics:
-            mean += problem_statistic.success
-            if problem_statistic:
-                trainings_data_dumper += problem_statistic
+            # Trace
+            mean = Mean()
+            for problem_statistic in problem_statistics:
+                mean += problem_statistic.success
+                if problem_statistic:
+                    trainings_data_dumper += problem_statistic
 
-        dataset = trainings_data_dumper.get_dataset()
-        training_dataloader = data.DataLoader(dataset, **data_loader_config)
+            if mean.correct == 0.0:
+                logger.warning('Could not solve any of the training problems.')
+                return
+            logger.info(f'Solved: {mean} in iteration {iteration}')
+            dataset = trainings_data_dumper.get_dataset()
+            training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
-        # Train
-        if options.just_dump_trainings_data:
-            break
-        if options.smoke:
-            learn_params.num_epochs = 1
-        train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
-              training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
+            # Train
+            if options.just_dump_trainings_data:
+                break
+            if options.smoke:
+                learn_params.num_epochs = 1
+            train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
+                  training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
 
-        writer.add_scalar('solved/relative', mean.summary, iteration)
-        logging.info(f'Solved: {mean} in iteration {iteration}')
-
-    if writer:
-        writer.close()
+            writer.add_scalar('solved/relative', mean.summary, iteration)
+    finally:
+        if writer:
+            writer.close()
 
     trainings_data_dumper.dump()
 
@@ -107,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
     parser.add_argument('--results-filename')
     parser.add_argument('--policy-last', action='store_true', default=False)
-    parser.add_argument('--tensorboard-dir')
+    parser.add_argument('--tensorboard-dir', type=Path)
     parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
     parser.add_argument('--just-dump-trainings-data', action='store_true', default=False,
                         help='Just try, trace and dump trainings data.')
@@ -116,7 +123,7 @@ if __name__ == '__main__':
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')
 
     config_args, self_args = parser.parse_args()
-    loglevel = 'DEBUG' if self_args.verbose else self_args.log.upper()
+    loglevel = 'INFO' if self_args.verbose else self_args.log.upper()
 
     logging.basicConfig(
         level=logging.getLevelName(loglevel),

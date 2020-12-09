@@ -14,7 +14,8 @@
 /Cargo.lock
 /Cargo.toml
 /docs
-/experiments
+/experiments/archive
+/experiments/trace*
 /generator
 /libcore
 /logs/*
