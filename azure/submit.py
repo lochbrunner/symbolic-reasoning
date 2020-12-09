@@ -51,7 +51,7 @@ def main(args):
                        '--files-training-statistics': 'out/training-statistics.yaml',
                        '--use-solved-problems': '',
                        '--tensorboard': '',
-                       '--training-num-epochs': '500',
+                       '--training-num-epochs': '1000',
                        '-r': '10',
                        '--create-fresh-model': ''},
         source_directory=Path(__file__).absolute().parents[1],
@@ -63,10 +63,10 @@ def main(args):
 
     ps = BayesianParameterSampling(
         {
-            '--training-model-parameter-embedding_size': choice([32, 48]),
+            '--training-model-parameter-embedding_size': choice([48, 64]),
             '--training-model-parameter-hidden_layers': choice([1, 2, 3]),
-            '--training-batch-size': choice([16, 32, 48]),
-            '--training-value-loss-weight': choice([0.5, 0.25]),
+            '--training-batch-size': choice([8, 16]),
+            '--training-learning-rate': choice([0.1, 0.01])
         }
     )
 
@@ -74,7 +74,7 @@ def main(args):
                            hyperparameter_sampling=ps,
                            primary_metric_name='exact (np) [5]',
                            primary_metric_goal=PrimaryMetricGoal.MINIMIZE,
-                           max_total_runs=50,
+                           max_total_runs=20,
                            max_concurrent_runs=4)
 
     experiment = Experiment(workspace=ws, name=args.name)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('--docker-registry', default='symbolicreasd05db995.azurecr.io')
     parser.add_argument('--docker-repository', default='train')
     parser.add_argument('--docker-image', default='12-builder')
-    parser.add_argument('--compute-target', default='cpucore8   ')
+    parser.add_argument('--compute-target', default='cpucore8')
 
     parser.add_argument('--trainings-data', default='experiments/number-crunching/solver-trainings-data.bin', type=Path)
     parser.add_argument('--config', default='real_world_problems/number_crunching/config.yaml', type=Path)

@@ -141,6 +141,7 @@ if __name__ == '__main__':
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
     parser.add_argument('--results-filename')
     parser.add_argument('--policy-last', action='store_true', default=False)
+    parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
 
     # Model
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')

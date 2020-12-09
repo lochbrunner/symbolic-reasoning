@@ -1,6 +1,7 @@
 use super::{Context, Declaration, Rule, Symbol};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::io::{BufReader, BufWriter};
 extern crate serde_yaml;
 
 #[derive(Serialize, Deserialize, Default)]
@@ -9,14 +10,27 @@ struct ScenarioStringAsProblem {
     pub validation: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ScenarioProblemEnum {
+    Inline(ScenarioStringAsProblem),
+    Filename(String),
+}
+
+impl Default for ScenarioProblemEnum {
+    fn default() -> Self {
+        ScenarioProblemEnum::Inline(Default::default())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ScenarioProblems {
     pub training: HashMap<String, Rule>,
     pub validation: HashMap<String, Rule>,
 }
 
 impl ScenarioProblems {
-    fn try_from(
+    fn try_from_inline(
         value: &ScenarioStringAsProblem,
         parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
     ) -> Result<Self, String> {
@@ -35,6 +49,30 @@ impl ScenarioProblems {
                 .collect::<Result<HashMap<_, _>, _>>()?,
         })
     }
+
+    fn try_from(
+        value: &ScenarioProblemEnum,
+        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
+    ) -> Result<Self, String> {
+        match value {
+            ScenarioProblemEnum::Inline(value) => {
+                ScenarioProblems::try_from_inline(value, parse_rule)
+            }
+            ScenarioProblemEnum::Filename(filename) => Self::load(filename),
+        }
+    }
+
+    pub fn load(filename: &str) -> Result<Self, String> {
+        let file = File::open(filename).map_err(|msg| msg.to_string())?;
+        let reader = BufReader::new(file);
+        bincode::deserialize_from::<BufReader<_>, Self>(reader).map_err(|msg| msg.to_string())
+    }
+
+    pub fn dump(&self, filename: &str) -> Result<(), String> {
+        let file = File::create(filename).map_err(|msg| msg.to_string())?;
+        let writer = BufWriter::new(file);
+        bincode::serialize_into(writer, self).map_err(|msg| msg.to_string())
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +80,7 @@ struct ScenarioStringAsRule {
     pub declarations: HashMap<String, Declaration>,
     pub rules: HashMap<String, String>,
     #[serde(default)]
-    pub problems: ScenarioStringAsProblem,
+    pub problems: ScenarioProblemEnum,
     /// Used to include other yaml files content
     #[serde(default)]
     pub include: Vec<String>,

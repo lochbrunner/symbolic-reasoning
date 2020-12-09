@@ -29,6 +29,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::sample::PySample>()?;
     m.add_class::<bag::sample::PySampleSet>()?;
     m.add_class::<scenario::PyScenario>()?;
+    m.add_class::<scenario::PyScenarioProblems>()?;
     fit::register(m)?;
     apply::register(m)?;
     Ok(())

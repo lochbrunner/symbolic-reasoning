@@ -32,6 +32,13 @@ where
 
 #[pymethods]
 impl PyScenarioProblems {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            inner: Arc::new(Default::default()),
+        }
+    }
+
     #[getter]
     fn validation(&self) -> PyResult<HashMap<String, PyRule>> {
         Ok(export_rules(self.inner.validation.iter()))
@@ -51,6 +58,47 @@ impl PyScenarioProblems {
                 .chain(self.inner.validation.iter()),
         ))
     }
+
+    #[staticmethod]
+    #[text_signature = "(filename, /)"]
+    fn load(filename: &str) -> PyResult<Self> {
+        let data =
+            ScenarioProblems::load(filename).map_err(PyErr::new::<exceptions::IOError, _>)?;
+        Ok(Self {
+            inner: Arc::new(data),
+        })
+    }
+
+    fn dump(&self, filename: &str) -> PyResult<()> {
+        self.inner
+            .dump(filename)
+            .map_err(PyErr::new::<exceptions::IOError, _>)?;
+        Ok(())
+    }
+
+    fn add_to_training(&mut self, rule: PyRule, name: &str) -> PyResult<()> {
+        let problems =
+            Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<exceptions::ReferenceError, _>(
+                "Could not mutable borrow reference.".to_owned(),
+            ))?;
+
+        problems
+            .training
+            .insert(name.to_owned(), (*rule.inner).clone());
+        Ok(())
+    }
+
+    fn add_to_validation(&mut self, rule: PyRule, name: &str) -> PyResult<()> {
+        let problems =
+            Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<exceptions::ReferenceError, _>(
+                "Could not mutable borrow reference.".to_owned(),
+            ))?;
+
+        problems
+            .validation
+            .insert(name.to_owned(), (*rule.inner).clone());
+        Ok(())
+    }
 }
 
 /// Python Wrapper for core::io::Scenario
@@ -66,12 +114,11 @@ impl PyScenario {
     #[staticmethod]
     #[text_signature = "(filename, /)"]
     fn load(filename: String) -> PyResult<PyScenario> {
-        match Scenario::load_from_yaml(&filename) {
-            Ok(scenario) => Ok(PyScenario {
-                inner: Arc::new(scenario),
-            }),
-            Err(msg) => Err(PyErr::new::<exceptions::IOError, _>(msg)),
-        }
+        let scenario =
+            Scenario::load_from_yaml(&filename).map_err(PyErr::new::<exceptions::IOError, _>)?;
+        Ok(Self {
+            inner: Arc::new(scenario),
+        })
     }
 
     #[getter]

@@ -1,4 +1,5 @@
 out
+azureml_outputs/*
 target
 .ropeproject
 **/*.rs.bk

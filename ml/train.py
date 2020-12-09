@@ -192,7 +192,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
         model.train()
 
         def report(epoch, epoch_loss):
-            if epoch % exe_params.report_rate != 0:
+            if (epoch+1) % exe_params.report_rate != 0:
                 return
             model.eval()
             error = validate(model, validation_dataloader)
