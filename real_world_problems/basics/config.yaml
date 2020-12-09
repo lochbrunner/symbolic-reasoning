@@ -1,0 +1,88 @@
+name: basic
+files:
+  evaluation-results: experiments/evaluation-results.yaml
+  model: &model experiments/basics/basics.sp
+  new-rules: &new-rules experiments/basics/new-rules.yaml
+  scenario: real_world_problems/basics/dataset.yaml
+  solver-trainings-data: &solver-data experiments/basics/solver-trainings-data.bin
+  training-statistics: &training-statistics experiments/training-statistics.yaml
+  trainings-data-traces: experiments/bag-basic_*.tr
+  trainings-data: &bag experiments/bag-basic.bin
+  working-folder: experiments
+generation:
+  stages:
+    [
+      12,
+      12,
+      8,
+      8,
+      8,
+      7,
+      6,
+      6,
+      6,
+      6,
+      6,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+    ]
+  max-depth: 10
+  max-size: 127
+  min-working-density: 0.1
+  min-result-density: 0.05
+  distribution-suppression-exponent: 1.8
+  augmentation:
+    enabled: true # Permuting free variables
+    factor: 10
+  blacklist-pattern:
+    - (1*1)*(1*1)
+    - (0+0)+(0+0)
+    - 0-(0-0)
+    - (1^1)^(1^1)
+training:
+  save-model: *model
+  device: cpu
+  # Learning
+  num-epochs: 50
+  report-rate: 2
+  batch-size: 32
+  learning-rate: 0.1 # Not needed here
+  gradient-clipping: 0.1
+  value-loss-weight: 0.5
+  model-name: TreeCnnUniqueIndices
+  # Scenario
+  scenario: bag
+  filename: *bag
+  statistics: *training-statistics
+  model-parameter:
+    embedding_size: 24
+    hidden_layers: 2
+    dropout: 0
+    use_props: [False, True]
+evaluation:
+  num-epochs: 30
+  problems:
+    beam-size: 10
+    num_epochs: 10
+    max_track_loss: 3
+    iterations: 5
+  training-data:
+    beam-size: "1:15"
+    max-steps: -1
+  solver-trainings-data: *solver-data
+  max-size: 7
+  new-rules-filename: *new-rules
+  black-list-terms: []
+  black-list-rules: []

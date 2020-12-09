@@ -20,11 +20,12 @@ rules:
   multiplication: a*b = b + (a-1)*b # -> 1*b = b
 premises: [] # no data generation
 problems:
-  training:
-    {% for k,v in training_problems.items() -%}
-      {{k}}: {{v}}
-    {% endfor %} 
-  validation:
-    {% for k,v in validation_problems.items() -%}
-      {{k}}: {{v}}
-    {% endfor -%}
+  inline:
+    training:
+      {% for k,v in training_problems.items() -%}
+        {{k}}: {{v}}
+      {% endfor %} 
+    validation:
+      {% for k,v in validation_problems.items() -%}
+        {{k}}: {{v}}
+      {% endfor -%}

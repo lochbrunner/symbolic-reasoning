@@ -1,14 +1,14 @@
 name: number-crunching
 files:
-  scenario: real_world_problems/number_crunching/dataset.yaml
-  working-folder: experiments
-  trainings-data: &bag experiments/number-crunching/number-crunching.bin
-  new-rules: &new-rules experiments/number-crunching/new-rules.yaml
-  solver-trainings-data: &solver-data experiments/number-crunching/solver-trainings-data.bin
-  trainings-data-traces: experiments/number-crunching/trace_*.tr
-  model: &model experiments/number-crunching/number-crunching.sp
-  training-statistics: &training-statistics experiments/number-crunching/training-statistics.yaml
   evaluation-results: experiments/number-crunching/evaluation-results.yaml
+  model: &model experiments/number-crunching/number-crunching.sp
+  new-rules: &new-rules experiments/number-crunching/new-rules.yaml
+  scenario: real_world_problems/number_crunching/dataset.yaml
+  solver-trainings-data: &solver-data experiments/number-crunching/solver-trainings-data.bin
+  training-statistics: &training-statistics experiments/number-crunching/training-statistics.yaml
+  trainings-data-traces: experiments/number-crunching/trace_*.tr
+  trainings-data: &bag experiments/number-crunching/number-crunching.bin
+  working-folder: experiments
 generation:
   stages: []
   max-depth: 8
@@ -24,9 +24,9 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 500
-  report-rate: 2
-  batch-size: 32
+  num-epochs: 1000
+  report-rate: 10
+  batch-size: 8
   learning-rate: 0.1
   gradient-clipping: 0.1
   value-loss-weight: 0.5
@@ -38,7 +38,7 @@ training:
   statistics: *training-statistics
   data-size-limit: -1
   model-parameter:
-    embedding_size: 32
+    embedding_size: 64
     hidden_layers: 2
     dropout: 0
     use_props: True
