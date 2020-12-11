@@ -23,8 +23,8 @@ use crate::iter_extensions::{PickTraitVec, Strategy};
 use crate::rose::draw_rose;
 use crate::variable_generator::*;
 
-use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
-use core::bag::{extract_idents_from_rules, Bag, FitInfo};
+use core::io::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
+use core::io::bag::{extract_idents_from_rules, Bag, FitInfo};
 use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 

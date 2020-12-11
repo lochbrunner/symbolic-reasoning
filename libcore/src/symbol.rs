@@ -1,4 +1,4 @@
-use crate::bag::FitInfo;
+use crate::io::bag::FitInfo;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -513,8 +513,8 @@ impl Symbol {
 #[cfg(test)]
 mod specs {
     use super::*;
-    use crate::bag::Policy;
     use crate::context::Context;
+    use crate::io::bag::Policy;
 
     #[test]
     fn calc_depth_unary_op() {

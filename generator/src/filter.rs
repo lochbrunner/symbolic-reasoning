@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::configuration::Configuration;
-use core::bag::trace::ApplyInfo;
+use core::io::bag::trace::ApplyInfo;
 use core::Symbol;
 
 /// Check for e.g. 1*(1*1) or (1*1)*1 (or (1*1)*(1*1))

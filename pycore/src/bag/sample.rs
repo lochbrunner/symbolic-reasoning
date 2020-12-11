@@ -1,8 +1,8 @@
 use crate::bag::{PyContainer, PyFitInfo};
 use crate::symbol::make_2darray;
 use crate::symbol::PySymbol;
-use core::bag;
 use core::dumper::dump_symbol_plain;
+use core::io::bag;
 use core::symbol::Embedding;
 use core::symbol::Symbol;
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
@@ -102,9 +102,9 @@ impl PySample {
         Ok((embedded, index_map, label, policy, value))
     }
 }
-impl From<core::bag::Sample> for PySample {
-    fn from(orig: core::bag::Sample) -> Self {
-        let core::bag::Sample {
+impl From<core::io::bag::Sample> for PySample {
+    fn from(orig: core::io::bag::Sample) -> Self {
+        let core::io::bag::Sample {
             useful,
             initial,
             fits,
@@ -118,7 +118,7 @@ impl From<core::bag::Sample> for PySample {
         }
     }
 }
-impl From<&PySample> for core::bag::Sample {
+impl From<&PySample> for core::io::bag::Sample {
     fn from(orig: &PySample) -> Self {
         Self {
             initial: (*orig.data.initial.inner).clone(),

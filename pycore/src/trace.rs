@@ -1,6 +1,6 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
+use core::io::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};

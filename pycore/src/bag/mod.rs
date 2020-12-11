@@ -5,7 +5,7 @@ pub mod sample;
 use crate::bag::sample::PySample;
 use crate::rule::PyRule;
 use crate::scenario::PyScenario;
-use core::bag;
+use core::io::bag;
 use core::rule::Rule;
 use pyo3::class::PySequenceProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
@@ -31,7 +31,7 @@ pub struct PyContainer {
 impl PyContainer {
     #[new]
     fn py_new() -> Self {
-        PyContainer {
+        Self {
             max_depth: 0,
             max_spread: 0,
             max_size: 0,
@@ -162,8 +162,7 @@ impl PyBag {
         let bag = bag::Bag { meta, containers };
 
         bag.write_bincode(writer)
-            .map_err(PyErr::new::<TypeError, _>)?;
-        Ok(())
+            .map_err(PyErr::new::<TypeError, _>)
     }
 
     #[getter]

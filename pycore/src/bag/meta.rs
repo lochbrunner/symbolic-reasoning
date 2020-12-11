@@ -4,7 +4,7 @@ use std::sync::Arc;
 use pyo3::exceptions::TypeError;
 use pyo3::prelude::*;
 
-use core::bag;
+use core::io::bag;
 
 use crate::bag::sample::PySample;
 use crate::rule::PyRule;

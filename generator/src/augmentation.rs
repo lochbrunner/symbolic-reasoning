@@ -1,7 +1,7 @@
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-use core::bag::FitInfo;
+use core::io::bag::FitInfo;
 use core::Symbol;
 
 #[derive(Clone, Copy)]
@@ -83,7 +83,7 @@ pub fn augment_with_permuted_free_idents(
 #[cfg(test)]
 mod specs {
     use super::*;
-    use core::bag::Policy;
+    use core::io::bag::Policy;
     use core::Context;
 
     static STRATEGY: AugmentationStrategy = AugmentationStrategy::Full;

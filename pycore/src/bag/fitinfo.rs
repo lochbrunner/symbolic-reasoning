@@ -6,7 +6,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use core::bag;
+use core::io::bag;
 
 use crate::common::op_to_string;
 

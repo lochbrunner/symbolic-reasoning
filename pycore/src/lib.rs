@@ -7,6 +7,7 @@ mod context;
 mod fit;
 mod rule;
 mod scenario;
+mod solver_trace;
 mod symbol;
 mod symbol_builder;
 mod trace;
@@ -30,6 +31,7 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::sample::PySampleSet>()?;
     m.add_class::<scenario::PyScenario>()?;
     m.add_class::<scenario::PyScenarioProblems>()?;
+    m.add_class::<solver_trace::PyStepInfo>()?;
     fit::register(m)?;
     apply::register(m)?;
     Ok(())
