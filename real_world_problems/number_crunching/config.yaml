@@ -9,6 +9,7 @@ files:
   trainings-data-traces: experiments/number-crunching/trace_*.tr
   trainings-data: &bag experiments/number-crunching/number-crunching.bin
   working-folder: experiments
+  t3-loop-traces: experiments/number-crunching/t3-loop-results.spb
 generation:
   stages: []
   max-depth: 8

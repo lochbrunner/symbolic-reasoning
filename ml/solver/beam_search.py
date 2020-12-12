@@ -1,11 +1,12 @@
 
 import logging
+from typing import List
 
 from solver.trace import ApplyInfo, Statistics
 from pycore import fit_at_and_apply, fit_and_apply
 
 
-def beam_search(inference, rule_mapping, initial, targets, variable_generator, beam_size, black_list_terms, black_list_rules, num_epochs, **kwargs):
+def beam_search(inference, rule_mapping, initial, targets, variable_generator, num_epochs, beam_size, black_list_terms, black_list_rules, **kwargs):
     '''First apply the policy and then try to fit the suggestions.'''
     seen = set()
     black_list_terms = set(black_list_terms)
@@ -49,8 +50,11 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, b
     return None, statistics
 
 
-def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, num_epochs, beam_size, max_track_loss, black_list_terms, black_list_rules, max_size, **kwargs):
+def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
+                            black_list_terms: List[str], black_list_rules: List[str],
+                            max_size: int, max_fit_results: int, use_network=True, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
+
     black_list_terms = set(black_list_terms)
     black_list_rules = set(black_list_rules)
     seen = set([initial.verbose])
@@ -65,31 +69,40 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     if fits := fit_and_apply(variable_generator, prev.current, rule):
                         possible_rules[i] = fits
 
-            # Sort the possible fits by the policy network
-            policies, value = inference(prev.current, None)  # rule_id, path
-            prev.value = value.item()
-            ranked_fits = {}
-            for rule_id, fits in possible_rules.items():
-                for deduced, fit_result in fits:
-                    try:
-                        j, confidence = next((i, conf) for i, (p_rule_id, p_path, conf) in enumerate(policies)
-                                             if p_rule_id == rule_id and p_path == fit_result.path)
-                    except StopIteration:
-                        print('Available rules:')
-                        for k, v in rule_mapping.items():
-                            print(f'#{k}: {v}')
-                        raise RuntimeError(
-                            f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}.')
-                    # rule id, path, mapping, deduced
-                    ranked_fits[j] = (rule_id, fit_result, confidence, deduced)
+            # Apply network outcome
+            if use_network:
+                # Sort the possible fits by the policy network
+                policies, value = inference(prev.current, None)  # rule_id, path
+                prev.value = value.item()
+                ranked_fits = {}
+                for rule_id, fits in possible_rules.items():
+                    for deduced, fit_result in fits:
+                        try:
+                            j, confidence = next((i, conf) for i, (p_rule_id, p_path, conf) in enumerate(policies)
+                                                 if p_rule_id == rule_id and p_path == fit_result.path)
+                        except StopIteration:
+                            print('Available rules:')
+                            for k, v in rule_mapping.items():
+                                print(f'#{k}: {v}')
+                            raise RuntimeError(
+                                f'Can not find {rule_mapping[rule_id]} #{rule_id} at {fit_result.path}.')
+                        # rule id, path, mapping, deduced
+                        ranked_fits[j] = (rule_id, fit_result, confidence, deduced)
 
-            possible_fits = (v for _, v in sorted(ranked_fits.items()))
+                possible_fits = (v for _, v in sorted(ranked_fits.items()))
 
-            # filter out already seen terms
-            possible_fits = [(*args, deduced) for *args, deduced in possible_fits if deduced.verbose
-                             not in seen and deduced.verbose not in black_list_terms]
-            if beam_size is not None:
-                possible_fits = possible_fits[:beam_size]
+                # filter out already seen terms
+                possible_fits = [(*args, deduced) for *args, deduced in possible_fits if deduced.verbose
+                                 not in seen and deduced.verbose not in black_list_terms]
+                if beam_size is not None:
+                    possible_fits = possible_fits[:beam_size]
+            else:
+                logging.debug('Don\'t use policy and value network. Just try brutforce solving.')
+                possible_fits = []
+                for rule_id, fits in possible_rules.items():
+                    for deduced, fit_result in fits:
+                        confidence = None
+                        possible_fits.append((rule_id, fit_result, confidence, deduced))
 
             for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits, 1):
                 seen.add(deduced.verbose)
@@ -115,6 +128,10 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     statistics.success = True
                     apply_info.contribute()
                     return apply_info, statistics
+
+                if statistics.fit_results >= max_fit_results:
+                    return None, statistics
+
         if not successfull_epoch:
             break
         statistics.trace.close_stage()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dataset.bag import BagDataset
 
-from pycore import Rule, FitInfo, SampleSet, Sample, Bag, Scenario, BagMeta
+from pycore import Rule, FitInfo, SampleSet, Sample, Bag, Scenario, BagMeta, StepInfo, TraceStatistics
 
 
 class ApplyInfo:
@@ -27,6 +27,23 @@ class ApplyInfo:
             self.confidence = confidence.item()
         else:
             self.confidence = confidence
+
+    @property
+    def as_builtin(self) -> StepInfo:
+        step = StepInfo()
+        step.current_latex = self.current
+        if self.value is not None:
+            step.value = self.value
+        if self.confidence is not None:
+            step.confidence = self.confidence
+        step.rule_id = self.rule_id
+        step.path = self.path
+        step.top = self.top
+        step.contributed = self.contributed
+
+        for subsequent in self.subsequent:
+            step.add_subsequent(subsequent.as_builtin)
+        return step
 
     def as_dict(self):
         return {
@@ -110,9 +127,10 @@ class LocalTrace:
         self.next_stage.append(node)
         self.size += 1
 
-    def as_dict_recursive(self, node):
+    @staticmethod
+    def as_dict_recursive(node):
         return {'apply_info': node.apply_info.as_dict(),
-                'childs': [self.as_dict_recursive(c) for c in node.childs]}
+                'childs': [LocalTrace.as_dict_recursive(c) for c in node.childs]}
 
     def iter(self):
         queue = Queue()
@@ -125,6 +143,28 @@ class LocalTrace:
 
     def as_dict(self):
         return self.as_dict_recursive(self.root)
+
+    @staticmethod
+    def as_built_recursive(node: Node) -> StepInfo:
+        step = StepInfo()
+        source = node.apply_info
+        step.current_latex = source.current.latex_verbose
+        if source.value is not None:
+            step.value = source.value
+        if source.confidence is not None:
+            step.confidence = source.confidence
+        step.rule_id = source.rule_id or 0
+        step.path = source.path or []
+        step.top = source.top
+        step.contributed = source.contributed
+
+        for subsequent in node.childs:
+            step.add_subsequent(LocalTrace.as_built_recursive(subsequent))
+        return step
+
+    @property
+    def as_builtin(self) -> StepInfo:
+        return self.as_built_recursive(self.root)
 
 
 class Tops:
@@ -223,6 +263,16 @@ class Statistics:
             'fit_tries': self.fit_tries,
             'fit_results': self.fit_results,
         }
+
+    @property
+    def as_builtin(self) -> TraceStatistics:
+        trace = TraceStatistics()
+        trace.success = self.success
+        trace.fit_tries = self.fit_tries
+        trace.fit_results = self.fit_results
+        trace.trace = self.trace.as_builtin
+
+        return trace
 
 
 class TrainingsDataDumper:

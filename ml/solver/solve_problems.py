@@ -14,7 +14,7 @@ module_logger = logging.getLogger(__name__)
 
 
 def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Inferencer,
-                   rule_mapping: Dict, logger: logging.Logger = module_logger):
+                   rule_mapping: Dict, logger: logging.Logger = module_logger, **kwargs):
     problem_statistics = []
     problem_solutions = []
 
@@ -26,6 +26,8 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         return Symbol.parse(context, 'u')
 
     eval_config = config.evaluation
+
+    problem_traces = {}
 
     if options.smoke:
         problems = dict(itertools.islice(problems.items(), 1))
@@ -46,7 +48,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
                                                    black_list_terms=eval_config.black_list_terms,
                                                    black_list_rules=eval_config.black_list_rules,
                                                    max_size=eval_config.max_size,
-                                                   **vars(eval_config.problems))
+                                                   **vars(eval_config.problems), **kwargs)
         if solution is not None:
             problem_solutions.append(solution)
 
@@ -56,8 +58,9 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         statistics.name = problem_name
         logger.debug(statistics)
         problem_statistics.append(statistics)
+        problem_traces[problem_name] = statistics.as_builtin
 
     if show_progress:
         clearProgressBar()
 
-    return problem_solutions, problem_statistics
+    return problem_solutions, problem_statistics, problem_traces

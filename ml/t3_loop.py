@@ -8,7 +8,7 @@ from pathlib import Path
 
 import torch.optim as optim
 
-from pycore import Symbol, Scenario, Trace
+from pycore import Symbol, Scenario, Trace, SolverStatistics, ProblemStatistics
 from torch.utils import data
 from torch.utils.tensorboard import SummaryWriter
 
@@ -67,26 +67,34 @@ def main(options, config):
         optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
 
         trainings_data_dumper = TrainingsDataDumper(config, scenario)
+        problems_statistics = {problem_name: ProblemStatistics(problem_name)
+                               for problem_name in scenario.problems.training.keys()}
 
         for iteration in range(config.evaluation.problems.iterations):
             # Try
-            problem_solutions, problem_statistics = solve_problems(
-                options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger)
+            use_network = not options.fresh_model or iteration > 0
+            problem_solutions, problem_statistics, problem_traces = solve_problems(
+                options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger, use_network=use_network)
             tops = solution_summary(problem_solutions)
             report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
             report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
 
             # Trace
+            for problem_name, problem_trace in problem_traces.items():
+                problems_statistics[problem_name] += problem_trace
+
             mean = Mean()
             for problem_statistic in problem_statistics:
                 mean += problem_statistic.success
                 if problem_statistic:
                     trainings_data_dumper += problem_statistic
 
+            if writer:
+                writer.add_scalar('solved/relative', mean.summary, iteration)
             if mean.correct == 0.0:
                 logger.warning('Could not solve any of the training problems.')
                 return
-            logger.info(f'Solved: {mean} in iteration {iteration}')
+            logger.info(f'Solved: {mean.verbose} in iteration {iteration}')
             dataset = trainings_data_dumper.get_dataset()
             training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
@@ -97,9 +105,14 @@ def main(options, config):
                 learn_params.num_epochs = 1
             train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
                   training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
-
-            writer.add_scalar('solved/relative', mean.summary, iteration)
     finally:
+        # TODO: Dump traces
+        intro = SolverStatistics()
+        for stat in problems_statistics.values():
+            intro += stat
+        logger.info(f'Dumping traces to "{config.files.t3_loop_traces}" ...')
+        intro.dump(config.files.t3_loop_traces)
+
         if writer:
             writer.close()
 

@@ -9,6 +9,7 @@ files:
   trainings-data-traces: experiments/bag-basic_*.tr
   trainings-data: &bag experiments/bag-basic.bin
   working-folder: experiments
+  t3-loop-traces: experiments/basics/t3-loop-results.spb
 generation:
   stages: []
   max-depth: 10
