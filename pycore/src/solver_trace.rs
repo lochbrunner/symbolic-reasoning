@@ -3,42 +3,36 @@
 //!
 use crate::common::op_to_string;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{NotImplementedError, ReferenceError};
+use pyo3::exceptions::{FileNotFoundError, IOError, KeyError, NotImplementedError, ReferenceError};
 use pyo3::prelude::*;
+use pyo3::PyMappingProtocol;
+use pyo3::PyNumberProtocol;
 use pyo3::PyObjectProtocol;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use core::io::solver_trace::{
     ProblemStatistics, ProblemSummary, SolverStatistics, StepInfo, TraceStatistics,
 };
 
-// macro_rules! create_properties {
-//     ($class:ty, {$($member_name:ident : $member_type:ty),*}) => {
-//         #[pymethods]
-//         impl $class {
-//             $(
-//                 paste! {
-//                     #[getter]
-//                     fn [<get_ $member_name>](&self) -> PyResult<$member_type> {
-//                         Ok(self.inner.$member_name)
-//                     }
-//                     #[setter]
-//                     fn [<set_ $member_name>](&mut self, value: $member_type) -> PyResult<()> {
-//                         self.inner.$member_name = value;
-//                         Ok(())
-//                     }
-//                 }
-//             )*
-//         }
-//     };
-// }
+fn get_mut<'a, T>(reference: &'a mut Arc<T>) -> PyResult<&'a mut T> {
+    Arc::get_mut(reference).ok_or(PyErr::new::<ReferenceError, _>(
+        "Could not mutable borrow reference.".to_owned(),
+    ))
+}
 
 #[pyclass(name=StepInfo,subclass)]
 #[derive(Clone)]
-pub struct PyStepInfo {
+struct PyStepInfo {
     /// Should we put this into Arc ?
-    inner: StepInfo,
+    inner: Arc<StepInfo>,
+}
+
+impl From<&StepInfo> for PyStepInfo {
+    fn from(source: &StepInfo) -> Self {
+        Self {
+            inner: Arc::new(source.clone()),
+        }
+    }
 }
 
 #[pymethods]
@@ -57,7 +51,7 @@ impl PyStepInfo {
 
     #[setter]
     fn set_current_latex(&mut self, value: String) -> PyResult<()> {
-        self.inner.current_latex = value;
+        get_mut(&mut self.inner)?.current_latex = value;
         Ok(())
     }
 
@@ -68,7 +62,7 @@ impl PyStepInfo {
 
     #[setter]
     fn set_value(&mut self, value: f32) -> PyResult<()> {
-        self.inner.value = Some(value);
+        get_mut(&mut self.inner)?.value = Some(value);
         Ok(())
     }
 
@@ -79,23 +73,19 @@ impl PyStepInfo {
 
     #[setter]
     fn set_confidence(&mut self, confidence: f32) -> PyResult<()> {
-        self.inner.confidence = Some(confidence);
+        get_mut(&mut self.inner)?.confidence = Some(confidence);
         Ok(())
     }
 
     #[getter]
     fn get_subsequent(&self) -> PyResult<Vec<Self>> {
-        Ok(self
-            .inner
-            .subsequent
-            .iter()
-            .cloned()
-            .map(|inner| Self { inner })
-            .collect())
+        Ok(self.inner.subsequent.iter().map(Self::from).collect())
     }
 
     fn add_subsequent(&mut self, other: Self) -> PyResult<()> {
-        self.inner.subsequent.push(other.inner);
+        get_mut(&mut self.inner)?
+            .subsequent
+            .push((*other.inner).clone());
         Ok(())
     }
 
@@ -106,7 +96,7 @@ impl PyStepInfo {
 
     #[setter]
     fn set_rule_id(&mut self, value: u32) -> PyResult<()> {
-        self.inner.rule_id = value;
+        get_mut(&mut self.inner)?.rule_id = value;
         Ok(())
     }
 
@@ -117,7 +107,7 @@ impl PyStepInfo {
 
     #[setter]
     fn set_path(&mut self, path: Vec<usize>) -> PyResult<()> {
-        self.inner.path = path;
+        get_mut(&mut self.inner)?.path = path;
         Ok(())
     }
 
@@ -128,7 +118,7 @@ impl PyStepInfo {
 
     #[setter]
     fn set_top(&mut self, value: u32) -> PyResult<()> {
-        self.inner.top = value;
+        get_mut(&mut self.inner)?.top = value;
         Ok(())
     }
 
@@ -139,8 +129,18 @@ impl PyStepInfo {
 
     #[setter]
     fn set_contributed(&mut self, value: bool) -> PyResult<()> {
-        self.inner.contributed = value;
+        get_mut(&mut self.inner)?.contributed = value;
         Ok(())
+    }
+}
+
+#[pyproto]
+impl PyNumberProtocol for PyStepInfo {
+    fn __iadd__(&mut self, other: Self) {
+        get_mut(&mut self.inner)
+            .unwrap()
+            .subsequent
+            .push((*other.inner).clone());
     }
 }
 
@@ -159,12 +159,28 @@ impl PyObjectProtocol for PyStepInfo {
 }
 
 #[pyclass(name=TraceStatistics,subclass)]
-pub struct PyTraceStatistics {
+#[derive(Clone)]
+struct PyTraceStatistics {
     inner: Arc<TraceStatistics>,
+}
+
+impl From<&TraceStatistics> for PyTraceStatistics {
+    fn from(source: &TraceStatistics) -> Self {
+        Self {
+            inner: Arc::new((*source).clone()),
+        }
+    }
 }
 
 #[pymethods]
 impl PyTraceStatistics {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            inner: Arc::new(Default::default()),
+        }
+    }
+
     #[getter]
     fn get_success(&self) -> PyResult<bool> {
         Ok(self.inner.success)
@@ -172,10 +188,7 @@ impl PyTraceStatistics {
 
     #[setter]
     fn set_success(&mut self, value: bool) -> PyResult<()> {
-        let inner = Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<ReferenceError, _>(
-            "Could not mutable borrow reference.".to_owned(),
-        ))?;
-        inner.success = value;
+        get_mut(&mut self.inner)?.success = value;
         Ok(())
     }
 
@@ -186,10 +199,7 @@ impl PyTraceStatistics {
 
     #[setter]
     fn set_fit_tries(&mut self, value: u32) -> PyResult<()> {
-        let inner = Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<ReferenceError, _>(
-            "Could not mutable borrow reference.".to_owned(),
-        ))?;
-        inner.fit_tries = value;
+        get_mut(&mut self.inner)?.fit_tries = value;
         Ok(())
     }
 
@@ -200,52 +210,62 @@ impl PyTraceStatistics {
 
     #[setter]
     fn set_fit_results(&mut self, value: u32) -> PyResult<()> {
-        let inner = Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<ReferenceError, _>(
-            "Could not mutable borrow reference.".to_owned(),
-        ))?;
-        inner.fit_results = value;
+        get_mut(&mut self.inner)?.fit_results = value;
         Ok(())
     }
 
     #[getter]
     fn get_trace(&self) -> PyResult<PyStepInfo> {
-        Ok(PyStepInfo {
-            inner: self.inner.trace.clone(),
-        })
+        Ok(PyStepInfo::from(&self.inner.trace))
     }
 
     #[setter]
     fn set_trace(&mut self, trace: PyStepInfo) -> PyResult<()> {
-        let inner = Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<ReferenceError, _>(
-            "Could not mutable borrow reference.".to_owned(),
-        ))?;
-        inner.trace = trace.inner;
+        get_mut(&mut self.inner)?.trace = (*trace.inner).clone();
         Ok(())
     }
 }
 
 #[pyclass(name=ProblemSummary,subclass)]
-pub struct PyProblemSummary {
-    problem_name: String,
-    success: bool,
+#[derive(Clone)]
+struct PyProblemSummary {
+    inner: ProblemSummary,
 }
 
 impl From<&ProblemSummary> for PyProblemSummary {
     fn from(source: &ProblemSummary) -> Self {
         Self {
-            problem_name: source.problem_name.clone(),
-            success: source.success,
+            inner: (*source).clone(),
         }
     }
 }
 
 #[pyclass(name=ProblemStatistics,subclass)]
+#[derive(Clone)]
 struct PyProblemStatistics {
     inner: Arc<ProblemStatistics>,
 }
 
+impl From<&ProblemStatistics> for PyProblemStatistics {
+    fn from(source: &ProblemStatistics) -> Self {
+        Self {
+            inner: Arc::new((*source).clone()),
+        }
+    }
+}
+
 #[pymethods]
 impl PyProblemStatistics {
+    #[new]
+    fn py_new(problem_name: String) -> Self {
+        Self {
+            inner: Arc::new(ProblemStatistics {
+                problem_name,
+                iterations: Vec::new(),
+            }),
+        }
+    }
+
     #[getter]
     fn get_problem_name(&self) -> PyResult<String> {
         Ok(self.inner.problem_name.clone())
@@ -253,29 +273,81 @@ impl PyProblemStatistics {
 
     #[setter]
     fn set_problem_name(&mut self, value: String) -> PyResult<()> {
-        let inner = Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<ReferenceError, _>(
-            "Could not mutable borrow reference.".to_owned(),
-        ))?;
-        inner.problem_name = value;
+        get_mut(&mut self.inner)?.problem_name = value;
         Ok(())
+    }
+
+    #[getter]
+    fn get_iterations(&self) -> PyResult<Vec<PyTraceStatistics>> {
+        Ok(self
+            .inner
+            .iterations
+            .iter()
+            .map(PyTraceStatistics::from)
+            .collect())
+    }
+
+    fn add_iteration(&mut self, trace: &PyTraceStatistics) -> PyResult<()> {
+        get_mut(&mut self.inner)?
+            .iterations
+            .push((*trace.inner).clone());
+        Ok(())
+    }
+}
+
+#[pyproto]
+impl PyNumberProtocol for PyProblemStatistics {
+    fn __iadd__(&mut self, trace: PyTraceStatistics) {
+        get_mut(&mut self.inner)
+            .unwrap()
+            .iterations
+            .push((*trace.inner).clone());
     }
 }
 
 #[pymethods]
 impl PyProblemSummary {
+    #[new]
+    fn py_new(problem_name: String, success: bool) -> Self {
+        Self {
+            inner: ProblemSummary {
+                problem_name,
+                success,
+            },
+        }
+    }
+
     #[getter]
     fn get_problem_name(&self) -> PyResult<String> {
-        Ok(self.problem_name.clone())
+        Ok(self.inner.problem_name.clone())
     }
 
     #[getter]
     fn get_success(&self) -> PyResult<bool> {
-        Ok(self.success)
+        Ok(self.inner.success)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyProblemSummary {
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+
+    fn __richcmp__(&self, other: PyProblemSummary, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.inner == other.inner),
+            CompareOp::Ne => Ok(self.inner != other.inner),
+            _ => Err(PyErr::new::<NotImplementedError, _>(format!(
+                "Comparison operator {} for Symbol is not implemented yet!",
+                op_to_string(&op)
+            ))),
+        }
     }
 }
 
 #[pyclass(name=SolverStatistics,subclass)]
-pub struct PySolverStatistics {
+struct PySolverStatistics {
     inner: Arc<SolverStatistics>,
 }
 
@@ -288,11 +360,93 @@ impl PySolverStatistics {
         }
     }
 
-    // #[getter]
-    // fn header(&self) -> PyResult<Vec<PyProblemSummary>> {
-    //     self.problems
-    //         .values()
-    //         .map(|p| p.summary())
-    //         .collect::<PyResult<_>>()
-    // }
+    fn get_problem(&self, problem_name: &str) -> PyResult<PyProblemStatistics> {
+        let problem = self
+            .inner
+            .problems
+            .get(problem_name)
+            .ok_or(PyErr::new::<KeyError, _>(format!(
+                "No problem found with name {}.",
+                problem_name
+            )))?;
+
+        Ok(PyProblemStatistics::from(problem))
+    }
+
+    fn add_problem(&mut self, problem: PyProblemStatistics) -> PyResult<()> {
+        get_mut(&mut self.inner)?
+            .problems
+            .insert(problem.inner.problem_name.clone(), (*problem.inner).clone());
+        Ok(())
+    }
+
+    #[getter]
+    fn header(&self) -> PyResult<Vec<PyProblemSummary>> {
+        Ok(self
+            .inner
+            .summaries()
+            .iter()
+            .map(PyProblemSummary::from)
+            .collect())
+    }
+
+    #[staticmethod]
+    fn load(filename: &str) -> PyResult<Self> {
+        let statistics = SolverStatistics::load(filename).map_err(|msg| {
+            PyErr::new::<FileNotFoundError, _>(format!(
+                "Could not load from file {}: {}",
+                filename, msg
+            ))
+        })?;
+
+        Ok(Self {
+            inner: Arc::new(statistics),
+        })
+    }
+
+    fn dump(&self, filename: &str) -> PyResult<()> {
+        self.inner.dump(filename).map_err(|msg| {
+            PyErr::new::<IOError, _>(format!("Could not dump to file {}: {}", filename, msg))
+        })
+    }
+}
+
+#[pyproto]
+impl PyNumberProtocol for PySolverStatistics {
+    fn __iadd__(&mut self, problem: PyProblemStatistics) {
+        get_mut(&mut self.inner)
+            .unwrap()
+            .problems
+            .insert(problem.inner.problem_name.clone(), (*problem.inner).clone());
+    }
+}
+
+#[pyproto]
+impl PyMappingProtocol for PySolverStatistics {
+    fn __len__(&self) -> usize {
+        self.inner.problems.len()
+    }
+
+    fn __getitem__(&self, query: String) -> PyResult<PyProblemStatistics> {
+        let problem = self
+            .inner
+            .problems
+            .get(&query)
+            .ok_or(PyErr::new::<KeyError, _>(format!(
+                "No problem found with name {}.",
+                query
+            )))?;
+
+        Ok(PyProblemStatistics::from(problem))
+    }
+}
+
+/// Registers all functions and classes regarding Solver trace.
+pub fn register(m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyStepInfo>()?;
+    m.add_class::<PyTraceStatistics>()?;
+    m.add_class::<PyProblemStatistics>()?;
+    m.add_class::<PySolverStatistics>()?;
+    m.add_class::<PyProblemSummary>()?;
+    Ok(())
 }

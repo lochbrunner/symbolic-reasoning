@@ -15,7 +15,7 @@ pub struct StepInfo {
     pub contributed: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct TraceStatistics {
     pub success: bool,
     pub fit_tries: u32,
@@ -23,13 +23,13 @@ pub struct TraceStatistics {
     pub trace: StepInfo,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProblemStatistics {
     pub problem_name: String,
     pub iterations: Vec<TraceStatistics>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct ProblemSummary {
     pub problem_name: String,
     pub success: bool,
@@ -46,7 +46,7 @@ impl ProblemStatistics {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct SolverStatistics {
-    problems: HashMap<String, ProblemStatistics>,
+    pub problems: HashMap<String, ProblemStatistics>,
 }
 
 impl SolverStatistics {
@@ -70,7 +70,7 @@ impl SolverStatistics {
 
     pub fn dump(&self, filename: &str) -> Result<(), String> {
         let file =
-            File::open(filename.clone()).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
+            File::create(filename.clone()).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
         let writer = BufWriter::new(file);
         self.write_bincode(writer)
     }

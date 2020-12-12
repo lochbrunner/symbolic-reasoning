@@ -26,6 +26,10 @@ class Mean:
             return -1.
         return self.correct / self.total
 
+    @property
+    def verbose(self):
+        return f'{self} ({int(self.correct)} / {self.total})'
+
     def __str__(self):
         v = self.summary * 100
         return f'{v:.2f}%'
