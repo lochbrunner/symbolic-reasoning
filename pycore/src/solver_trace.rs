@@ -11,7 +11,8 @@ use pyo3::PyObjectProtocol;
 use std::sync::Arc;
 
 use core::io::solver_trace::{
-    ProblemStatistics, ProblemSummary, SolverStatistics, StepInfo, TraceStatistics,
+    IterationSummary, ProblemStatistics, ProblemSummary, SolverStatistics, StepInfo,
+    TraceStatistics,
 };
 
 fn get_mut<'a, T>(reference: &'a mut Arc<T>) -> PyResult<&'a mut T> {
@@ -226,6 +227,93 @@ impl PyTraceStatistics {
     }
 }
 
+#[pyclass(name=IterationSummary,subclass)]
+#[derive(Clone)]
+struct PyIterationSummary {
+    inner: IterationSummary,
+}
+
+impl From<&IterationSummary> for PyIterationSummary {
+    fn from(source: &IterationSummary) -> Self {
+        Self {
+            inner: (*source).clone(),
+        }
+    }
+}
+
+#[pymethods]
+impl PyIterationSummary {
+    #[new]
+    fn py_new(
+        fit_results: Option<u32>,
+        success: Option<bool>,
+        max_depth: Option<u32>,
+        depth_of_solution: Option<u32>,
+    ) -> Self {
+        let fit_results = fit_results.unwrap_or_default();
+        let success = success.unwrap_or_default();
+        let max_depth = max_depth.unwrap_or_default();
+        Self {
+            inner: IterationSummary {
+                fit_results,
+                success,
+                max_depth,
+                depth_of_solution,
+            },
+        }
+    }
+
+    #[getter]
+    fn get_fit_results(&self) -> PyResult<u32> {
+        Ok(self.inner.fit_results)
+    }
+
+    #[setter]
+    fn set_fit_results(&mut self, value: u32) -> PyResult<()> {
+        self.inner.fit_results = value;
+        Ok(())
+    }
+
+    #[getter]
+    fn get_success(&self) -> PyResult<bool> {
+        Ok(self.inner.success)
+    }
+
+    #[setter]
+    fn set_success(&mut self, value: bool) -> PyResult<()> {
+        self.inner.success = value;
+        Ok(())
+    }
+
+    #[getter]
+    fn get_max_depth(&self) -> PyResult<u32> {
+        Ok(self.inner.max_depth)
+    }
+
+    #[getter]
+    fn get_max_depth_of_solution(&self) -> PyResult<Option<u32>> {
+        Ok(self.inner.depth_of_solution)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyIterationSummary {
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+
+    fn __richcmp__(&self, other: PyIterationSummary, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.inner == other.inner),
+            CompareOp::Ne => Ok(self.inner != other.inner),
+            _ => Err(PyErr::new::<NotImplementedError, _>(format!(
+                "Comparison operator {} for Symbol is not implemented yet!",
+                op_to_string(&op)
+            ))),
+        }
+    }
+}
+
 #[pyclass(name=ProblemSummary,subclass)]
 #[derive(Clone)]
 struct PyProblemSummary {
@@ -308,18 +396,45 @@ impl PyNumberProtocol for PyProblemStatistics {
 #[pymethods]
 impl PyProblemSummary {
     #[new]
-    fn py_new(problem_name: String, success: bool) -> Self {
+    fn py_new(
+        name: String,
+        success: bool,
+        iterations: Option<Vec<PyIterationSummary>>,
+        initial_latex: Option<String>,
+    ) -> Self {
+        let iterations = iterations
+            .unwrap_or(vec![])
+            .into_iter()
+            .map(|w| w.inner)
+            .collect();
         Self {
             inner: ProblemSummary {
-                problem_name,
+                name,
                 success,
+                iterations,
+                initial_latex,
             },
         }
     }
 
     #[getter]
-    fn get_problem_name(&self) -> PyResult<String> {
-        Ok(self.inner.problem_name.clone())
+    fn get_initial_latex(&self) -> PyResult<Option<String>> {
+        Ok(self.inner.initial_latex.clone())
+    }
+
+    #[getter]
+    fn get_iterations(&self) -> PyResult<Vec<PyIterationSummary>> {
+        Ok(self
+            .inner
+            .iterations
+            .iter()
+            .map(PyIterationSummary::from)
+            .collect())
+    }
+
+    #[getter]
+    fn get_name(&self) -> PyResult<String> {
+        Ok(self.inner.name.clone())
     }
 
     #[getter]
@@ -448,5 +563,6 @@ pub fn register(m: &PyModule) -> PyResult<()> {
     m.add_class::<PyProblemStatistics>()?;
     m.add_class::<PySolverStatistics>()?;
     m.add_class::<PyProblemSummary>()?;
+    m.add_class::<PyIterationSummary>()?;
     Ok(())
 }

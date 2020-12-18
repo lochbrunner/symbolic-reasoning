@@ -7,6 +7,7 @@ from symbol_builder import *
 from symbol import *
 # from trace import *
 from rule import *
+from solver_statistics import *
 
 import unittest
 

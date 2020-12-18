@@ -12,8 +12,7 @@ from pycore import Symbol, Scenario, Trace, SolverStatistics, ProblemStatistics
 from torch.utils import data
 from torch.utils.tensorboard import SummaryWriter
 
-from common import grid_search
-from common import io
+from common import grid_search, io
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.reports import report_tops
