@@ -5,104 +5,12 @@ from torch.utils.data import Dataset
 
 from pycore import Bag, BagMeta
 
-from .transformers import PAD_INDEX
-from .symbol_builder import SymbolBuilder
-from .dataset_base import DatasetBase
 from common.node import Node
 from common.terminal_utils import printProgressBar, clearProgressBar
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class BagDatasetSharedIndex(DatasetBase):
-    '''Deprecated!
-
-    Loads samples from a bag file'''
-
-    def __init__(self, params, preprocess=False):
-        super(BagDatasetSharedIndex, self).__init__(preprocess)
-        logger.info(f'Loading samples from {params.filename}')
-        bag = Bag.load(params.filename)
-
-        self.patterns = [rule.condition for rule in bag.meta.rules]
-
-        meta = bag.meta
-
-        self.idents = meta.idents
-        self.label_distribution = meta.rule_distribution
-        self._rule_map = list(meta.rules)
-
-        # Merge use largest
-        self.container = [sample for container in bag.containers for sample in container.samples]
-        self._max_spread = bag.containers[-1].max_spread
-        self._max_depth = bag.containers[-1].max_depth
-
-        def create_features(c):
-            return [(c.initial, fit) for fit in c.fits]
-
-        self.raw_samples = [feature for sample in self.container
-                            for feature in create_features(sample)]
-
-        logger.info(f'number of samples: {len(self.raw_samples)}')
-        logger.info(f'max depth: {self._max_depth}')
-
-        builder = SymbolBuilder()
-        for _ in range(self._max_depth):
-            builder.add_level_uniform(self._max_spread)
-        self.label_builder = builder
-
-        if preprocess:
-            def progress(i, sample):
-                if i % 50 == 0:
-                    printProgressBar(i, len(self.raw_samples), suffix='loading')
-                return sample
-            self.samples = [progress(i, self._process_sample(sample)) for i, sample in enumerate(self.raw_samples)]
-            clearProgressBar()
-        else:
-            self.samples = self.raw_samples
-
-    def get_node(self, index):
-        return Node.from_rust(self.raw_samples[index][0])
-
-    def get_rule_of_sample(self, index):
-        rule_id = self.raw_samples[index][1].rule
-        return self.get_rule_raw(rule_id)
-
-    def get_node_string(self, index):
-        return str(self.raw_samples[index][0])
-
-    def unpack_sample(self, sample):
-        x, fit = sample
-        return x, (fit.path, fit.rule)
-
-    @property
-    def rule_map(self):
-        '''Maps rule id to rule string representation'''
-        return self._rule_map
-
-    def get_rule_raw(self, index):
-        return self._rule_map[index]
-
-    def get_rules_raw(self):
-        return self._rule_map
-
-    @property
-    def model_params(self):
-        return {
-            'vocab_size': len(self.idents),
-            'tagset_size': len(self.patterns),
-            'pad_token': PAD_INDEX,
-            'kernel_size': self._max_spread+2,
-            'depth': self.max_depth,
-            'spread': self._max_spread,
-            'idents': self.idents
-        }
-
-    @property
-    def collate_fn(self):
-        return None
 
 
 def pad(sample, width, pad_token=0):

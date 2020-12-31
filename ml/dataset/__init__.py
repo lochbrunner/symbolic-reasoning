@@ -1,9 +1,7 @@
 from common.utils import Compose
 
-from .permutation import PermutationDataset
-from .embedded_pattern import EmbPatternDataset
-from .bag import BagDataset, BagDatasetSharedIndex
-from .transformers import SegEmbedder, TagEmbedder, Padder, Uploader
+
+from .bag import BagDataset
 
 
 class ScenarioParameter:
@@ -55,20 +53,11 @@ class ScenarioParameter:
 
 
 def scenarios_choices():
-    return ['permutation', 'pattern', 'bag', 'shared-bag']
+    return ['bag']
 
 
 def create_scenario(params: ScenarioParameter, device, pad_token=0, transform=None):
-    if params.scenario == 'permutation':
-        transform = transform or Compose([
-            Padder(),
-            TagEmbedder(),
-            Uploader(device)
-        ])
-        return PermutationDataset(params=params, transform=transform)
-    elif params.scenario == 'pattern':
-        return EmbPatternDataset(params=params)
-    elif params.scenario == 'shared-bag':
-        return BagDatasetSharedIndex(params=params, preprocess=True)
-    elif params.scenario == 'bag':
+    if params.scenario == 'bag':
         return BagDataset.from_scenario_params(params=params, preprocess=True)
+    else:
+        NotImplementedError(f'Scenario {params.scenario} is not implemented!')

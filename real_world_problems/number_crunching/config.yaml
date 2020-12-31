@@ -31,7 +31,7 @@ training:
   learning-rate: 0.1
   gradient-clipping: 0.1
   value-loss-weight: 0.5
-  model-name: TreeCnnUniqueIndices
+  model-name: TreeCnnSegmenter
   # Scenario
   scenario: bag
   filename: *bag
@@ -49,6 +49,7 @@ evaluation:
     beam-size: 10
     num_epochs: 10
     max_track_loss: 3 # abort if the value is bad for longer
+    max_fit_results: 1000
     iterations: 5
   trainings-data:
     beam-size: "1:15"

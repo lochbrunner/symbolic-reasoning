@@ -7,7 +7,6 @@ import torch
 import torch.optim as optim
 
 from dataset import create_scenario
-from dataset.transformers import Embedder
 from models import create_model
 from .timer import Timer
 
@@ -30,12 +29,6 @@ def load(filename, device=torch.device('cpu'), transform=None):
         optimizer = optim.SGD(model.parameters(), lr=learn_params.learning_rate)
 
     return dataset, model, optimizer, scenario_params
-
-
-def load_rules(filename):
-    '''Deprecated: Use rules from scenario instead.'''
-    snapshot = torch.load(filename)
-    return snapshot['rules']
 
 
 def load_model(filename, spread=None, depth=None, kernel_size=None):

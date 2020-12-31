@@ -6,24 +6,16 @@ import torch
 import torch.optim as optim
 
 from dataset import scenarios_choices, ScenarioParameter
-from dataset.transformers import Embedder
 from common.timer import Timer
 from common.parameter_search import LearningParmeter
 
-from .lstm_tagger import LstmTreeTagger, GruTreeTagger
-from .fcn_tagger import FullyConnectedTagger
-from .fcn_segmenter import FullyConnectedSegmenter
-from .cnn_segmenter import TreeCnnSegmenter, TreeCnnUniqueIndices
+from .cnn_segmenter import TreeCnnSegmenter
 
 logger = logging.getLogger(__name__)
 
-all_models = {'LstmTreeTagger': LstmTreeTagger,
-              'GruTreeTagger': GruTreeTagger,
-              'FullyConnectedTagger': FullyConnectedTagger,
-              'FullyConnectedSegmenter': FullyConnectedSegmenter,
-              'TreeCnnSegmenter': TreeCnnSegmenter,
-              'TreeCnnUniqueIndices': TreeCnnUniqueIndices
-              }
+all_models = {
+    'TreeCnnSegmenter': TreeCnnSegmenter,
+}
 
 
 def create_model(model_name, **kwargs):
