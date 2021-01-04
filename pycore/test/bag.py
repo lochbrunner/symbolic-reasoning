@@ -95,10 +95,15 @@ class TestSample(unittest.TestCase):
         embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
         fits = [FitInfo(2, [0], True)]
         useful = True
+        index_encoding = True
+        positional_encoding = False
         sample = Sample(symbol, fits, useful)
         spread = 2
-        embedding, indices, label, policy, value = sample.embed(embed_dict, 0, spread)
+        max_depth = symbol.depth
+        embedding, indices, positional_encoding, label, policy, value = sample.embed(
+            embed_dict, 0, spread, max_depth, index_encoding, positional_encoding)
 
+        self.assertIsNone(positional_encoding)
         npt.assert_equal(embedding[:, 0], [1, 2, 3, 4, 5, 6, 7, 0])
         npt.assert_equal(embedding[:, 1], [1, 1, 1, 0, 0, 0, 0, 0])  # is operator
         npt.assert_equal(embedding[:, 2], [1, 1, 1, 0, 0, 0, 0, 0])  # is fixed

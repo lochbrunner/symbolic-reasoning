@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def pad(sample, width, pad_token=0):
     '''Pad in first dimension'''
+    if sample is None:
+        return None
     pad_width = width - sample.shape[0]
     if sample.ndim == 1:
         return np.pad(sample, (0, pad_width), 'constant', constant_values=(pad_token))
@@ -26,9 +28,9 @@ def pad(sample, width, pad_token=0):
 
 def stack(samples, width=None):
     if width is None:
-        samples = [torch.as_tensor(sample) for sample in samples]
+        samples = [torch.as_tensor(sample) for sample in samples if sample is not None]
     else:
-        samples = [torch.as_tensor(pad(sample, width)) for sample in samples]
+        samples = [torch.as_tensor(pad(sample, width)) for sample in samples if sample is not None]
 
     out = None
     if torch.utils.data.get_worker_info() is not None:
@@ -42,8 +44,8 @@ def stack(samples, width=None):
 
 
 def dynamic_width_collate(batch):
-    # x, s, y, p, v
-    max_width = max([sample[0].shape[0] for sample in batch])
+    # x, s?, o?, y, p, v
+    max_width = max(sample[0].shape[0] for sample in batch)
     # Transpose them
     transposed = list(zip(*batch))
     # Don't pad value
@@ -124,10 +126,12 @@ class BagDataset(Dataset):
         return self._rule_map[rule_id]
 
     def _process_sample(self, sample):
-        return sample.embed(self._ident_dict, self.pad_token, self.spread)
+        channels = sample.embed(self._ident_dict, self.pad_token, self.spread,
+                                self._max_depth, index_map=True, positional_encoding=False)
+        return [c for c in channels if c is not None]
 
     def embed_custom(self, initial, fits=None, useful=True):
-        return initial.embed(self._ident_dict, self.pad_token, self.spread, fits or [], useful)
+        return initial.embed(self._ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=False)
 
     @property
     def max_depth(self):

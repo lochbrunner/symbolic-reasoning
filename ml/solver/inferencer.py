@@ -64,7 +64,7 @@ class Inferencer:
         '''
 
         # x, s, _ = self.dataset.embed_custom(initial)
-        x, s, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, [], True)
+        x, s, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, initial.depth, [], True)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
         p = torch.ones(x.shape[:-1])

@@ -237,6 +237,65 @@ where
     .to_owned())
 }
 
+pub fn make_optional_2darray<T>(
+    py: Python,
+    orig: Option<Vec<Vec<T>>>,
+) -> PyResult<Option<Py<PyArray2<T>>>>
+where
+    T: numpy::Element,
+{
+    if let Some(orig) = orig {
+        Ok(Some(make_2darray(py, orig)?))
+    } else {
+        Ok(None)
+    }
+}
+
+#[pyclass(name=Embedding)]
+pub struct PyEmbedding {
+    inner: Arc<Embedding>,
+}
+
+impl PyEmbedding {
+    pub fn new(data: Embedding) -> Self {
+        Self {
+            inner: Arc::new(data),
+        }
+    }
+}
+
+#[pymethods]
+impl PyEmbedding {
+    #[getter]
+    fn idents(&self, py: Python) -> PyResult<Py<PyArray2<i64>>> {
+        make_2darray(py, self.inner.embedded.clone())
+    }
+
+    #[getter]
+    fn index_map(&self, py: Python) -> PyResult<Option<Py<PyArray2<i16>>>> {
+        make_optional_2darray(py, self.inner.index_map.clone())
+    }
+
+    #[getter]
+    fn positional_encoding(&self, py: Python) -> PyResult<Option<Py<PyArray2<i64>>>> {
+        make_optional_2darray(py, self.inner.positional_encoding.clone())
+    }
+
+    #[getter]
+    fn rules(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok(self.inner.label.clone().into_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn policy(&self, py: Python) -> PyResult<Py<PyArray1<f32>>> {
+        Ok(self.inner.policy.clone().into_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.value].to_pyarray(py).to_owned())
+    }
+}
+
 #[pymethods]
 impl PySymbol {
     #[staticmethod]
@@ -326,6 +385,39 @@ impl PySymbol {
             .collect())
     }
 
+    fn create_embedding(
+        &self,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        fits: Vec<PyFitInfo>,
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+    ) -> PyResult<PyEmbedding> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let embedding = self
+            .inner
+            .embed(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                &fits,
+                useful,
+                index_map,
+                positional_encoding,
+            )
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
+        Ok(PyEmbedding::new(embedding))
+    }
+
     /// Unrolls the symbol tree using breath first traversing
     /// u16 is not supported by pytorch
     fn embed(
@@ -334,11 +426,15 @@ impl PySymbol {
         dict: HashMap<String, i16>,
         padding: i16,
         spread: usize,
+        max_depth: u32,
         fits: Vec<PyFitInfo>,
         useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
     ) -> PyResult<(
         Py<PyArray2<i64>>,
-        Py<PyArray2<i16>>,
+        Option<Py<PyArray2<i16>>>,
+        Option<Py<PyArray2<i64>>>,
         Py<PyArray1<i64>>,
         Py<PyArray1<f32>>,
         Py<PyArray1<i64>>,
@@ -350,22 +446,40 @@ impl PySymbol {
         let Embedding {
             embedded,
             index_map,
+            positional_encoding,
             label,
             policy,
             value,
         } = self
             .inner
-            .embed(&dict, padding, spread, &fits, useful)
+            .embed(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                &fits,
+                useful,
+                index_map,
+                positional_encoding,
+            )
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
             })?;
 
-        let index_map = make_2darray(py, index_map)?;
+        let index_map = make_optional_2darray(py, index_map)?;
+        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
         let label = label.into_pyarray(py).to_owned();
         let policy = policy.into_pyarray(py).to_owned();
         let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
-        Ok((embedded, index_map, label, policy, value))
+        Ok((
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+        ))
     }
 
     #[classattr]

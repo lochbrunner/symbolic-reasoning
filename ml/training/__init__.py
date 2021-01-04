@@ -19,6 +19,7 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
     for epoch in range(learn_params.num_epochs):
         epoch_loss = 0
         model.zero_grad()
+        # We have either s (= index map) or o (= positional_encoding)
         for x, s, y, p, v in training_dataloader:
             x = x.to(device)
             s = s.to(device)

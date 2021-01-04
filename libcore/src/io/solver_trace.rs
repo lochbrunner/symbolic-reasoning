@@ -81,25 +81,25 @@ pub struct StepInfoCombined {
 }
 
 /// Use this to track the node's references
-struct StepInfoCombinedRef {
-    pub current: String,
-    pub subsequent: Vec<String>,
-}
+// struct StepInfoCombinedRef {
+//     pub current: String,
+//     pub subsequent: Vec<String>,
+// }
 
 // static none_apply: Option<ApplyInfoCombined> = None;
 
-impl StepInfoCombined {
-    fn create(single: &StepInfo, size: usize) -> Self {
-        Self {
-            current_latex: single.current_latex.clone(),
-            contributed: false,
-            subsequent: vec![],
-            rule_id: single.rule_id,
-            path: single.path.clone(),
-            iterations: vec![None; size],
-        }
-    }
-}
+// impl StepInfoCombined {
+//     fn create(single: &StepInfo, size: usize) -> Self {
+//         Self {
+//             current_latex: single.current_latex.clone(),
+//             contributed: false,
+//             subsequent: vec![],
+//             rule_id: single.rule_id,
+//             path: single.path.clone(),
+//             iterations: vec![None; size],
+//         }
+//     }
+// }
 
 #[derive(Serialize, Deserialize)]
 pub struct ProblemStatisticsMetaCombined {

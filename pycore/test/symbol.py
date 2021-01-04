@@ -130,8 +130,12 @@ class TestSymbol(unittest.TestCase):
         fits = [FitInfo(2, [0], True)]
         spread = 2
         useful = True
-        embedding, indices, label, policy, value = symbol.embed(embed_dict, 0, spread, fits, useful)
+        index_encoding = True
+        positional_encoding = False
+        embedding, indices, positional_encoding, label, policy, value = symbol.embed(
+            embed_dict, 0, spread, symbol.depth, fits, useful, index_encoding, positional_encoding)
 
+        self.assertIsNone(positional_encoding)
         npt.assert_equal(embedding[:, 0], [1, 2, 3, 4, 5, 6, 7, 0])
         npt.assert_equal(embedding[:, 1], [1, 1, 1, 0, 0, 0, 0, 0])  # is operator
         npt.assert_equal(embedding[:, 2], [1, 1, 1, 0, 0, 0, 0, 0])  # is fixed
@@ -156,3 +160,7 @@ class TestSymbol(unittest.TestCase):
 
     def test_number_of_embedded_properties(self):
         self.assertEqual(Symbol.number_of_embedded_properties, 3)
+
+
+if __name__ == '__main__':
+    unittest.main()

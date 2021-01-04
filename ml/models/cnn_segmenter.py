@@ -67,7 +67,13 @@ class PolicyHead(nn.Module):
 
 class TreeCnnSegmenter(nn.Module):
     def __init__(self, vocab_size, tagset_size, pad_token, kernel_size, hyper_parameter, **kwargs):
-        '''tagset_size with padding'''
+        '''
+        tagset_size with padding
+
+        TODO:
+          * Residual architecture
+          * Different activation functions
+        '''
 
         super(TreeCnnSegmenter, self).__init__()
         # Config

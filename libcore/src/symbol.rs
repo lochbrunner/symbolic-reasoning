@@ -148,6 +148,48 @@ impl<'a> Iterator for SymbolBfsIter<'a> {
     }
 }
 
+/// Iter with backback
+pub struct SymbolBfsBackPackIter<'a, T, C> {
+    // type Pack = (&'a Symbol, T);
+    queue: VecDeque<(&'a Symbol, T)>,
+    context: C,
+    /// Generator would be better but
+    packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+}
+
+impl<'a, T, C> SymbolBfsBackPackIter<'a, T, C> {
+    pub fn new(
+        symbol: &'a Symbol,
+        init: T,
+        context: C,
+        packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+    ) -> SymbolBfsBackPackIter<'a, T, C> {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back((symbol, init));
+        Self {
+            queue,
+            packer,
+            context,
+        }
+    }
+}
+
+impl<'a, T, C> Iterator for SymbolBfsBackPackIter<'a, T, C> {
+    type Item = (&'a Symbol, T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.queue.pop_front() {
+            None => None,
+            Some(current) => {
+                for child in (self.packer)(&current, &self.context).into_iter() {
+                    self.queue.push_back(child);
+                }
+                Some(current)
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub struct Symbol {
     pub ident: String,
@@ -173,7 +215,8 @@ pub struct Embedding {
     /// each items is a vector
     /// [ident, is_operator, is_fixed, is_number]
     pub embedded: Vec<Vec<i64>>,
-    pub index_map: Vec<Vec<i16>>,
+    pub index_map: Option<Vec<Vec<i16>>>,
+    pub positional_encoding: Option<Vec<Vec<i64>>>,
     pub label: Vec<i64>,
     pub policy: Vec<f32>,
     pub value: i64,
@@ -316,44 +359,89 @@ impl Symbol {
         SymbolBfsIter::new(self)
     }
 
+    pub fn iter_bfs_backpack<'a, T, C>(
+        &'a self,
+        init: T,
+        context: C,
+        packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+    ) -> SymbolBfsBackPackIter<'a, T, C> {
+        SymbolBfsBackPackIter::new(self, init, context, packer)
+    }
+
     /// Returns the number of embedded properties
     pub fn number_of_embedded_properties() -> u32 {
         3
     }
 
-    /// Embeds the ident and the props (operator, fixed, number, policy)
-    /// Should maybe moved to other location?
-    /// If there are multiple fits per path, the last will win.
-    pub fn embed(
-        &self,
-        dict: &HashMap<String, i16>,
-        padding: i16,
-        spread: usize,
-        fits: &[FitInfo],
-        useful: bool,
-    ) -> Result<Embedding, String> {
-        let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
-        let mut embedded = self
-            .iter_bfs()
-            .enumerate()
-            .map(|(i, s)| {
-                ref_to_index.insert(s, i as i16);
-                dict.get(&s.ident)
-                    .map(|i| {
-                        vec![
-                            *i as i64,
-                            one_encode(s.operator()),
-                            one_encode(s.fixed()),
-                            one_encode(s.is_number()),
-                        ]
-                    })
-                    .ok_or(format!("Unknown ident {}", s.ident))
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        let padding_index = embedded.len() as i16;
-        embedded.push(vec![padding as i64, 0, 0, 0]);
+    /// Needed for transformer based architecture
+    /// Using the path as digits for a representative location numbering
+    /// Desired properties:
+    /// * `p_a - p_b` is a metric for the relative sub-graph between node `a` and `b`
+    /// * `p_a - p_b` is independent of the absolute location in the graph. Only possible with vector.
+    ///     Each item per row is from an other start level.
+    /// * `0` indicates undefined
+    fn positional_encoding(&self, spread: usize, max_depth: u32) -> Vec<Vec<i64>> {
+        struct Pack {
+            offset: i64,
+            // scale: i64,
+            depth: u32,
+        }
+        struct Context {
+            spread: i64,
+        }
 
-        // self, ..childs, (parent later)
+        assert_eq!(spread, 2);
+
+        (2..(max_depth + 1))
+            .rev()
+            .map(|depth| {
+                self.iter_bfs_backpack(
+                    Pack {
+                        offset: spread.pow(depth) as i64 / 2,
+                        depth: if depth > 0 { depth - 1 } else { 0 },
+                    },
+                    Context {
+                        spread: spread as i64,
+                    },
+                    |(parent, pack), context| {
+                        parent
+                            .childs
+                            .iter()
+                            .enumerate()
+                            .map(|(i, child)| {
+                                let root = if pack.depth > 0 {
+                                    context.spread.pow(pack.depth - 1) * (2 * (i as i64) - 1)
+                                        + pack.offset
+                                } else {
+                                    0
+                                };
+                                (
+                                    child,
+                                    Pack {
+                                        offset: root,
+                                        depth: if pack.depth > 0 { pack.depth - 1 } else { 0 },
+                                    },
+                                )
+                            })
+                            .collect()
+                    },
+                )
+                .map(|(_, pack)| pack.offset)
+                .collect()
+            })
+            .collect()
+
+        // vec![buffer]
+    }
+
+    /// Needed for CNN based architecture
+    /// self, ..childs, (parent later)
+    fn index_map(
+        &self,
+        spread: usize,
+        padding_index: i16,
+        ref_to_index: &HashMap<&Self, i16>,
+    ) -> Vec<Vec<i16>> {
         let mut index_map = self
             .iter_bfs()
             .enumerate()
@@ -381,6 +469,54 @@ impl Symbol {
             }
         }
         index_map.push(vec![padding_index; spread + 2]);
+        index_map
+    }
+
+    /// Embeds the ident and the props (operator, fixed, number, policy)
+    /// Should maybe moved to other location?
+    /// If there are multiple fits per path, the last will win.
+    pub fn embed(
+        &self,
+        dict: &HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        fits: &[FitInfo],
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+    ) -> Result<Embedding, String> {
+        let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
+        let mut embedded = self
+            .iter_bfs()
+            .enumerate()
+            .map(|(i, s)| {
+                ref_to_index.insert(s, i as i16);
+                dict.get(&s.ident)
+                    .map(|i| {
+                        vec![
+                            *i as i64,
+                            one_encode(s.operator()),
+                            one_encode(s.fixed()),
+                            one_encode(s.is_number()),
+                        ]
+                    })
+                    .ok_or(format!("Unknown ident {}", s.ident))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let padding_index = embedded.len() as i16;
+        embedded.push(vec![padding as i64, 0, 0, 0]);
+
+        let index_map = if index_map {
+            Some(self.index_map(spread, padding_index, &ref_to_index))
+        } else {
+            None
+        };
+        let positional_encoding = if positional_encoding {
+            Some(self.positional_encoding(spread, max_depth))
+        } else {
+            None
+        };
 
         // Compute label
         let mut label = vec![0; embedded.len()];
@@ -399,6 +535,7 @@ impl Symbol {
             index_map,
             label,
             policy,
+            positional_encoding,
             value: if useful { 1 } else { 0 },
         })
     }
@@ -631,11 +768,24 @@ mod specs {
             index_map,
             value,
             ..
-        } = symbol.embed(&dict, padding, spread, &vec![], true).unwrap();
+        } = symbol
+            .embed(
+                &dict,
+                padding,
+                spread,
+                symbol.depth,
+                &vec![],
+                true,
+                true,
+                false,
+            )
+            .unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
 
         assert_eq!(embedded, vec![1, 2, 3, 4, 5, 6, 7, 0]);
 
+        assert!(index_map.is_some());
+        let index_map = index_map.unwrap();
         assert_eq!(index_map.len(), 8);
         assert_eq!(index_map[0], vec![0, 1, 2, 7]); // *=+
         assert_eq!(index_map[1], vec![1, 3, 4, 0]); // a+b
@@ -668,9 +818,21 @@ mod specs {
             embedded,
             index_map,
             ..
-        } = symbol.embed(&dict, padding, spread, &vec![], true).unwrap();
+        } = symbol
+            .embed(
+                &dict,
+                padding,
+                spread,
+                symbol.depth,
+                &vec![],
+                true,
+                true,
+                false,
+            )
+            .unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
-
+        assert!(index_map.is_some());
+        let index_map = index_map.unwrap();
         assert_eq!(embedded, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
         assert_eq!(index_map.len(), 6);
         assert_eq!(index_map[0], vec![0, 1, 2, 5, 5]); // *=c
@@ -703,6 +865,7 @@ mod specs {
                 &dict,
                 padding,
                 spread,
+                symbol.depth,
                 &vec![
                     FitInfo {
                         rule_id: 1,
@@ -716,10 +879,69 @@ mod specs {
                     },
                 ],
                 true,
+                true,
+                false,
             )
             .unwrap();
 
         assert_eq!(label, vec![0, 0, 0, 1, 2, 0, 0, 0,]);
+    }
+
+    #[test]
+    fn positional_encoding_full() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b=c*d").unwrap();
+        let spread = 2;
+        // = 4 2
+        // + 2 1
+        // * 6 3
+        // a 1 0
+        // b 3 0
+        // c 5 0
+        // d 7 0
+
+        let positional_encoding = symbol.positional_encoding(spread, symbol.depth);
+        let expected = vec![vec![4, 2, 6, 1, 3, 5, 7], vec![2, 1, 3, 0, 0, 0, 0]];
+        assert_eq!(&positional_encoding, &expected);
+    }
+
+    #[test]
+    fn positional_encoding_simple() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
+
+        let spread = 2;
+        // = 4 2
+        // + 2 1
+        // c 6 3
+        // a 1 0
+        // b 3 0
+        let expected = vec![vec![4, 2, 6, 1, 3], vec![2, 1, 3, 0, 0]];
+        let positional_encoding = symbol.positional_encoding(spread, symbol.depth);
+        assert_eq!(&positional_encoding, &expected);
+    }
+
+    #[test]
+    fn positional_encoding_deep() {
+        let context = Context::standard();
+
+        let symbol = Symbol::parse(&context, "a+(b-d)=c").unwrap();
+        let spread = 2;
+        // =  8  4  2
+        // +  4  2  1
+        // c 12  6  3
+        // a  2  1  0
+        // -  6  3  0
+        // b  5  0  0
+        // d  7  0  0
+
+        let positional_encoding = symbol.positional_encoding(spread, symbol.depth);
+        let expected = vec![
+            vec![8, 4, 12, 2, 6, 5, 7],
+            vec![4, 2, 6, 1, 3, 0, 0],
+            vec![2, 1, 3, 0, 0, 0, 0],
+        ];
+        assert_eq!(&positional_encoding, &expected);
     }
 
     #[test]

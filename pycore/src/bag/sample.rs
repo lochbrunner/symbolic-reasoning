@@ -1,6 +1,6 @@
 use crate::bag::{PyContainer, PyFitInfo};
-use crate::symbol::make_2darray;
 use crate::symbol::PySymbol;
+use crate::symbol::{make_2darray, make_optional_2darray, PyEmbedding};
 use core::dumper::dump_symbol_plain;
 use core::io::bag;
 use core::symbol::Embedding;
@@ -57,15 +57,57 @@ impl PySample {
         Ok(self.data.useful)
     }
 
+    fn create_embedding(
+        &self,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        index_map: bool,
+        positional_encoding: bool,
+    ) -> PyResult<PyEmbedding> {
+        let fits = self
+            .data
+            .fits
+            .iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let embedding = self
+            .data
+            .initial
+            .inner
+            .embed(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                &fits,
+                self.data.useful,
+                index_map,
+                positional_encoding,
+            )
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!(
+                    "Could not embed {}: \"{}\"",
+                    self.data.initial.inner, msg
+                ))
+            })?;
+        Ok(PyEmbedding::new(embedding))
+    }
+
     fn embed(
         &self,
         py: Python,
         dict: HashMap<String, i16>,
         padding: i16,
         spread: usize,
+        max_depth: u32,
+        index_map: bool,
+        positional_encoding: bool,
     ) -> PyResult<(
         Py<PyArray2<i64>>,
-        Py<PyArray2<i16>>,
+        Option<Py<PyArray2<i16>>>,
+        Option<Py<PyArray2<i64>>>,
         Py<PyArray1<i64>>,
         Py<PyArray1<f32>>,
         Py<PyArray1<i64>>,
@@ -79,6 +121,7 @@ impl PySample {
         let Embedding {
             embedded,
             index_map,
+            positional_encoding,
             label,
             policy,
             value,
@@ -86,7 +129,16 @@ impl PySample {
             .data
             .initial
             .inner
-            .embed(&dict, padding, spread, &fits, self.data.useful)
+            .embed(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                &fits,
+                self.data.useful,
+                index_map,
+                positional_encoding,
+            )
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!(
                     "Could not embed {}: \"{}\"",
@@ -94,12 +146,20 @@ impl PySample {
                 ))
             })?;
 
-        let index_map = make_2darray(py, index_map)?;
+        let index_map = make_optional_2darray(py, index_map)?;
+        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
         let label = label.into_pyarray(py).to_owned();
         let policy = policy.into_pyarray(py).to_owned();
         let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
-        Ok((embedded, index_map, label, policy, value))
+        Ok((
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+        ))
     }
 }
 impl From<core::io::bag::Sample> for PySample {
