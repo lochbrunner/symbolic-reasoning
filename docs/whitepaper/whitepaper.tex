@@ -1,0 +1,105 @@
+\documentclass{scrartcl}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{babel}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{xcolor}
+
+\usepackage[
+backend=biber,
+% style=alphabetic,
+sorting=none
+]{biblatex}
+
+\addbibresource{whitepaper.bib}
+
+\title{Rule based Symbolic Reasoning}
+\author{Matthias Lochbrunner}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{center}
+	\textbf{Abstract}
+\end{center}
+\begin{abstract}
+	Solving mathematical problems with a rule based beam search using deep neuronal networks for policy and value estimation.
+	This natural approach is capable of solving problems in formal science. 
+\end{abstract}
+
+\section{Motivation}
+\begin{itemize}
+	\item Adapt human like approach and how they learn.
+	\item Scalable: This solution can be applied on each formal problem of any domain.
+	\item Correctness: The result is always correct as the generation process is based on hard correct rules.
+	\item Applicable to literature: As the network can grow it can incorporate new information formatted as rules as humans do. 
+\end{itemize}
+
+\section{Method}
+
+\subsection{Fit and Apply}
+
+\textbf{Example}
+
+Consider the derivative rule
+\begin{align}
+	\frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n} \Longrightarrow n\cdot {\color{red}x}^{{\color{blue}n}-1} 
+\end{align}
+applied to the term
+\begin{align}
+	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^4 
+\end{align}.
+Using the mapping ${\color{red}x \coloneqq z}$ and ${\color{blue}n \coloneqq {\color{blue}4}}$ leads to the new term
+\begin{align}
+	{\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} 
+\end{align}
+
+\subsection{Policy and Value Networks}
+
+Based on two different architecture multi-head networks for value and policy estimation \cite{44806}.
+
+The policy head suggests useful locations and rules to apply on the given term. This outcome is used to shrink the width of the search beam.
+It turned out that is very important to suppress non-sense rule application as they can blow up the beam. (Negative training samples.)
+
+The value head estimates how likely the given term might lead to success. If the value is below a specified threshold the track gets cancelled.
+
+\subsubsection{Challenges for Tree Structured Data}
+As each term is represented as directed async graph standard neuronal operation can not be performed on this input.
+The CNN based network uses an adapted operation for tree structured data.
+Special positional encoding for transformer based architecture.
+
+\subsection{Data loop}
+
+From given (training) problems the algorithm trains itself by the three-T-loop: 
+
+\begin{itemize}
+	\item \textbf{Try} to solve some of the training problems.
+	\item \textbf{Trace} the calculation steps of the solved problems and create training samples out of them.
+	\item \textbf{Train} the model with these useful and useless trainings steps created.
+\end{itemize}
+
+\section{Results}
+We have defined all basic rules to perform the given problems as scenario configuration.
+
+% \subsection{Scenario Definition}
+
+\section{Conclusion}
+
+\section{Outlook}
+\begin{itemize}
+	\item Support propositional logic to increase the set of mathematical problem
+	\item Insert new rules (macro rules) into the existing network. (Growable tree structured network architecture). \cite{graves2016hybrid}
+\end{itemize}
+
+\section{Related work}
+
+\begin{itemize}
+	\item Using state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}. Differences: 1D data instead of Tree structured data. Not based on rules. 
+\end{itemize}
+
+\printbibliography
+\end{document}
+
