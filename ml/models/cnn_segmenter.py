@@ -11,8 +11,17 @@ from pycore import Symbol
 
 class SequentialByPass(nn.Sequential):
 
+    def __init__(self, *args, residual: bool = False):
+        super(SequentialByPass, self).__init__(*args)
+        self.residual = residual
+
     def forward(self, x, s):  # pylint: disable=arguments-differ
+        lastcnn = None
         for module in self._modules.values():
+            if self.residual:
+                if lastcnn is not None:
+                    x = lastcnn + x
+                lastcnn = x
             if type(module) is IConv:
                 x = module(x, s)
             else:
@@ -82,7 +91,8 @@ class TreeCnnSegmenter(nn.Module):
             'hidden_layers': 2,
             'dropout': 0.1,
             'use_props': True,
-            'value_head_hidden_size': 8
+            'value_head_hidden_size': 8,
+            'residual': False,
         }
         if isinstance(hyper_parameter, dict):
             self.config.update(hyper_parameter)
@@ -111,7 +121,9 @@ class TreeCnnSegmenter(nn.Module):
                                              for layer in [
                                                  create_layer(),
                                                  nn.LeakyReLU(inplace=True),
-                                                 nn.Dropout(p=self.config['dropout'], inplace=False)]])
+                                                 nn.Dropout(p=self.config['dropout'], inplace=False)]],
+
+                                           residual=self.config['residual'])
 
         # Heads
         self.policy = PolicyHead(embedding_size=embedding_size, kernel_size=kernel_size, tagset_size=tagset_size)
