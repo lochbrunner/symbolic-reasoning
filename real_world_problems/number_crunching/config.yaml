@@ -25,7 +25,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 1000
+  num-epochs: 500
   report-rate: 10
   batch-size: 8
   learning-rate: 0.1
@@ -43,6 +43,7 @@ training:
     hidden_layers: 2
     dropout: 0
     use_props: True
+    residual: False
 evaluation:
   num-epochs: 30
   problems:

@@ -98,7 +98,8 @@ def dump_statistics(config, logbooks):
     #     azure_run.log('top3', top3)
 
 
-def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenario_params: ScenarioParameter):
+def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
+         scenario_params: ScenarioParameter, config, early_abort_hook=None):
     if exe_params.manual_seed:
         torch.manual_seed(0)
     device = torch.device(exe_params.device)
@@ -193,7 +194,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
 
         def report(epoch, epoch_loss):
             if (epoch+1) % exe_params.report_rate != 0:
-                return
+                return True
             model.eval()
             error = validate(model, validation_dataloader)
             model.train()
@@ -223,6 +224,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 writer.add_scalar('value/positive', float(error.value_positive), epoch)
                 writer.add_scalar('value/negative', float(error.value_negative), epoch)
 
+            if early_abort_hook is not None:
+                # Primary metric
+                primary_metric = 1 - error.exact_no_padding.topk(4)
+                return early_abort_hook(epoch, primary_metric)
+            return True
+
         train(learn_params=learn_params, model=model, optimizer=optimizer,
               training_dataloader=training_dataloader, policy_weight=policy_weight, value_weight=value_weight, report_hook=report, azure_run=azure_run)
 
@@ -239,7 +246,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter, scenari
                 'learning-rate': learn_params.learning_rate,
                 'gradient-clipping': learn_params.gradient_clipping,
                 'value-lossweight': learn_params.value_loss_weight,
-                ** vars(learn_params.model_hyper_parameter)
+                ** learn_params.model_hyper_parameter
             },
                 metric_dict={'kpi/value-all': float(error.value_all),
                              'kpi/exact-no-padding (1)': error.exact_no_padding.topk(1),
@@ -286,7 +293,8 @@ if __name__ == '__main__':
             exe_params=ExecutionParameter(**vars(config), **vars(options)),
             learn_params=LearningParmeter.from_config_and_hyper(
                 config=config, model_hyper_parameter=model_hyper_parameter),
-            scenario_params=ScenarioParameter.from_config(config)
+            scenario_params=ScenarioParameter.from_config(config),
+            config=config
         )
         stats.append((grid_search.strip_keys(model_hyper_parameter, arg, names=changed_parameters), result))
     dump_statistics(config=config, logbooks=stats)

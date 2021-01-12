@@ -1,5 +1,15 @@
 import logging
 import sys
+import unittest
+from argparse import Namespace
+
+
+def make_namespace(value):
+    if isinstance(value, dict):
+        return Namespace(**{k.replace('-', '_'): make_namespace(v) for k, v in value.items()})
+    if isinstance(value, list):
+        return [make_namespace(vv) for vv in value]
+    return value
 
 
 def memoize(function):
@@ -48,3 +58,18 @@ def setup_logging(verbose, log, **kwargs):
     for mod_logger in all_loggers:
         mod_logger._cache.clear()  # pylint: disable=protected-access
         mod_logger.setLevel(logging.getLevelName(loglevel))
+
+
+class TestMakeNamespace(unittest.TestCase):
+    def test_recursive(self):
+        d = {'a': 'text', 'b': [1, 'c', {'d': 12}]}
+        actual = make_namespace(d)
+
+        self.assertEqual(actual.a, 'text')
+        self.assertEqual(actual.b[0], 1)
+        self.assertEqual(actual.b[1], 'c')
+        self.assertEqual(actual.b[2].d, 12)
+
+
+if __name__ == "__main__":
+    unittest.main()

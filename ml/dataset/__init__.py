@@ -1,4 +1,5 @@
-from common.utils import Compose
+import yaml
+from pathlib import Path
 
 
 from .bag import BagDataset
@@ -33,6 +34,22 @@ class ScenarioParameter:
                                  filename=files.trainings_data,
                                  solver_filename=files.solver_trainings_data
                                  )
+
+    @staticmethod
+    def from_config_dict(config, use_solver_data=False):
+        training = config['training']
+        files = config['files']
+        return ScenarioParameter(scenario=training['scenario'],
+                                 use_solver_data=use_solver_data,
+                                 data_size_limit=training['data-size-limit'],
+                                 filename=files['trainings-data'],
+                                 solver_filename=files['solver-trainings-data']
+                                 )
+
+    @staticmethod
+    def from_config_filename(filename: Path, use_solver_data=True):
+        with filename.open() as f:
+            return ScenarioParameter.from_config_dict(config=yaml.safe_load(f), use_solver_data=use_solver_data)
 
     @staticmethod
     def add_parsers(parser):

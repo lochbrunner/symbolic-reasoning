@@ -28,6 +28,18 @@ class LearningParmeter:
                                 )
 
     @staticmethod
+    def from_config_dict(config):
+        training = config['training']
+        return LearningParmeter(model_name=training['model-name'],
+                                num_epochs=training['num-epochs'],
+                                learning_rate=training['learning-rate'],
+                                batch_size=training['batch-size'],
+                                gradient_clipping=training['gradient-clipping'],
+                                value_loss_weight=training['value-loss-weight'],
+                                model_hyper_parameter=training['model-parameter']
+                                )
+
+    @staticmethod
     def from_config_and_hyper(config, model_hyper_parameter):
         training = config.training
         return LearningParmeter(model_name=training.model_name,

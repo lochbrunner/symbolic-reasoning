@@ -41,8 +41,10 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
             epoch_loss += loss
         if report_hook:
             timer.pause()
-            report_hook(epoch, epoch_loss)
+            early_abort = report_hook(epoch, epoch_loss)
             timer.resume()
+            if early_abort is not None and not early_abort:
+                break
         printProgressBar(epoch, learn_params.num_epochs, prefix='train')
 
     clearProgressBar()
