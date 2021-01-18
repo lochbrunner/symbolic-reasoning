@@ -99,7 +99,7 @@ def dump_statistics(config, logbooks):
 
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
-         scenario_params: ScenarioParameter, config, early_abort_hook=None):
+         scenario_params: ScenarioParameter, config, early_abort_hook=None, no_sig_handler=False, tensorboard_dir=None):
     if exe_params.manual_seed:
         torch.manual_seed(0)
     device = torch.device(exe_params.device)
@@ -156,14 +156,16 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
     value_weight = torch.as_tensor(dataset.value_weight, device=device, dtype=torch.float)
 
     # Training
-    original_sigint_handler = signal.getsignal(signal.SIGINT)
+    if not no_sig_handler:
+        original_sigint_handler = signal.getsignal(signal.SIGINT)
 
-    def early_abort(*args):
-        clearProgressBar()
-        logger.warning('Early abort')
-        save_snapshot()
-        sys.exit(1)
-    signal.signal(signal.SIGINT, early_abort)
+        def early_abort(*args):
+            clearProgressBar()
+            logger.warning('Abort by user')
+            save_snapshot()
+            sys.exit(1)
+        signal.signal(signal.SIGINT, early_abort)
+
     try:
         tb = None
         if exe_params.tensorboard:
@@ -176,7 +178,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 except Exception as e:
                     logger.warning(f'Could not start tensorboard: {e}')
                 writer = SummaryWriter(log_dir=str(log_dir))
-            writer = SummaryWriter()
+            writer = SummaryWriter(tensorboard_dir and str(tensorboard_dir))
             x, s, _, p, _ = next(iter(validation_dataloader))
             device = model.device
             x = x.to(device)
@@ -233,7 +235,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         train(learn_params=learn_params, model=model, optimizer=optimizer,
               training_dataloader=training_dataloader, policy_weight=policy_weight, value_weight=value_weight, report_hook=report, azure_run=azure_run)
 
-        signal.signal(signal.SIGINT, original_sigint_handler)
+        if not no_sig_handler:
+            signal.signal(signal.SIGINT, original_sigint_handler)
         error = validate(model, validation_dataloader)
         if logging.INFO >= logging.root.level:
             error.exact_no_padding.printHistogram()

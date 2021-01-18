@@ -1,9 +1,13 @@
+
+import logging
 import torch
 from torch import nn
 import torch.optim as optim
 
 from common.terminal_utils import printProgressBar, clearProgressBar
 from common.timer import Timer
+
+logger = logging.getLogger(__name__)
 
 
 def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloader, policy_weight=None, value_weight=None, report_hook=None, azure_run=None):
@@ -44,6 +48,7 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
             early_abort = report_hook(epoch, epoch_loss)
             timer.resume()
             if early_abort is not None and not early_abort:
+                logger.warning(f'Early abort by hook at #{epoch}')
                 break
         printProgressBar(epoch, learn_params.num_epochs, prefix='train')
 
