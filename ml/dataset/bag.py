@@ -131,7 +131,7 @@ class BagDataset(Dataset):
         return [c for c in channels if c is not None]
 
     def embed_custom(self, initial, fits=None, useful=True):
-        return initial.embed(self._ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=False)
+        return initial.embed(self._ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=self.positional_encoding)
 
     @property
     def max_depth(self):

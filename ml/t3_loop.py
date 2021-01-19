@@ -29,7 +29,7 @@ from training import train
 logger = logging.getLogger(__name__)
 
 
-def main(options, config):
+def main(options, config, early_abort_hook=None):
     with Timer('Loading scenario'):
         scenario = Scenario.load(config.files.scenario)
 
@@ -104,6 +104,10 @@ def main(options, config):
                 learn_params.num_epochs = 1
             train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
                   training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
+
+            if early_abort_hook and early_abort_hook(iteration, float(mean)):
+                break
+
     finally:
         # TODO: Dump traces
         intro = SolverStatistics()
@@ -118,7 +122,7 @@ def main(options, config):
     trainings_data_dumper.dump()
 
 
-if __name__ == '__main__':
+def create_parser():
     parser = ArgumentParser(domain='evaluation', prog='solver', exclude="scenario-*")
     # Common
     parser.add_argument('--log', help='Set the log level', default='warning')
@@ -133,8 +137,12 @@ if __name__ == '__main__':
 
     # Model
     parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')
+    return parser
 
-    config_args, self_args = parser.parse_args()
+
+if __name__ == '__main__':
+
+    config_args, self_args = create_parser().parse_args()
     loglevel = 'INFO' if self_args.verbose else self_args.log.upper()
 
     logging.basicConfig(

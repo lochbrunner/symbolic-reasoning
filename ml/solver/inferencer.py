@@ -5,7 +5,6 @@ import torch
 from pycore import Scenario
 
 # project
-from dataset.transformers import Padder, Embedder, ident_to_id
 from models import create_model
 from common import io
 from common.timer import Timer
@@ -64,11 +63,11 @@ class Inferencer:
         '''
 
         # x, s, _ = self.dataset.embed_custom(initial)
-        x, s, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread, initial.depth, [], True)
+        x, s, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
+                                         initial.depth, [], True, index_map=True, positional_encoding=False)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
         p = torch.ones(x.shape[:-1])
-
         y, v = self.model(x, s, p)
         y = y.squeeze()  # shape: rules, localisation
         y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding

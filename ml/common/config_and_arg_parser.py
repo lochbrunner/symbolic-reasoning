@@ -124,7 +124,7 @@ class ArgumentParser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):
         config_file_parser = argparse.ArgumentParser()
         config_file_parser.add_argument(*self.config_name, type=Path, required=True)
-        args, remaining_argv = config_file_parser.parse_known_args()
+        args, remaining_argv = config_file_parser.parse_known_args(args)
         config_file = getattr(args, self.config_name[1][2:].replace('-', '_'))
         with config_file.open() as f:
             config = yaml.full_load(f)

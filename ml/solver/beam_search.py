@@ -16,7 +16,8 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
     for epoch in range(num_epochs):
         logging.debug(f'epoch: {epoch}')
         for prev in statistics.trace:
-            policies = inference(prev.current, beam_size)
+            policies, value = inference(prev.current, beam_size)
+
             for top, (rule_id, path, confidence) in enumerate(policies, 1):
                 rule = rule_mapping[rule_id-1]
                 if rule.name in black_list_rules:
