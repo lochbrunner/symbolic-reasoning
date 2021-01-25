@@ -1,0 +1,33 @@
+\begin{tikzpicture}[scale=0.6]
+    \foreach \y [count=\n] in {
+        {74,25,39,20,3,3,3,3,3},
+        {25,53,31,17,7,7,42,33,2},
+        {39,31,90,24,3,3,13,3,13},
+        {20,17,24,37,2,22,16,5,5},
+        } {
+        \foreach \x [count=\m] in \y {
+            \node[fill=yellow!\x!purple, minimum size=6mm, text=white] at (\m,-\n) {};
+        }
+    }
+    \foreach \t [count=\n] in {
+        $a+b \to b+a$,
+        $a\cdot c+b\cdot c \to \left(a+b\right)\cdot c$,
+        $a+\left(b+c\right) \to \left(a+b\right)+c$,
+        $a+b=0 \to a = -b$
+    } {
+        \node[anchor=west] at (10, -\n) {\t};
+    }
+    \foreach \t [count=\m] in {
+        $\color{MidnightBlue} 3x + 2x =  10$,
+        ${\color{MidnightBlue} 3x + 2x} =  10$,
+        $3x + 2x = \color{MidnightBlue} 10$,
+        ${\color{MidnightBlue} 3x} + 2x = 10$,
+        $3x + {\color{MidnightBlue} 2x} = 10$,
+        ${\color{MidnightBlue}3}x + 2x = 10$,
+        $3{\color{MidnightBlue}x} + 2x = 10$,
+        $3x + {\color{MidnightBlue}2}x = 10$,
+        $3x + 2{\color{MidnightBlue}x} = 10$,
+    } {
+        \node[anchor=west, rotate=-45] at (\m - 0.2, -4.7) {\t};
+    }
+\end{tikzpicture}

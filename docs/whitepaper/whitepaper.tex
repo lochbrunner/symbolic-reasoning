@@ -6,7 +6,8 @@
 \usepackage{babel}
 \usepackage{amsmath}
 \usepackage{mathtools}
-\usepackage{xcolor}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
 
 \usepackage[
 backend=biber,
@@ -71,6 +72,12 @@ As each term is represented as directed async graph standard neuronal operation 
 The CNN based network uses an adapted operation for tree structured data.
 Special positional encoding for transformer based architecture.
 
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/network_output.tex}
+	\caption{Policy Network output: Each row is a possible rule. Each column a position in the initial term.} \label{fig:M1}
+\end{figure}
+
 \subsection{Data loop}
 
 From given (training) problems the algorithm trains itself by the three-T-loop: 
@@ -84,7 +91,11 @@ From given (training) problems the algorithm trains itself by the three-T-loop:
 \section{Results}
 We have defined all basic rules to perform the given problems as scenario configuration.
 
-% \subsection{Scenario Definition}
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/beam_search.tex}
+	\caption{Search beam: Green trace is the correct solution. The red branches are leading not leading to a solution. The light nodes are skipped in later searches when the model is trained.} \label{fig:M1}
+\end{figure}
 
 \section{Conclusion}
 
