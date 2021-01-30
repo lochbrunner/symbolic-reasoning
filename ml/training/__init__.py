@@ -3,8 +3,9 @@ import logging
 import torch
 from torch import nn
 import torch.optim as optim
+from tqdm import tqdm
+import sys
 
-from common.terminal_utils import printProgressBar, clearProgressBar
 from common.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
     value_loss_function = nn.NLLLoss(reduction='mean', weight=value_weight)
     timer = Timer(f'Trained {len(training_dataloader.dataset)} samples. Training per sample:')
     device = model.device
-    for epoch in range(learn_params.num_epochs):
+    for epoch in tqdm(range(learn_params.num_epochs), desc='train', leave=False, disable=not sys.stdin.isatty()):
         epoch_loss = 0
         model.zero_grad()
         # We have either s (= index map) or o (= positional_encoding)
@@ -50,9 +51,7 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
             if early_abort is not None and not early_abort:
                 logger.warning(f'Early abort by hook at #{epoch}')
                 break
-        printProgressBar(epoch, learn_params.num_epochs, prefix='train')
 
-    clearProgressBar()
     duration_per_sample = timer.stop_and_log_average(learn_params.num_epochs*len(training_dataloader.dataset))
     if azure_run is not None:
         azure_run.log('duration_per_sample', duration_per_sample)

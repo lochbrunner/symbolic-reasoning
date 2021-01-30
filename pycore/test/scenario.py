@@ -18,6 +18,8 @@ class TestScenarioProblems(unittest.TestCase):
 
         rule = Rule.parse(context, 'c => d')
         problems.add_to_validation(rule, 'rule 2')
+        problems.add_additional_idents(['a', 'b'])
+        problems.add_additional_idents(['b', 'c'])
 
         problems.dump(filename)
 
@@ -30,6 +32,8 @@ class TestScenarioProblems(unittest.TestCase):
         self.assertEqual(len(loaded_problems.training), 1)
         rule = loaded_problems.training['rule 1']
         self.assertEqual(rule.verbose.strip(), 'a => b')
+
+        self.assertCountEqual(loaded_problems.additional_idents, ['a', 'b', 'c'])
 
 
 if __name__ == '__main__':

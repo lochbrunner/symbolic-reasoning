@@ -8,6 +8,8 @@ extern crate serde_yaml;
 struct ScenarioStringAsProblem {
     pub training: HashMap<String, String>,
     pub validation: HashMap<String, String>,
+    #[serde(default)]
+    pub additional_idents: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,6 +29,7 @@ impl Default for ScenarioProblemEnum {
 pub struct ScenarioProblems {
     pub training: HashMap<String, Rule>,
     pub validation: HashMap<String, Rule>,
+    pub additional_idents: Vec<String>,
 }
 
 impl ScenarioProblems {
@@ -47,6 +50,7 @@ impl ScenarioProblems {
                 .map(parse_rule)
                 .flatten()
                 .collect::<Result<HashMap<_, _>, _>>()?,
+            additional_idents: value.additional_idents.clone(),
         })
     }
 

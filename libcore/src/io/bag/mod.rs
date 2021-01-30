@@ -57,10 +57,11 @@ impl Meta {
             .map(|(k, v)| (k.clone(), v.reverse()))
             .collect::<Vec<_>>();
         rules.extend_from_slice(&scenario_rules);
-        let idents = extract_idents_from_rules(&rules, |(_, r)| r)
+        let mut idents: Vec<String> = extract_idents_from_rules(&rules, |(_, r)| r)
             .iter()
             .cloned()
             .collect();
+        idents.extend(scenario.declarations.declarations.keys().cloned());
         Self {
             rule_distribution: vec![(1, 1); rules.len()],
             value_distribution: (0, 0),

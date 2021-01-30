@@ -1,13 +1,7 @@
 name: basic
 declarations:
   f:
-    is_fixed: true
     is_function: true
-    only_root: false
-  x:
-    is_fixed: true
-    is_function: false
-    only_root: false
 rules:
   trivial subtraction: a-a => 0
   trivial division: a/a => 1

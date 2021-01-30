@@ -3,6 +3,8 @@ use core::Rule;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::iter::FromIterator;
 use std::sync::Arc;
 
 use crate::context::PyContext;
@@ -59,6 +61,11 @@ impl PyScenarioProblems {
         ))
     }
 
+    #[getter]
+    fn additional_idents(&self) -> PyResult<Vec<String>> {
+        Ok(self.inner.additional_idents.clone())
+    }
+
     #[staticmethod]
     #[text_signature = "(filename, /)"]
     fn load(filename: &str) -> PyResult<Self> {
@@ -97,6 +104,21 @@ impl PyScenarioProblems {
         problems
             .validation
             .insert(name.to_owned(), (*rule.inner).clone());
+        Ok(())
+    }
+
+    fn add_additional_idents(&mut self, idents: Vec<String>) -> PyResult<()> {
+        let problems =
+            Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<exceptions::ReferenceError, _>(
+                "Could not mutable borrow reference.".to_owned(),
+            ))?;
+        let unique_idents: HashSet<String> = HashSet::from_iter(
+            idents
+                .into_iter()
+                .chain(problems.additional_idents.iter().cloned()),
+        );
+        problems.additional_idents.clear();
+        problems.additional_idents.extend(unique_idents.into_iter());
         Ok(())
     }
 }

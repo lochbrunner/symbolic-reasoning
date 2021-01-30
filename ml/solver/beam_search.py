@@ -111,7 +111,6 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     continue
                 statistics.fit_results += 1
                 rule = rule_mapping[rule_id]
-                # print(deduced.verbose)
                 apply_info = ApplyInfo(
                     rule_name=rule.name, rule_formula=rule.verbose,
                     current=deduced,

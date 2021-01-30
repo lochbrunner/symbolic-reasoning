@@ -9,10 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_linear(left_length=3, right_length=3, num_symbols=2):
-    reservoir = sp.symbols(tuple(alphabet[:num_symbols]) + ('x',)) + (1, 0)
+def create_linear(left_length=3, right_length=3, num_symbols=2, **kwargs):
+    used_symbols = tuple(alphabet[:num_symbols]) + ('x',)
+    used_numbers = (1, 0)
+    reservoir = sp.symbols(used_symbols) + used_numbers
     x = sp.symbols('x')
     operations_reservoir = ('-', '+', '*', '/')
+    used_idents = [*operations_reservoir, *used_symbols, *(str(n) for n in used_numbers)]
 
     def combis(length):
         symbols_combi = itertools.combinations(reservoir, length)
@@ -37,14 +40,19 @@ def create_linear(left_length=3, right_length=3, num_symbols=2):
             elif operation == '*':
                 a = a * b
             elif operation == '/':
+                if b == 0:
+                    raise ZeroDivisionError()
                 a = a / b
 
         return a
 
     problems = []
     for left_operations, left_symbols, right_operations, right_symbols in tqdm(total_combis, total=size, smoothing=0.):
-        left_term = create_term(left_operations, left_symbols)
-        right_term = create_term(right_operations, right_symbols)
+        try:
+            left_term = create_term(left_operations, left_symbols)
+            right_term = create_term(right_operations, right_symbols)
+        except ZeroDivisionError:
+            continue
         equation = f'{left_term} = {right_term}'
         solution = sp.solve(sp.Eq(left_term, right_term), x)
         if len(solution) == 0:
@@ -56,4 +64,4 @@ def create_linear(left_length=3, right_length=3, num_symbols=2):
         solution = solution[0]
         problems.append(f'{equation} => x = {solution}'.replace('**', '^'))
 
-    return problems
+    return problems, used_idents

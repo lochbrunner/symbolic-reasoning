@@ -1,11 +1,12 @@
 from typing import Dict
 import itertools
 import logging
+from tqdm import tqdm
+import sys
 
 from pycore import Symbol, Context, Rule
 
 from common.timer import Timer
-from common.terminal_utils import printProgressBar, clearProgressBar
 from solver.beam_search import beam_search, beam_search_policy_last
 from solver.inferencer import Inferencer
 
@@ -18,7 +19,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
     problem_statistics = []
     problem_solutions = []
 
-    show_progress = not logger.isEnabledFor(logging.DEBUG)
+    show_progress = not logger.isEnabledFor(logging.DEBUG) and sys.stdin.isatty()
 
     context = Context.standard()
 
@@ -32,9 +33,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
     if options.smoke:
         problems = dict(itertools.islice(problems.items(), 1))
 
-    for i, problem_name in enumerate(problems):
-        if show_progress:
-            printProgressBar(i, len(problems), prefix='solve')
+    for problem_name in tqdm(problems, desc='solve', disable=not show_progress, leave=False):
         problem = problems[problem_name]
         # Get first problem
         logger.debug(f'problem: {problem}')
@@ -59,8 +58,5 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         logger.debug(statistics)
         problem_statistics.append(statistics)
         problem_traces[problem_name] = statistics.as_builtin
-
-    if show_progress:
-        clearProgressBar()
 
     return problem_solutions, problem_statistics, problem_traces
