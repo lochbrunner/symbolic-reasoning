@@ -110,9 +110,10 @@ impl PyBag {
     }
 
     #[staticmethod]
-    fn from_scenario(scenario: &PyScenario) -> PyResult<Self> {
+    #[args(scenario, ignore_declaration = true)]
+    fn from_scenario(scenario: &PyScenario, ignore_declaration: bool) -> PyResult<Self> {
         Ok(Self {
-            meta_data: bag::Meta::from_scenario(&scenario.inner),
+            meta_data: bag::Meta::from_scenario(&scenario.inner, ignore_declaration),
             containers: vec![],
         })
     }

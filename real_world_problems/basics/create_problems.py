@@ -55,9 +55,10 @@ def main(args):
         else:
             scenario_problems.add_to_training(rule, name)
 
-    scenario_problems.dump(problems_path)
-    logger.info(f'used_idents: {", ".join(used_idents)}')
+    logger.info(f'Used idents: {", ".join(used_idents)}')
     scenario_problems.add_additional_idents(list(set(used_idents)))
+    logger.info(f'Dumping to {problems_path} ...')
+    scenario_problems.dump(problems_path)
 
 
 if __name__ == '__main__':

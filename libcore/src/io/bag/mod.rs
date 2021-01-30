@@ -48,7 +48,7 @@ pub struct Meta {
 }
 
 impl Meta {
-    pub fn from_scenario(scenario: &Scenario) -> Self {
+    pub fn from_scenario(scenario: &Scenario, ignore_declaration: bool) -> Self {
         let mut rules: Vec<(String, Rule)> = Vec::new();
         rules.push(("padding".to_string(), Default::default()));
         let scenario_rules = scenario
@@ -57,16 +57,11 @@ impl Meta {
             .map(|(k, v)| (k.clone(), v.reverse()))
             .collect::<Vec<_>>();
         rules.extend_from_slice(&scenario_rules);
-        let mut idents: Vec<String> = extract_idents_from_rules(&rules, |(_, r)| r)
-            .iter()
-            .cloned()
-            .collect();
-        idents.extend(scenario.declarations.declarations.keys().cloned());
         Self {
             rule_distribution: vec![(1, 1); rules.len()],
             value_distribution: (0, 0),
             rules,
-            idents,
+            idents: scenario.idents(ignore_declaration),
         }
     }
 }
@@ -227,7 +222,7 @@ impl Bag {
     /// Creates a bag with one empty container
     pub fn empty(max_spread: u32, scenario: &Scenario) -> Self {
         Bag {
-            meta: Meta::from_scenario(scenario),
+            meta: Meta::from_scenario(scenario, false),
             containers: vec![SampleContainer {
                 max_size: 0,
                 max_depth: 0,

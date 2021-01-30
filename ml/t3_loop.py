@@ -102,11 +102,14 @@ def main(options, config, early_abort_hook=None):
                 break
             if options.smoke:
                 learn_params.num_epochs = 1
+
             train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
                   training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
 
             if early_abort_hook and early_abort_hook(iteration, float(mean)):
                 break
+
+            learn_params.use_finetuning()
 
     finally:
         # TODO: Dump traces

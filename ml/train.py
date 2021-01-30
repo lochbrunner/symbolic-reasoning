@@ -33,7 +33,6 @@ from common import grid_search
 from common import io
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
-from common.terminal_utils import printProgressBar, clearProgressBar
 from common.timer import Timer
 from common.utils import setup_logging
 from common.validation import validate
@@ -160,7 +159,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         original_sigint_handler = signal.getsignal(signal.SIGINT)
 
         def early_abort(*args):
-            clearProgressBar()
             logger.warning('Abort by user')
             save_snapshot()
             sys.exit(1)
@@ -200,7 +198,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
             model.eval()
             error = validate(model, validation_dataloader)
             model.train()
-            clearProgressBar()
             loss = learn_params.batch_size * epoch_loss
             logbook.append((epoch, error, loss))
             if not writer:

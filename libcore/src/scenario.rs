@@ -1,5 +1,6 @@
 use super::{Context, Declaration, Rule, Symbol};
-use std::collections::{HashMap, HashSet};
+use crate::io::bag::extract_idents_from_rules;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 extern crate serde_yaml;
@@ -154,29 +155,19 @@ impl Scenario {
         Scenario::load_from_yaml_reader(file)
     }
 
-    pub fn idents(&self) -> Vec<String> {
-        let mut idents = HashSet::new();
-
-        let mut add = |ident: &String| {
-            if !idents.contains(ident) {
-                idents.insert(ident.clone());
-            }
-        };
-
-        for (ident, _) in self.declarations.declarations.iter() {
-            add(ident);
+    pub fn idents(&self, ignore_declaration: bool) -> Vec<String> {
+        let mut idents = extract_idents_from_rules(
+            &self.rules.iter().map(|(_, r)| r).collect::<Vec<_>>(),
+            |r| r,
+        );
+        if !ignore_declaration {
+            idents.extend(self.declarations.declarations.keys().cloned());
         }
+        idents.extend(self.problems.additional_idents.iter().cloned());
+        let mut idents = idents.into_iter().collect::<Vec<String>>();
+        idents.sort();
 
-        for (_, rule) in self.rules.iter() {
-            for symbol in rule.condition.iter_df() {
-                add(&symbol.ident);
-            }
-            for symbol in rule.conclusion.iter_df() {
-                add(&symbol.ident);
-            }
-        }
-
-        idents.into_iter().collect()
+        idents
     }
 }
 

@@ -175,9 +175,9 @@ impl PyScenario {
         })
     }
 
-    #[getter]
-    fn idents(&self) -> PyResult<Vec<String>> {
-        Ok(self.inner.idents())
+    #[args(ignore_declaration = true)]
+    fn idents(&self, ignore_declaration: bool) -> PyResult<Vec<String>> {
+        Ok(self.inner.idents(ignore_declaration))
     }
 
     /// With padding
@@ -186,9 +186,9 @@ impl PyScenario {
         Ok(self.inner.rules.len() + 1)
     }
 
-    #[getter]
-    fn vocab_size(&self) -> PyResult<usize> {
-        Ok(self.inner.idents().len())
+    #[args(ignore_declaration = true)]
+    fn vocab_size(&self, ignore_declaration: bool) -> PyResult<usize> {
+        Ok(self.inner.idents(ignore_declaration).len())
     }
 
     #[getter]

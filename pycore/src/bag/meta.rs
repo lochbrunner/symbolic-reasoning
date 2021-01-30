@@ -25,8 +25,9 @@ impl PyBagMeta {
 #[pymethods]
 impl PyBagMeta {
     #[staticmethod]
-    fn from_scenario(scenario: PyScenario) -> PyResult<Self> {
-        let meta = bag::Meta::from_scenario(&scenario.inner);
+    #[args(scenario, ignore_declaration = true)]
+    fn from_scenario(scenario: PyScenario, ignore_declaration: bool) -> PyResult<Self> {
+        let meta = bag::Meta::from_scenario(&scenario.inner, ignore_declaration);
         Ok(Self {
             data: Arc::new(meta),
         })

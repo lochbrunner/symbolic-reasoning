@@ -38,12 +38,12 @@ class Inferencer:
     def __init__(self, config, scenario: Scenario, fresh_model: bool):
         learn_params = LearningParmeter.from_config(config)
         if fresh_model:
-            idents = scenario.idents
+            idents = scenario.idents()
             self.spread = scenario.spread
             self.pad_token = 0  # Should be a constant
             self.model = create_model(learn_params.model_name,
                                       hyper_parameter=learn_params.model_hyper_parameter,
-                                      vocab_size=scenario.vocab_size, tagset_size=scenario.tagset_size, pad_token=0, kernel_size=scenario.spread+2)
+                                      vocab_size=scenario.vocab_size(), tagset_size=scenario.tagset_size, pad_token=0, kernel_size=scenario.spread+2)
         else:
             self.model, snapshot = io.load_model(config.files.model)
             idents = snapshot['idents']
