@@ -19,7 +19,7 @@ pub enum Precedence {
     PProduct,
     PPower,
     PFaculty,
-    // PHighest,
+    PHighest,
 }
 #[derive(Debug, PartialEq)]
 enum BracketDirection {
@@ -92,27 +92,37 @@ mod token_type {
     pub const EOF: u32 = 1 << 8;
 }
 
-fn token_info(token: &Token) -> (u32, &'static str, Precedence, Option<&String>, Option<&i64>) {
+enum Payload<'a> {
+    Ident(&'a String),
+    Number(&'a i64),
+}
+
+fn token_info<'a>(token: &'a Token) -> (u32, &'static str, Precedence, Option<Payload<'a>>) {
     use token_type::*;
     match token {
-        Token::Number(value) => (LITERAL, "", Precedence::PLowest, None, Some(value)),
-        Token::Ident(ident) => (IDENT, "", Precedence::PLowest, Some(ident), None),
-        Token::Plus => (INFIX | PREFIX, "+", Precedence::PSum, None, None),
-        Token::Minus => (INFIX | PREFIX, "-", Precedence::PSum, None, None),
-        Token::Multiply => (INFIX, "*", Precedence::PProduct, None, None),
-        Token::Divide => (INFIX, "/", Precedence::PProduct, None, None),
-        Token::Power => (INFIX, "^", Precedence::PPower, None, None),
-        Token::Equal => (INFIX, "=", Precedence::PEquals, None, None),
-        Token::NotEqual => (INFIX, "!=", Precedence::PEquals, None, None),
-        Token::GreaterThan => (INFIX, ">", Precedence::PLessGreater, None, None),
-        Token::LessThan => (INFIX, "<", Precedence::PLessGreater, None, None),
-        Token::GreaterThanEqual => (INFIX, ">=", Precedence::PLessGreater, None, None),
-        Token::LessThanEqual => (INFIX, "<=", Precedence::PLessGreater, None, None),
-        Token::BracketL => (OPENING_BRACKET, "(", Precedence::POpening, None, None),
-        Token::BracketR => (CLOSING_BRACKET, ")", Precedence::POpening, None, None),
-        Token::Comma => (SEPARATOR, ",", Precedence::PLowest, None, None),
-        Token::Faculty => (POSTFIX, "!", Precedence::PFaculty, None, None),
-        Token::EOF => (EOF, "", Precedence::PLowest, None, None),
+        Token::Number(value) => (
+            LITERAL,
+            "",
+            Precedence::PLowest,
+            Some(Payload::Number(value)),
+        ),
+        Token::Ident(ident) => (IDENT, "", Precedence::PLowest, Some(Payload::Ident(ident))),
+        Token::Plus => (INFIX | PREFIX, "+", Precedence::PSum, None),
+        Token::Minus => (INFIX | PREFIX, "-", Precedence::PSum, None),
+        Token::Multiply => (INFIX, "*", Precedence::PProduct, None),
+        Token::Divide => (INFIX, "/", Precedence::PProduct, None),
+        Token::Power => (INFIX, "^", Precedence::PPower, None),
+        Token::Equal => (INFIX, "=", Precedence::PEquals, None),
+        Token::NotEqual => (INFIX, "!=", Precedence::PEquals, None),
+        Token::GreaterThan => (INFIX, ">", Precedence::PLessGreater, None),
+        Token::LessThan => (INFIX, "<", Precedence::PLessGreater, None),
+        Token::GreaterThanEqual => (INFIX, ">=", Precedence::PLessGreater, None),
+        Token::LessThanEqual => (INFIX, "<=", Precedence::PLessGreater, None),
+        Token::BracketL => (OPENING_BRACKET, "(", Precedence::POpening, None),
+        Token::BracketR => (CLOSING_BRACKET, ")", Precedence::POpening, None),
+        Token::Comma => (SEPARATOR, ",", Precedence::PLowest, None),
+        Token::Faculty => (POSTFIX, "!", Precedence::PFaculty, None),
+        Token::EOF => (EOF, "", Precedence::PLowest, None),
     }
 }
 
@@ -145,75 +155,80 @@ impl<'a> Iterator for Classifier<'a> {
     type Item = Result<Classification, String>;
 
     fn next(&mut self) -> Option<Result<Classification, String>> {
-        let next = if let Some(token) = self.next {
-            Some(token)
-        } else {
-            self.tokens.next()
-        };
+        let next = self.next.or_else(|| self.tokens.next());
         self.next = None;
 
-        match next {
-            Some(token) => {
-                let token_info = token_info(token);
-                if self.expect_operator {
-                    if token_info.0 & token_type::INFIX != 0 {
-                        self.expect_operator = false;
-                        create_infix(token_info.1, token_info.2)
-                    } else if token_info.0 & token_type::POSTFIX != 0 {
-                        create_postfix(token_info.1, token_info.2)
-                    } else if token_info.0 & token_type::EOF != 0 {
-                        Some(Ok(Classification::EOF))
-                    } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
-                        Some(Ok(Classification::Bracket(Bracket {
-                            direction: BracketDirection::Closing,
-                            r#type: BracketType::Round,
-                        })))
-                    } else if token_info.0 & token_type::SEPARATOR != 0 {
-                        self.expect_operator = false;
-                        Some(Ok(Classification::Separator))
-                    } else if token_info.0 & (token_type::IDENT | token_type::OPENING_BRACKET) != 0
-                    {
-                        self.expect_operator = false;
-                        self.next = Some(token);
-                        create_infix("*", Precedence::PProduct)
-                    } else {
-                        Some(Err(format!("Expected operator, found {:?}", token)))
-                    }
+        if let Some(token) = next {
+            let token_info = token_info(token);
+            if self.expect_operator {
+                if token_info.0 & token_type::INFIX != 0 {
+                    self.expect_operator = false;
+                    create_infix(token_info.1, token_info.2)
+                } else if token_info.0 & token_type::POSTFIX != 0 {
+                    create_postfix(token_info.1, token_info.2)
+                } else if token_info.0 & token_type::EOF != 0 {
+                    Some(Ok(Classification::EOF))
+                } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
+                    Some(Ok(Classification::Bracket(Bracket {
+                        direction: BracketDirection::Closing,
+                        r#type: BracketType::Round,
+                    })))
+                } else if token_info.0 & token_type::SEPARATOR != 0 {
+                    self.expect_operator = false;
+                    Some(Ok(Classification::Separator))
+                } else if token_info.0 & (token_type::IDENT | token_type::OPENING_BRACKET) != 0 {
+                    self.expect_operator = false;
+                    self.next = Some(token);
+                    create_infix("*", Precedence::PProduct)
                 } else {
-                    if token_info.0 & token_type::IDENT != 0 {
-                        // Is this a function?
-                        let ident = token_info.3.expect("Ident in tuple").clone();
-                        if self.context.is_function(&ident) {
-                            create_function(&ident[..], Precedence::PCall)
-                        } else {
-                            self.expect_operator = true;
-                            Some(Ok(Classification::Ident(ident)))
+                    Some(Err(format!("Expected operator, found {:?}", token)))
+                }
+            } else {
+                // No operator
+                if token_info.0 & token_type::IDENT != 0 {
+                    // Is this a function?
+                    match token_info.3.expect("Ident in tuple") {
+                        Payload::Ident(ident) => {
+                            let ident = ident.clone();
+                            if self.context.is_function(&ident) {
+                                create_function(&ident[..], Precedence::PCall)
+                            } else {
+                                self.expect_operator = true;
+                                Some(Ok(Classification::Ident(ident)))
+                            }
                         }
-                    } else if token_info.0 & token_type::LITERAL != 0 {
-                        self.expect_operator = true;
-                        let value = *token_info.4.expect("Value in tuple");
-                        Some(Ok(Classification::Literal(value)))
-                    } else if token_info.0 & token_type::PREFIX != 0 {
-                        create_prefix(token_info.1, token_info.2)
-                    } else if token_info.0 & token_type::EOF != 0 {
-                        Some(Ok(Classification::EOF))
-                    } else if token_info.0 & token_type::OPENING_BRACKET != 0 {
-                        Some(Ok(Classification::Bracket(Bracket {
-                            direction: BracketDirection::Opening,
-                            r#type: BracketType::Round,
-                        })))
-                    } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
-                        self.expect_operator = true;
-                        Some(Ok(Classification::Bracket(Bracket {
-                            direction: BracketDirection::Closing,
-                            r#type: BracketType::Round,
-                        })))
-                    } else {
-                        Some(Err(format!("Expected literal or ident, found {:?}", token)))
+                        _ => panic!("Expected Ident"),
                     }
+                } else if token_info.0 & token_type::LITERAL != 0 {
+                    self.expect_operator = true;
+                    match token_info.3.expect("Value in tuple") {
+                        Payload::Number(value) => Some(Ok(Classification::Literal(*value))),
+                        _ => panic!("Expected number"),
+                    }
+                } else if token_info.0 & token_type::PREFIX != 0 {
+                    match token {
+                        Token::Minus => create_prefix(token_info.1, Precedence::PHighest),
+                        _ => create_prefix(token_info.1, token_info.2),
+                    }
+                } else if token_info.0 & token_type::EOF != 0 {
+                    Some(Ok(Classification::EOF))
+                } else if token_info.0 & token_type::OPENING_BRACKET != 0 {
+                    Some(Ok(Classification::Bracket(Bracket {
+                        direction: BracketDirection::Opening,
+                        r#type: BracketType::Round,
+                    })))
+                } else if token_info.0 & token_type::CLOSING_BRACKET != 0 {
+                    self.expect_operator = true;
+                    Some(Ok(Classification::Bracket(Bracket {
+                        direction: BracketDirection::Closing,
+                        r#type: BracketType::Round,
+                    })))
+                } else {
+                    Some(Err(format!("Expected literal or ident, found {:?}", token)))
                 }
             }
-            None => None,
+        } else {
+            None
         }
     }
 }
@@ -894,7 +909,7 @@ mod specs {
             vec![
                 Ok(Classification::Prefix(Operation {
                     ident: String::from("-"),
-                    precedence: Precedence::PSum,
+                    precedence: Precedence::PHighest,
                     r#type: OperationType::Prefix,
                 })),
                 Ok(Classification::Ident(String::from("a"))),
@@ -1341,6 +1356,34 @@ mod specs {
             ],
         );
         assert_eq!(actual.to_string(), expected.to_string());
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn bug_unary_minus() {
+        // -a + 0
+        let tokens = vec![
+            Token::Minus,
+            Token::Ident(String::from("a")),
+            Token::Plus,
+            Token::Number(0),
+            Token::EOF,
+        ];
+
+        let context = Context::standard();
+
+        let actual = parse(&context, &tokens).expect("parse");
+
+        let expected = Symbol::new_operator(
+            "+",
+            true,
+            false,
+            vec![
+                Symbol::new_operator("-", true, false, vec![new_variable("a")]),
+                Symbol::new_number(0),
+            ],
+        );
+
         assert_eq!(actual, expected);
     }
 }
