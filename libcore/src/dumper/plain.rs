@@ -31,7 +31,13 @@ pub fn dump_symbol_plain(symbol: &Symbol, verbose: bool) -> String {
         decoration: vec![],
     };
     let mut string = String::new();
-    dump_base(&context, symbol, FormattingLocation::new(), &mut string);
+    dump_base(
+        &context,
+        symbol,
+        FormattingLocation::new(),
+        true,
+        &mut string,
+    );
     string
 }
 
@@ -113,6 +119,23 @@ mod e2e {
     #[test]
     fn verbose_infix_simple() {
         test_verbose("a+(b+c)")
+    }
+
+    #[test]
+    fn unary_minus() {
+        test("-a");
+    }
+
+    #[test]
+    fn unary_minus_multiplication() {
+        test("-a*b");
+    }
+
+    #[test]
+    fn unary_minus_multiplication_dominant() {
+        let context = create_context(&[]);
+        let term = Symbol::parse(&context, "-(a*b)").unwrap();
+        assert_eq!(dump_symbol_plain(&term, false), String::from("-1*a*b"));
     }
 
     #[test]

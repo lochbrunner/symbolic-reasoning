@@ -55,7 +55,13 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>, verbose: bool) -
         decoration,
     };
     let mut string = String::new();
-    dump_base(&context, symbol, FormattingLocation::new(), &mut string);
+    dump_base(
+        &context,
+        symbol,
+        FormattingLocation::new(),
+        true,
+        &mut string,
+    );
     string
 }
 

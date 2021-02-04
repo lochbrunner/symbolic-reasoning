@@ -18,8 +18,9 @@ pub enum Precedence {
     PSum,
     PProduct,
     PPower,
+    PUnaryMinus,
     PFaculty,
-    PHighest,
+    // PHighest,
 }
 #[derive(Debug, PartialEq)]
 enum BracketDirection {
@@ -207,7 +208,7 @@ impl<'a> Iterator for Classifier<'a> {
                     }
                 } else if token_info.0 & token_type::PREFIX != 0 {
                     match token {
-                        Token::Minus => create_prefix(token_info.1, Precedence::PHighest),
+                        Token::Minus => create_prefix(token_info.1, Precedence::PUnaryMinus),
                         _ => create_prefix(token_info.1, token_info.2),
                     }
                 } else if token_info.0 & token_type::EOF != 0 {
@@ -310,7 +311,6 @@ fn astify(
                 // Could be replaced later.
                 // Should this be option?
                 if no_unary_minus && ident == "-" {
-                    println!("Minus");
                     ident = "*".to_owned();
                     vec![Symbol::new_number(-1), stack.pop_as_symbol(context)?]
                 } else {
@@ -933,7 +933,7 @@ mod specs {
             vec![
                 Ok(Classification::Prefix(Operation {
                     ident: String::from("-"),
-                    precedence: Precedence::PHighest,
+                    precedence: Precedence::PUnaryMinus,
                     r#type: OperationType::Prefix,
                 })),
                 Ok(Classification::Ident(String::from("a"))),
