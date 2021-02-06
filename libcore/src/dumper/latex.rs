@@ -196,7 +196,7 @@ mod e2e {
         let term = Symbol::parse(&context, "a^b^c").unwrap();
         assert_eq!(
             dump_latex(&term, vec![], false),
-            String::from("{a}^{{b}^{c}}")
+            String::from("{{a}^{b}}^{c}")
         );
     }
 

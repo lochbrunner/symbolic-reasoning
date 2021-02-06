@@ -761,4 +761,18 @@ mod specs {
         assert!(scenario.variable.is_empty());
         assert_eq!(&scenario.path, &[1]);
     }
+    #[test]
+    fn bug_basics() {
+        let context = Context::standard();
+        let outer = Symbol::parse(&context, "x = -a + 0").unwrap();
+        let inner = Symbol::parse(&context, "a+0").unwrap();
+        let scenarios = fit(&outer, &inner);
+
+        assert_eq!(scenarios.len(), 1);
+        let scenario = scenarios.iter().nth(0).unwrap();
+
+        assert_eq!(&scenario.path, &[1]);
+        let expected = Symbol::parse(&context, "-a").unwrap();
+        assert_eq!(scenario.variable[&new_variable("a")], &expected);
+    }
 }

@@ -12,7 +12,7 @@ pub enum Precedence {
     PSeparator,
     PCall,
     POpening,
-    // PClosing,
+    PClosing,
     PEquals,
     PLessGreater,
     PSum,
@@ -295,7 +295,7 @@ fn astify(
     till: Precedence,
     no_unary_minus: bool,
 ) -> Result<(), String> {
-    while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence > till {
+    while !stack.infix.is_empty() && stack.infix.last().expect("infix").precedence >= till {
         let Operation {
             mut ident, r#type, ..
         } = stack.infix.pop().unwrap();
@@ -400,7 +400,7 @@ pub fn parse(context: &Context, tokens: &[Token], no_unary_minus: bool) -> Resul
             Ok(token) => match token {
                 Classification::Infix(operation) => {
                     if let Some(last) = stack.infix.last() {
-                        if last.precedence > operation.precedence {
+                        if last.precedence >= operation.precedence {
                             astify(
                                 context,
                                 &mut stack,
@@ -422,7 +422,7 @@ pub fn parse(context: &Context, tokens: &[Token], no_unary_minus: bool) -> Resul
                 Classification::EOF => break,
                 Classification::Bracket(bracket) => match bracket.direction {
                     BracketDirection::Closing => {
-                        astify(context, &mut stack, Precedence::POpening, no_unary_minus)?;
+                        astify(context, &mut stack, Precedence::PClosing, no_unary_minus)?;
                         apply_function(context, &mut stack)?;
                     }
                     BracketDirection::Opening => stack.infix.push(Operation {
@@ -806,22 +806,13 @@ mod specs {
             Token::EOF,
         ];
         let actual = parse(&context, &tokens, true).expect("parse");
-
+        let a = new_variable("a");
+        let b = new_variable("b");
+        let c = new_variable("c");
+        let d = new_variable("d");
         assert_eq!(
             actual,
-            new_op(
-                "+",
-                vec![
-                    new_variable("a"),
-                    new_op(
-                        "-",
-                        vec![
-                            new_op("*", vec![new_variable("b"), new_variable("c")]),
-                            new_variable("d")
-                        ]
-                    ),
-                ]
-            )
+            new_op("-", vec![new_op("+", vec![a, new_op("*", vec![b, c])]), d])
         );
     }
 
@@ -1000,7 +991,7 @@ mod specs {
     }
 
     #[bench]
-    fn implicit_bin_operator_brackets(b: &mut Bencher) {
+    fn implicit_bin_operator_brackets(bencher: &mut Bencher) {
         // ab -> (a+b)(c+d)*e(f+g)
         let context = create_context(vec![]);
         let tokens = vec![
@@ -1024,29 +1015,32 @@ mod specs {
             Token::EOF,
         ];
 
+        let a = new_variable("a");
+        let b = new_variable("b");
+        let c = new_variable("c");
+        let d = new_variable("d");
+        let e = new_variable("e");
+        let f = new_variable("f");
+        let g = new_variable("g");
+
         let actual = parse(&context, &tokens, true).expect("parse");
         let expected = new_op(
             "*",
             vec![
-                new_op("+", vec![new_variable("a"), new_variable("b")]),
                 new_op(
                     "*",
                     vec![
-                        new_op("+", vec![new_variable("c"), new_variable("d")]),
-                        new_op(
-                            "*",
-                            vec![
-                                new_variable("e"),
-                                new_op("+", vec![new_variable("f"), new_variable("g")]),
-                            ],
-                        ),
+                        new_op("*", vec![new_op("+", vec![a, b]), new_op("+", vec![c, d])]),
+                        e,
                     ],
                 ),
+                new_op("+", vec![f, g]),
             ],
         );
+
         assert_eq!(actual, expected);
 
-        b.iter(|| {
+        bencher.iter(|| {
             parse(&context, &tokens, true).unwrap();
         })
     }
@@ -1124,7 +1118,8 @@ mod specs {
             Token::EOF,
         ];
 
-        let actual = parse(&context, &tokens, true).expect("parse");
+        let actual = parse(&context, &tokens, true);
+        let actual = actual.expect("parse");
         let expected = new_op("+", vec![new_variable("a"), new_variable("b")]);
         assert_eq!(actual, expected);
     }
@@ -1182,7 +1177,7 @@ mod specs {
     }
 
     #[bench]
-    fn postfix_operator_complex(b: &mut Bencher) {
+    fn postfix_operator_complex(bencher: &mut Bencher) {
         // a+b!*c+(e*d)!
         let tokens = vec![
             Token::Ident(String::from("a")),
@@ -1203,29 +1198,23 @@ mod specs {
 
         let context = create_context(vec![]);
 
+        let a = new_variable("a");
+        let b = new_variable("b");
+        let c = new_variable("c");
+        let d = new_variable("d");
+        let e = new_variable("e");
+
         let actual = parse(&context, &tokens, true).expect("parse");
         let expected = new_op(
             "+",
             vec![
-                new_variable("a"),
-                new_op(
-                    "+",
-                    vec![
-                        new_op(
-                            "*",
-                            vec![new_op("!", vec![new_variable("b")]), new_variable("c")],
-                        ),
-                        new_op(
-                            "!",
-                            vec![new_op("*", vec![new_variable("e"), new_variable("d")])],
-                        ),
-                    ],
-                ),
+                new_op("+", vec![a, new_op("*", vec![new_op("!", vec![b]), c])]),
+                new_op("!", vec![new_op("*", vec![e, d])]),
             ],
         );
 
         assert_eq!(actual, expected);
-        b.iter(|| {
+        bencher.iter(|| {
             parse(&context, &tokens, true).unwrap();
         })
     }
@@ -1414,6 +1403,36 @@ mod specs {
                 ),
                 Symbol::new_number(0),
             ],
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn bug_chaining_minus() {
+        // a - b - c
+        let tokens = vec![
+            Token::Ident(String::from("a")),
+            Token::Minus,
+            Token::Ident(String::from("b")),
+            Token::Minus,
+            Token::Ident(String::from("c")),
+            Token::EOF,
+        ];
+
+        let context = Context::standard();
+
+        let actual = parse(&context, &tokens, true).expect("parse");
+
+        // (a - b) - c
+        let a = new_variable("a");
+        let b = new_variable("b");
+        let c = new_variable("c");
+        let expected = Symbol::new_operator(
+            "-",
+            true,
+            false,
+            vec![Symbol::new_operator("-", true, false, vec![a, b]), c],
         );
 
         assert_eq!(actual, expected);
