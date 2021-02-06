@@ -29,11 +29,11 @@ impl PyRule {
     }
 
     #[staticmethod]
-    fn parse(context: &PyContext, code: String) -> PyResult<PyRule> {
+    fn parse(context: &PyContext, code: String, name: Option<String>) -> PyResult<PyRule> {
         match Rule::parse(&context.inner, &code) {
             Ok(mut rule) => Ok(PyRule {
                 inner: Arc::new(rule.pop().unwrap()),
-                name: format!("Parsed from {}", code),
+                name: name.unwrap_or(format!("Parsed from {}", code)),
             }),
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
         }

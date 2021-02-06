@@ -5,7 +5,8 @@ declarations:
 rules:
   trivial subtraction: a-a => 0
   trivial division: a/a => 1
-  trivial multiplication: 0*a => 0
+  trivial multiplication 1: 0*a => 0
+  trivial multiplication 2: 1*a <=> a
   # counting
   counting 2: 1+1 => 2
   counting 3: 1+2 => 3
@@ -18,11 +19,12 @@ rules:
   # others
   commutative property 1: a*b => b*a
   commutative property 2: a+b => b+a
-  associative property: a*(b*c) <=> (a*b)*c
+  associative property 1: a*(b*c) <=> (a*b)*c
+  associative property 2: a*(b/c) <=> (a*b)/c
   distributive property 1: a*(b+c) <=> a*b+a*c
   distributive property 2: a*(b-c) <=> a*b-a*c
   # neutrals
-  neutral sum: a+0 => a
+  neutral sum: a+0 <=> a
   neutral subtraction: a-0 => a
   neutral product: 1*a => a
   neutral division: a/1 => a
@@ -34,6 +36,10 @@ rules:
   # equations
   equation 1: a - b = 0 => a = b
   equation 3: a / b = 1 => a = b
+  equation 4: a = b => b = a
+  equation 5: a + b = c <=> a = c - b
+  divide multiplication: a*b = c <=> a = c/b
+  subtraction 1: a - b <=> a + (-b)
 premises: [] # no data generation
 problems:
   filename: experiments/basics/problems.spb

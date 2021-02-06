@@ -31,7 +31,7 @@ class ApplyInfo:
     @property
     def as_builtin(self) -> StepInfo:
         step = StepInfo()
-        step.current_latex = self.current
+        step.current_latex = self.current.latex_verbose
         if self.value is not None:
             step.value = self.value
         if self.confidence is not None:
@@ -93,7 +93,7 @@ class ApplyInfo:
 class LocalTrace:
 
     class Node:
-        def __init__(self, apply_info):
+        def __init__(self, apply_info: ApplyInfo):
             self.apply_info = apply_info
             self.childs = []
 
@@ -133,6 +133,7 @@ class LocalTrace:
                 'childs': [LocalTrace.as_dict_recursive(c) for c in node.childs]}
 
     def iter(self):
+        '''Traverses breath first through all nodes in the tree.'''
         queue = Queue()
         queue.put(self.root)
         while not queue.empty():

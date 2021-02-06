@@ -8,11 +8,11 @@ from common.terminal_utils import printHistogram
 
 class Mean:
     def __init__(self):
-        self.total = 0.
-        self.correct = 0.0
+        self.total = 0
+        self.correct = 0
 
     def __add__(self, correct):
-        self.total += 1.
+        self.total += 1
         if isinstance(correct, bool):
             if correct:
                 self.correct += 1.

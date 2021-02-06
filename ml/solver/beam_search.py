@@ -56,10 +56,16 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                             max_size: int, max_fit_results: int, use_network=True, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
 
+    if not use_network:
+        logging.debug('Don\'t use policy and value network. Just try brutforce solving.')
+
     black_list_terms = set(black_list_terms)
     black_list_rules = set(black_list_rules)
     seen = set([initial.verbose])
     statistics = Statistics(initial)
+
+    targets = set(t.verbose for t in targets)
+
     for epoch in range(num_epochs):
         logging.debug(f'epoch: {epoch}')
         successfull_epoch = False
@@ -98,10 +104,11 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                 if beam_size is not None:
                     possible_fits = possible_fits[:beam_size]
             else:
-                logging.debug('Don\'t use policy and value network. Just try brutforce solving.')
                 possible_fits = []
                 for rule_id, fits in possible_rules.items():
                     for deduced, fit_result in fits:
+                        if deduced.verbose in seen:
+                            continue
                         confidence = None
                         possible_fits.append((rule_id, fit_result, confidence, deduced))
 
@@ -118,13 +125,13 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                     confidence=confidence, top=top,
                     rule_id=rule_id, path=fit_result.path)
 
-                if apply_info.track_loss > max_track_loss:
+                if use_network and apply_info.track_loss > max_track_loss:
                     continue
 
                 statistics.trace.add(apply_info)
                 successfull_epoch = True
 
-                if deduced in targets:
+                if deduced.verbose in targets:
                     statistics.success = True
                     apply_info.contribute()
                     return apply_info, statistics

@@ -47,6 +47,7 @@ def create_linear(left_length=3, right_length=3, num_symbols=2, **kwargs):
         return a
 
     problems = []
+    seen = set()
     for left_operations, left_symbols, right_operations, right_symbols in tqdm(total_combis, total=size, smoothing=0.):
         try:
             left_term = create_term(left_operations, left_symbols)
@@ -54,14 +55,21 @@ def create_linear(left_length=3, right_length=3, num_symbols=2, **kwargs):
         except ZeroDivisionError:
             continue
         equation = f'{left_term} = {right_term}'
+        if equation in seen:
+            continue
+        seen.add(equation)
         solution = sp.solve(sp.Eq(left_term, right_term), x)
         if len(solution) == 0:
             continue
         if len(solution) != 1:
-            logger.debug(f'Equation {equation} has solutions: {solution}')
+            logger.debug(f'Equation {equation} has multiple solutions: {solution}')
             continue
 
         solution = solution[0]
+        # Sort out trivial problems
+        if equation == f"x = {solution}":
+            logger.debug(f'Filter out "{equation}" as it has a trivial solution')
+            continue
         problems.append(f'{equation} => x = {solution}'.replace('**', '^'))
 
     return problems, used_idents

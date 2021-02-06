@@ -49,6 +49,8 @@ def main(options, config, early_abort_hook=None):
             used_rules.add(str(rule))
             logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
 
+        logger.info(f'Using {len(used_rules)} rules.')
+
         for scenario_rule in scenario.rules.values():
             if str(scenario_rule) not in used_rules:
                 logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
@@ -82,19 +84,25 @@ def main(options, config, early_abort_hook=None):
             for problem_name, problem_trace in problem_traces.items():
                 problems_statistics[problem_name] += problem_trace
 
-            mean = Mean()
+            success_rate = Mean()
+            needed_fits = Mean()
             for problem_statistic in problem_statistics:
-                mean += problem_statistic.success
-                if problem_statistic:
+                success_rate += problem_statistic.success
+                if problem_statistic.success:
+                    needed_fits += problem_statistic.fit_results
                     trainings_data_dumper += problem_statistic
 
             if writer:
-                writer.add_scalar('solved/relative', mean.summary, iteration)
-            if mean.correct == 0.0:
+                writer.add_scalar('solved/relative', success_rate.summary, iteration)
+                writer.add_scalar('needed-fits', needed_fits.summary, iteration)
+            if success_rate.correct == 0.0:
                 logger.warning('Could not solve any of the training problems.')
                 return
-            logger.info(f'Solved: {mean.verbose} in iteration {iteration}')
+            logger.info(f'Solved: {success_rate.verbose} with {needed_fits.statistic} fits in iteration {iteration}')
             dataset = trainings_data_dumper.get_dataset()
+            logger.info(f'Training with {len(dataset)} samples')
+            if len(dataset) < 2:
+                raise RuntimeError(f'Too less samples. Just {len(dataset)} available')
             training_dataloader = data.DataLoader(dataset, **data_loader_config)
 
             # Train
@@ -106,21 +114,21 @@ def main(options, config, early_abort_hook=None):
             train(learn_params=learn_params, model=inferencer.model, optimizer=optimizer,
                   training_dataloader=training_dataloader, policy_weight=dataset.label_weight, value_weight=dataset.value_weight)
 
-            if early_abort_hook and early_abort_hook(iteration, float(mean)):
+            if early_abort_hook and early_abort_hook(iteration, float(success_rate)):
                 break
 
             learn_params.use_finetuning()
 
     finally:
-        # TODO: Dump traces
-        intro = SolverStatistics()
-        for stat in problems_statistics.values():
-            intro += stat
-        logger.info(f'Dumping traces to "{config.files.t3_loop_traces}" ...')
-        intro.dump(config.files.t3_loop_traces)
-
         if writer:
             writer.close()
+
+    # TODO: Dump traces
+    intro = SolverStatistics()
+    for stat in problems_statistics.values():
+        intro += stat
+    logger.info(f'Dumping traces to "{config.files.t3_loop_traces}" ...')
+    intro.dump(config.files.t3_loop_traces)
 
     trainings_data_dumper.dump()
 
