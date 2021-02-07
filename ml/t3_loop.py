@@ -5,6 +5,7 @@ import yaml
 from glob import glob
 from time import time
 from pathlib import Path
+from tqdm import tqdm
 
 import torch.optim as optim
 
@@ -62,14 +63,15 @@ def main(options, config, early_abort_hook=None):
         learn_params = LearningParmeter.from_config(config)
         data_loader_config = {'batch_size': learn_params.batch_size,
                               'shuffle': True,
+                              'drop_last': True,
                               'num_workers': 0,
                               'collate_fn': BagDataset.collate_fn}
 
         optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
 
         trainings_data_dumper = TrainingsDataDumper(config, scenario)
-        problems_statistics = {problem_name: ProblemStatistics(problem_name)
-                               for problem_name in scenario.problems.training.keys()}
+        problems_statistics = {problem_name: ProblemStatistics(problem_name, problem.conclusion.latex)
+                               for problem_name, problem in scenario.problems.training.items()}
 
         for iteration in range(config.evaluation.problems.iterations):
             # Try
@@ -123,11 +125,12 @@ def main(options, config, early_abort_hook=None):
         if writer:
             writer.close()
 
-    # TODO: Dump traces
     intro = SolverStatistics()
     for stat in problems_statistics.values():
         intro += stat
     logger.info(f'Dumping traces to "{config.files.t3_loop_traces}" ...')
+    with tqdm(total=100, desc='Create index', leave=False) as progress_bar:
+        intro.create_index(lambda progress: progress_bar.update(100*progress))
     intro.dump(config.files.t3_loop_traces)
 
     trainings_data_dumper.dump()

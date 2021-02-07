@@ -13,6 +13,15 @@ class RealProblems(unittest.TestCase):
     def variable_creator(self):
         return Symbol.parse(self.context, 'z')
 
+    def assert_step(self, initial: str, target: str, rule: str):
+        initial = Symbol.parse(self.context, initial)
+        rule = Rule.parse(self.context, rule)
+
+        fits = fit_and_apply(self.variable_creator, initial, rule)
+        deduced = {str(d) for d, _ in fits}
+
+        self.assertIn(target, deduced)
+
     # 0 = a + x
     def test_problem_1_step_1(self):
         initial = Symbol.parse(self.context, '0 = a + x')
@@ -115,6 +124,21 @@ class RealProblems(unittest.TestCase):
         self.assertEqual(str(deduced), 'x=-a')
         self.assertEqual(str(mapping.variable[a]), '-a')
         self.assertEqual(mapping.path, [1])
+
+    def test_problem_2_step_1(self):
+        '''b*x-x=1 -> b*x-1*x=1'''
+
+        initial = 'b*x-x=1'
+        target = 'b*x-1*x=1'
+        rule = '1*a <= a'
+        self.assert_step(initial, target, rule)
+
+    def test_problem_2_step_2(self):
+
+        initial = '(b-1)*x = 1'
+        target = 'b-1=1/x'
+        rule = 'a*b = c => a = c/b'
+        self.assert_step(initial, target, rule)
 
 
 if __name__ == '__main__':

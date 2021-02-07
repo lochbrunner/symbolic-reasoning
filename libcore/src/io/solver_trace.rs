@@ -6,6 +6,7 @@ use std::io::{BufReader, BufWriter};
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct StepInfo {
     pub current_latex: String,
+    // TODO: abort_reason ?
     pub value: Option<f32>,
     pub confidence: Option<f32>,
     pub subsequent: Vec<StepInfo>,
@@ -61,6 +62,7 @@ impl TraceStatistics {
 pub struct ProblemStatistics {
     pub problem_name: String,
     pub iterations: Vec<TraceStatistics>,
+    pub target_latex: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -203,12 +205,233 @@ impl ProblemStatistics {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct SolverStatistics {
-    pub problems: HashMap<String, ProblemStatistics>,
+    pub problems: Vec<ProblemStatistics>,
+    pub name_map: Option<HashMap<String, usize>>,
+    pub name_index: Option<Vec<usize>>,
+    pub success_index: Option<Vec<usize>>,
+    pub fits_index: Option<Vec<usize>>,
+    pub solution_depth_index: Option<Vec<usize>>,
+    pub total_depth_index: Option<Vec<usize>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SortingKey {
+    None,
+    Name,
+    Success,
+    Fits,
+    SolutionDepth,
+    TotalDepth,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SingleSummaryQuery {
+    pub key: SortingKey,
+    pub up: bool,
+    pub index: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BatchSummaryQuery {
+    pub key: SortingKey,
+    pub up: bool,
+    pub begin: usize,
+    pub end: usize,
 }
 
 impl SolverStatistics {
     pub fn summaries(&self) -> Vec<ProblemSummary> {
-        self.problems.values().map(|p| p.summary()).collect()
+        self.problems.iter().map(|p| p.summary()).collect()
+    }
+
+    pub fn get_problem<'a>(&'a self, name: &str) -> Result<&'a ProblemStatistics, String> {
+        let name_map = self.name_map.as_ref().ok_or("No index created yet!")?;
+        let index = name_map
+            .get(name)
+            .ok_or(format!("Problem with name {} is not available!", name))?;
+        Ok(&self.problems[*index])
+    }
+
+    pub fn create_index<E>(
+        &mut self,
+        progress_reporter: &dyn Fn(f32) -> Result<(), E>,
+    ) -> Result<(), E> {
+        // Six steps
+        let step_size = 1. / 6.;
+
+        let mut name_map: HashMap<String, usize> = HashMap::new();
+        for (i, problem) in self.problems.iter().enumerate() {
+            name_map.insert(problem.problem_name.clone(), i);
+        }
+        self.name_map = Some(name_map);
+        progress_reporter(step_size)?;
+
+        // Name index
+        let mut name_maps = self
+            .problems
+            .iter()
+            .map(|s| &s.problem_name)
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        name_maps.sort_by_key(|(_, n)| *n);
+
+        self.name_index = Some(name_maps.iter().map(|(i, _)| *i).collect());
+        progress_reporter(step_size * 2.)?;
+
+        let summaries = self.summaries();
+
+        // Fit maps
+        let mut fits_maps = summaries
+            .iter()
+            .map(|s| {
+                s.iterations
+                    .iter()
+                    .map(|i| i.fit_results)
+                    .max()
+                    .unwrap_or_default()
+            })
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        fits_maps.sort_by_key(|(_, f)| *f);
+
+        self.fits_index = Some(fits_maps.iter().map(|(i, _)| *i).collect());
+        progress_reporter(step_size * 3.)?;
+
+        // Solution depth
+        let mut sd_maps = summaries
+            .iter()
+            .map(|s| {
+                s.iterations
+                    .iter()
+                    .map(|i| i.depth_of_solution.unwrap_or(0))
+                    .max()
+                    .unwrap_or_default()
+            })
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        sd_maps.sort_by_key(|(_, d)| *d);
+        self.solution_depth_index = Some(sd_maps.iter().map(|(i, _)| *i).collect());
+        progress_reporter(step_size * 4.)?;
+
+        // Total depth
+        let mut td_maps = summaries
+            .iter()
+            .map(|s| {
+                s.iterations
+                    .iter()
+                    .map(|i| i.max_depth)
+                    .max()
+                    .unwrap_or_default()
+            })
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        td_maps.sort_by_key(|(_, d)| *d);
+        self.total_depth_index = Some(td_maps.iter().map(|(i, _)| *i).collect());
+        progress_reporter(step_size * 5.)?;
+
+        // Success index
+        let mut success_maps = summaries
+            .iter()
+            .map(|s| {
+                s.iterations
+                    .iter()
+                    .map(|i| if i.success { 1 } else { 0 })
+                    .max()
+                    .unwrap_or_default()
+            })
+            .enumerate()
+            .collect::<Vec<_>>();
+
+        success_maps.sort_by_key(|(_, s)| *s);
+        self.success_index = Some(success_maps.iter().map(|(i, _)| *i).collect());
+        progress_reporter(step_size * 6.)?;
+        Ok(())
+    }
+
+    pub fn query_summary(&self, query: &SingleSummaryQuery) -> Result<ProblemSummary, String> {
+        let index = if query.up {
+            query.index
+        } else {
+            self.problems.len() - 1 - query.index
+        };
+        let index = match query.key {
+            SortingKey::None => &query.index,
+            SortingKey::Name => self
+                .name_index
+                .as_ref()
+                .ok_or(format!("Fit index not available!"))?
+                .get(index)
+                .ok_or(format!("Could not find item #{} in name index", index))?,
+            SortingKey::Success => self
+                .success_index
+                .as_ref()
+                .ok_or(format!("Fit index not available!"))?
+                .get(index)
+                .ok_or(format!("Could not find item #{} in success index", index))?,
+            SortingKey::Fits => self
+                .fits_index
+                .as_ref()
+                .ok_or(format!("Fit index not available!"))?
+                .get(index)
+                .ok_or(format!("Could not find item #{} in fitting index", index))?,
+            SortingKey::SolutionDepth => self
+                .solution_depth_index
+                .as_ref()
+                .ok_or(format!("Fit index not available!"))?
+                .get(index)
+                .ok_or(format!(
+                    "Could not find item #{} in solution depth index",
+                    index
+                ))?,
+            SortingKey::TotalDepth => self
+                .total_depth_index
+                .as_ref()
+                .ok_or(format!("Fit index not available!"))?
+                .get(index)
+                .ok_or(format!(
+                    "Could not find item #{} in total depth index",
+                    index
+                ))?,
+        };
+        Ok(self.problems[*index].summary())
+    }
+
+    pub fn query_summaries(
+        &self,
+        query: &BatchSummaryQuery,
+    ) -> Result<Vec<ProblemSummary>, String> {
+        let BatchSummaryQuery {
+            key,
+            up,
+            begin,
+            end,
+        } = query.clone();
+        if begin >= self.len() {
+            Err(format!(
+                "Begin {} is larger than container length {}",
+                begin,
+                self.len()
+            ))
+        } else {
+            let end = if end < self.len() { end } else { self.len() };
+            (begin..end)
+                .map(|index| {
+                    self.query_summary(&SingleSummaryQuery {
+                        index,
+                        up,
+                        key: key.clone(),
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.problems.len()
     }
 
     pub fn write_bincode<W>(&self, writer: W) -> Result<(), String>
@@ -237,5 +460,95 @@ impl SolverStatistics {
             File::open(filename.clone()).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
         let reader = BufReader::new(file);
         Self::read_bincode(reader)
+    }
+}
+
+#[cfg(test)]
+mod specs {
+    use super::*;
+
+    #[test]
+    fn query_fit_results() {
+        let mut stat = SolverStatistics::default();
+        stat.problems.push(ProblemStatistics {
+            problem_name: "p1".to_owned(),
+            iterations: vec![TraceStatistics {
+                success: true,
+                fit_tries: 4,
+                fit_results: 4,
+                trace: StepInfo::default(),
+            }],
+            target_latex: "t1".to_owned(),
+        });
+        stat.problems.push(ProblemStatistics {
+            problem_name: "p2".to_owned(),
+            iterations: vec![TraceStatistics {
+                success: false,
+                fit_tries: 3,
+                fit_results: 3,
+                trace: StepInfo::default(),
+            }],
+            target_latex: "t2".to_owned(),
+        });
+        stat.problems.push(ProblemStatistics {
+            problem_name: "p3".to_owned(),
+            iterations: vec![TraceStatistics {
+                success: false,
+                fit_tries: 2,
+                fit_results: 2,
+                trace: StepInfo::default(),
+            }],
+            target_latex: "t3".to_owned(),
+        });
+        stat.problems.push(ProblemStatistics {
+            problem_name: "p4".to_owned(),
+            iterations: vec![TraceStatistics {
+                success: true,
+                fit_tries: 1,
+                fit_results: 1,
+                trace: StepInfo::default(),
+            }],
+            target_latex: "t4".to_owned(),
+        });
+
+        assert!(stat.fits_index.is_none());
+
+        assert!(stat.create_index::<()>(&|_| Ok(())).is_ok());
+
+        assert!(stat.fits_index.is_some());
+
+        let response = stat.query_summaries(&BatchSummaryQuery {
+            key: SortingKey::Fits,
+            up: true,
+            begin: 0,
+            end: 4,
+        });
+
+        assert!(response.is_ok());
+        let response = response.unwrap();
+
+        let fits = response
+            .iter()
+            .map(|s| s.iterations[0].fit_results)
+            .collect::<Vec<_>>();
+
+        assert_eq!(&fits, &[1, 2, 3, 4]);
+
+        let response = stat.query_summaries(&BatchSummaryQuery {
+            key: SortingKey::Fits,
+            up: false,
+            begin: 0,
+            end: 4,
+        });
+
+        assert!(response.is_ok());
+        let response = response.unwrap();
+
+        let fits = response
+            .iter()
+            .map(|s| s.iterations[0].fit_results)
+            .collect::<Vec<_>>();
+
+        assert_eq!(&fits, &[4, 3, 2, 1]);
     }
 }

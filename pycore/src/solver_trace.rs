@@ -5,6 +5,7 @@ use crate::common::op_to_string;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{FileNotFoundError, IOError, KeyError, NotImplementedError, ReferenceError};
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 use pyo3::PyMappingProtocol;
 use pyo3::PyNumberProtocol;
 use pyo3::PyObjectProtocol;
@@ -345,10 +346,11 @@ impl From<&ProblemStatistics> for PyProblemStatistics {
 #[pymethods]
 impl PyProblemStatistics {
     #[new]
-    fn py_new(problem_name: String) -> Self {
+    fn py_new(problem_name: String, target_latex: String) -> Self {
         Self {
             inner: Arc::new(ProblemStatistics {
                 problem_name,
+                target_latex,
                 iterations: Vec::new(),
             }),
         }
@@ -362,6 +364,17 @@ impl PyProblemStatistics {
     #[setter]
     fn set_problem_name(&mut self, value: String) -> PyResult<()> {
         get_mut(&mut self.inner)?.problem_name = value;
+        Ok(())
+    }
+
+    #[getter]
+    fn get_target_latex(&self) -> PyResult<String> {
+        Ok(self.inner.target_latex.clone())
+    }
+
+    #[setter]
+    fn set_target_latex(&mut self, value: String) -> PyResult<()> {
+        get_mut(&mut self.inner)?.target_latex = value;
         Ok(())
     }
 
@@ -478,12 +491,8 @@ impl PySolverStatistics {
     fn get_problem(&self, problem_name: &str) -> PyResult<PyProblemStatistics> {
         let problem = self
             .inner
-            .problems
-            .get(problem_name)
-            .ok_or(PyErr::new::<KeyError, _>(format!(
-                "No problem found with name {}.",
-                problem_name
-            )))?;
+            .get_problem(problem_name)
+            .map_err(PyErr::new::<KeyError, _>)?;
 
         Ok(PyProblemStatistics::from(problem))
     }
@@ -491,8 +500,15 @@ impl PySolverStatistics {
     fn add_problem(&mut self, problem: PyProblemStatistics) -> PyResult<()> {
         get_mut(&mut self.inner)?
             .problems
-            .insert(problem.inner.problem_name.clone(), (*problem.inner).clone());
+            .push((*problem.inner).clone());
         Ok(())
+    }
+
+    fn create_index(&mut self, py: Python, progress_reporter: PyObject) -> PyResult<()> {
+        get_mut(&mut self.inner)?.create_index::<PyErr>(&|progress| {
+            progress_reporter.call(py, PyTuple::new(py, &[progress]), None)?;
+            Ok(())
+        })
     }
 
     #[getter]
@@ -532,7 +548,7 @@ impl PyNumberProtocol for PySolverStatistics {
         get_mut(&mut self.inner)
             .unwrap()
             .problems
-            .insert(problem.inner.problem_name.clone(), (*problem.inner).clone());
+            .push((*problem.inner).clone());
     }
 }
 
@@ -545,12 +561,8 @@ impl PyMappingProtocol for PySolverStatistics {
     fn __getitem__(&self, query: String) -> PyResult<PyProblemStatistics> {
         let problem = self
             .inner
-            .problems
-            .get(&query)
-            .ok_or(PyErr::new::<KeyError, _>(format!(
-                "No problem found with name {}.",
-                query
-            )))?;
+            .get_problem(&query)
+            .map_err(PyErr::new::<KeyError, _>)?;
 
         Ok(PyProblemStatistics::from(problem))
     }

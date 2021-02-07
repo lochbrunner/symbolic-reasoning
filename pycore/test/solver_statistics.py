@@ -75,13 +75,20 @@ class TestTraceStatistics(unittest.TestCase):
 
 class TestProblemStatistics(unittest.TestCase):
     def test_naming(self):
-        problem = ProblemStatistics('Problem a')
+        problem = ProblemStatistics('Problem a', 'a')
         self.assertEqual(problem.problem_name, 'Problem a')
+
         problem.problem_name = 'Problem b'
         self.assertEqual(problem.problem_name, 'Problem b')
 
+    def test_target_latex(self):
+        problem = ProblemStatistics('Problem a', 'a')
+        self.assertEqual(problem.target_latex, 'a')
+        problem.target_latex = 'b'
+        self.assertEqual(problem.target_latex, 'b')
+
     def test_iterations(self):
-        problem = ProblemStatistics('Problem a')
+        problem = ProblemStatistics('Problem a', 'a')
         self.assertEqual(problem.iterations, [])
 
         trace = TraceStatistics()
@@ -99,7 +106,7 @@ class TestSolverStatistics(unittest.TestCase):
 
         self.assertEqual(stats.header, [])
 
-        problem = ProblemStatistics('Problem a')
+        problem = ProblemStatistics('Problem a', 'a')
         stats += problem
 
         expected_summary = ProblemSummary('Problem a', False)
@@ -109,7 +116,7 @@ class TestSolverStatistics(unittest.TestCase):
     def test_io(self):
         stats = SolverStatistics()
         trace = TraceStatistics()
-        problem = ProblemStatistics('Problem a')
+        problem = ProblemStatistics('Problem a', 'a')
         problem += trace
         stats += problem
 
