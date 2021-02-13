@@ -8,6 +8,8 @@ from dataset.bag import BagDataset
 
 from pycore import Rule, FitInfo, SampleSet, Sample, Bag, Scenario, BagMeta, StepInfo, TraceStatistics
 
+logger = logging.getLogger(__name__)
+
 
 class ApplyInfo:
     def __init__(self, rule_name: str, rule_formula: str, current, previous,
@@ -223,7 +225,13 @@ def calculate_value_tops(solutions: List[ApplyInfo]):
 
             sisters = [s for s in step.previous.subsequent if s.value]
             sisters.sort(key=lambda info: info.value, reverse=True)
-            self_index = next(i for i, sister in enumerate(sisters) if sister is step)
+            try:
+                self_index = next(i for i, sister in enumerate(sisters) if sister is step)
+            except StopIteration:
+                msg = f'Could not find myself {step.current.verbose} as a children of my parent: {[c.current.verbose for c in step.previous.subsequent]}'
+                logger.error(msg)
+                continue
+                # raise RuntimeError(msg)
             tops += self_index
 
     return tops

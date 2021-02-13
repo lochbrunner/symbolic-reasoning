@@ -17,6 +17,7 @@ from dataset import ScenarioParameter
 from train import ExecutionParameter
 from train import main as train
 from t3_loop import main as t3_loop, create_parser as t3_parser
+from solve import main as solve, create_parser as solve_parser
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,52 @@ def t3loop_cmd(args, config):
 
         self_args.tensorboard_dir = record_filename.parent / f'trial-{i}'
 
-        t3_loop(self_args, config_args)
+        t3_loop(self_args, config_args, early_abort_hook=early_abort)
+
+        study.finalize(trial=trial)
+
+        with record_filename.open('a') as f:
+            yaml.safe_dump([{'hparams': trial.parameters, 'solving_ratio': solving_rate}], f)
+
+
+def solve_cmd(args, config):
+    parameters = [
+        sherpa.Choice('num-epochs', [30]),
+        sherpa.Choice('problems.beam-size', list(range(3, 20))),
+        sherpa.Choice('problems.num_epochs', list(range(10, 20))),
+        sherpa.Choice('problems.max_track_loss', list(range(2, 5))),
+        sherpa.Choice('problems.max_fit_results', [500, 1000, 1500]),
+        sherpa.Choice('problems.iterations', [5, 7, 9]),
+    ]
+
+    algorithm = sherpa.algorithms.bayesian_optimization.GPyOpt(
+        max_num_trials=args.max_num_trials)
+
+    study = sherpa.Study(parameters=parameters,
+                         algorithm=algorithm,
+                         lower_is_better=False)
+
+    record_filename = touch('solve')
+
+    config_args, self_args = solve_parser().parse_args(['-c', str(args.config)])
+
+    self_args.policy_last = True
+    self_args.fresh_model = True
+    self_args.no_dumping = True
+
+    for i, trial in enumerate(study):
+        solving_rate = {}
+
+        config_args.evaluation.num_epochs = trial.parameters['num-epochs']
+        config_args.evaluation.problems.beam_size = trial.parameters['problems.beam-size']
+        config_args.evaluation.problems.num_epochs = trial.parameters['problems.num_epochs']
+        config_args.evaluation.problems.max_track_loss = trial.parameters['problems.max_track_loss']
+        config_args.evaluation.problems.max_fit_results = trial.parameters['problems.max_fit_results']
+
+        self_args.tensorboard_dir = record_filename.parent / f'solve-{i}'
+
+        success_rate = solve(self_args, config_args)
+        study.add_observation(trial=trial, objective=success_rate, iteration=0)
 
         study.finalize(trial=trial)
 
@@ -162,5 +208,7 @@ if __name__ == '__main__':
     parser_train.set_defaults(func=train_cmd)
     parser_train = subparsers.add_parser('t3loop')
     parser_train.set_defaults(func=t3loop_cmd)
+    parser_train = subparsers.add_parser('solve')
+    parser_train.set_defaults(func=solve_cmd)
 
     main(parser.parse_args())

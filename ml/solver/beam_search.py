@@ -53,7 +53,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
 
 def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
                             black_list_terms: List[str], black_list_rules: List[str],
-                            max_size: int, max_fit_results: int, use_network=True, **kwargs):
+                            max_size: int, max_grow: int, max_fit_results: int, use_network=True, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
 
     if not use_network:
@@ -63,6 +63,7 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
     black_list_rules = set(black_list_rules)
     seen = set([initial.verbose])
     statistics = Statistics(initial)
+    max_size = min(max_size, initial.size+max_grow)
 
     targets = set(t.verbose for t in targets)
 

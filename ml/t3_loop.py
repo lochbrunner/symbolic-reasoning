@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
 import logging
-import yaml
-from glob import glob
-from time import time
 from pathlib import Path
-from tqdm import tqdm
 
 import torch.optim as optim
-
-from pycore import Symbol, Scenario, Trace, SolverStatistics, ProblemStatistics
 from torch.utils import data
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from common import grid_search, io
 from common.config_and_arg_parser import ArgumentParser
@@ -19,9 +14,8 @@ from common.parameter_search import LearningParmeter
 from common.reports import report_tops
 from common.timer import Timer
 from common.validation import Mean
-from dataset import ScenarioParameter
 from dataset.bag import BagDataset
-from solver.beam_search import beam_search, beam_search_policy_last
+from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
 from solver.trace import TrainingsDataDumper, solution_summary

@@ -22,7 +22,7 @@
             },
             "args": [
                 "--test",
-                "associative_property",
+                "double_brackets",
                 "--nocapture"
             ],
             "sourceLanguages": [
@@ -142,6 +142,21 @@
             "program": "${workspaceFolder}/tools/bag2tex.py",
             "args": [
                 "real_world_problems/basics/dataset.yaml"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "t3 loop",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/t3_loop.py",
+            "args": [
+                "-c",
+                "${workspaceFolder}/real_world_problems/basics/config.yaml",
+                "--policy-last",
+                "--fresh-model"
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",

@@ -10,6 +10,7 @@ files:
   trainings-data: &bag experiments/number-crunching/number-crunching.bin
   working-folder: experiments
   t3-loop-traces: experiments/number-crunching/t3-loop-results.spb
+  solver-traces: experiments/number-crunching/solver-results.spb
 generation:
   stages: []
   max-depth: 8
@@ -44,6 +45,8 @@ training:
     dropout: 0
     use_props: True
     residual: False
+fine-tuning:
+  learning-rate: 0.01
 evaluation:
   num-epochs: 30
   problems:

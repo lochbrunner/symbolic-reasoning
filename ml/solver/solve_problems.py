@@ -57,6 +57,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
                                                    black_list_terms=eval_config.black_list_terms,
                                                    black_list_rules=eval_config.black_list_rules,
                                                    max_size=eval_config.max_size,
+                                                   max_grow=eval_config.max_grow,
                                                    **vars(eval_config.problems), **kwargs)
         if solution is not None:
             problem_solutions.append(solution)

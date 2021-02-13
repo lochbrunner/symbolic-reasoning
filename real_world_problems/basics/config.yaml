@@ -10,6 +10,7 @@ files:
   trainings-data: &bag experiments/bag-basic.bin
   working-folder: experiments
   t3-loop-traces: experiments/basics/t3-loop-results.spb
+  solver-traces: experiments/basics/solver-results.spb
 generation:
   stages: []
   max-depth: 10
@@ -29,7 +30,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 50
+  num-epochs: 1
   report-rate: 2
   batch-size: 32
   learning-rate: 0.1 # Not needed here
@@ -40,24 +41,34 @@ training:
   scenario: bag
   filename: *bag
   statistics: *training-statistics
+  data-size-limit: -1
   model-parameter:
     embedding_size: 24
     hidden_layers: 2
     dropout: 0
-    use_props: [False, True]
+    use_props: False
+fine-tuning:
+  learning-rate: 0.01
 evaluation:
-  num-epochs: 30
+  num-epochs: 10
   problems:
     beam-size: 10
-    num_epochs: 10
+    num_epochs: 30
     max_track_loss: 3
     max_fit_results: 1000
-    iterations: 2
+    iterations: 3
+    # white-list:
+    #   - a*x = a*b
   training-data:
     beam-size: "1:15"
     max-steps: -1
   solver-trainings-data: *solver-data
-  max-size: 7
+  max-size: 11
+  max-grow: 2
   new-rules-filename: *new-rules
-  black-list-terms: []
+  black-list-terms:
+    []
+    # - 0 + (x - 1) = a
+    # - a = x + -1
+
   black-list-rules: []

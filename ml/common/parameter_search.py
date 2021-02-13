@@ -1,19 +1,32 @@
 from typing import List
 from copy import deepcopy
+from argparse import Namespace
 
 
 class LearningParmeter:
     def __init__(self, model_name, num_epochs: int = 10, learning_rate: float = 0.1,
                  batch_size: int = 10, gradient_clipping: float = 0.1,
                  value_loss_weight: float = 0.5,
-                 model_hyper_parameter: dict = None, **kwargs):
+                 model_hyper_parameter: dict = None,
+                 fine_tuning=None, **kwargs):
         self.model_name = model_name
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.gradient_clipping = gradient_clipping
         self.value_loss_weight = value_loss_weight
-        self.model_hyper_parameter = model_hyper_parameter or {}
+        if isinstance(model_hyper_parameter, Namespace):
+            self.model_hyper_parameter = vars(model_hyper_parameter)
+        else:
+            self.model_hyper_parameter = model_hyper_parameter or {}
+
+        self.fine_tuning = fine_tuning or {}
+
+    def use_finetuning(self):
+        for k, v in self.fine_tuning.items():
+            if not hasattr(self, k):
+                raise RuntimeError(f'Learning parameter {k} not found!')
+            setattr(self, k, v)
 
     @staticmethod
     def from_config(config):
@@ -24,7 +37,8 @@ class LearningParmeter:
                                 batch_size=training.batch_size,
                                 gradient_clipping=training.gradient_clipping,
                                 value_loss_weight=training.value_loss_weight,
-                                model_hyper_parameter=vars(training.model_parameter)
+                                model_hyper_parameter=vars(training.model_parameter),
+                                fine_tuning=vars(config.fine_tuning)
                                 )
 
     @staticmethod
@@ -36,7 +50,8 @@ class LearningParmeter:
                                 batch_size=training['batch-size'],
                                 gradient_clipping=training['gradient-clipping'],
                                 value_loss_weight=training['value-loss-weight'],
-                                model_hyper_parameter=training['model-parameter']
+                                model_hyper_parameter=training['model-parameter'],
+                                fine_tuning=config['fine-tuning']
                                 )
 
     @staticmethod
@@ -48,7 +63,8 @@ class LearningParmeter:
                                 batch_size=training.batch_size,
                                 gradient_clipping=training.gradient_clipping,
                                 value_loss_weight=training.value_loss_weight,
-                                model_hyper_parameter=model_hyper_parameter
+                                model_hyper_parameter=model_hyper_parameter,
+                                fine_tuning=vars(config.fine_tuning)
                                 )
 
     @staticmethod

@@ -174,6 +174,7 @@ pub struct IterationSummary {
 pub struct ProblemSummary {
     pub name: String,
     pub initial_latex: Option<String>,
+    pub target_latex: String,
     pub iterations: Vec<IterationSummary>,
     pub success: bool,
 }
@@ -197,6 +198,7 @@ impl ProblemStatistics {
         ProblemSummary {
             name: self.problem_name.clone(),
             initial_latex,
+            target_latex: self.target_latex.clone(),
             iterations,
             success: self.iterations.iter().any(|it| it.success),
         }

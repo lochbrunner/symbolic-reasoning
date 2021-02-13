@@ -10,6 +10,7 @@ class Mean:
     def __init__(self):
         self.total = 0
         self.correct = 0
+        self.max = 0
 
     def __add__(self, correct):
         self.total += 1
@@ -18,6 +19,7 @@ class Mean:
                 self.correct += 1.
         else:
             self.correct += correct
+            self.max = max(self.max, correct)
         return self
 
     @property
@@ -25,6 +27,10 @@ class Mean:
         if self.total == 0:
             return -1.
         return self.correct / self.total
+
+    @property
+    def statistic(self):
+        return f'Ø {self.summary:.1f} (max: {self.max})'
 
     @property
     def verbose(self):
