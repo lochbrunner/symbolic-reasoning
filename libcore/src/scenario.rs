@@ -68,7 +68,7 @@ impl ScenarioProblems {
     }
 
     pub fn load(filename: &str) -> Result<Self, String> {
-        let file = File::open(filename).map_err(|msg| msg.to_string())?;
+        let file = File::open(filename).map_err(|msg| format!("{}: {}", msg, filename))?;
         let reader = BufReader::new(file);
         bincode::deserialize_from::<BufReader<_>, Self>(reader).map_err(|msg| msg.to_string())
     }

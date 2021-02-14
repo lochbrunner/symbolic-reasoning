@@ -30,7 +30,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 1
+  num-epochs: 500
   report-rate: 2
   batch-size: 32
   learning-rate: 0.1 # Not needed here
@@ -40,6 +40,7 @@ training:
   # Scenario
   scenario: bag
   filename: *bag
+  solver-filename: *solver-data
   statistics: *training-statistics
   data-size-limit: -1
   model-parameter:
@@ -55,16 +56,14 @@ evaluation:
     beam-size: 10
     num_epochs: 30
     max_track_loss: 3
-    max_fit_results: 1000
-    iterations: 3
-    # white-list:
-    #   - a*x = a*b
+    max_fit_results: 6000
+    iterations: 1
   training-data:
     beam-size: "1:15"
     max-steps: -1
   solver-trainings-data: *solver-data
   max-size: 11
-  max-grow: 2
+  max-grow: 4
   new-rules-filename: *new-rules
   black-list-terms:
     []

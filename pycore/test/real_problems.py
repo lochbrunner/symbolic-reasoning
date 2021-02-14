@@ -13,12 +13,15 @@ class RealProblems(unittest.TestCase):
     def variable_creator(self):
         return Symbol.parse(self.context, 'z')
 
-    def assert_step(self, initial: str, target: str, rule: str):
+    def assert_step(self, initial: str, target: str, rule: str, verbose=False):
         initial = Symbol.parse(self.context, initial)
         rule = Rule.parse(self.context, rule)
 
         fits = fit_and_apply(self.variable_creator, initial, rule)
-        deduced = {str(d) for d, _ in fits}
+        if verbose:
+            deduced = {d.verbose for d, _ in fits}
+        else:
+            deduced = {str(d) for d, _ in fits}
 
         self.assertIn(target, deduced)
 
@@ -138,6 +141,45 @@ class RealProblems(unittest.TestCase):
         initial = '(b-1)*x = 1'
         target = 'b-1=1/x'
         rule = 'a*b = c => a = c/b'
+        self.assert_step(initial, target, rule)
+
+    def test_problem_3_step_2(self):
+        initial = '1+b=x+b'
+        target = '1=x+b-b'
+        rule = 'a + b = c => a = c - b'
+        self.assert_step(initial, target, rule)
+
+    def test_problem_3_step_3(self):
+        initial = '1=x+b-b'
+        target = '1=x+(b-b)'
+        rule = 'a+(b-c) <= (a+b)-c'
+        self.assert_step(initial, target, rule, verbose=True)
+
+    def test_problem_3_step_4(self):
+        initial = '1=x+(b-b)'
+        target = '1=x+0'
+        rule = 'a-a => 0'
+        self.assert_step(initial, target, rule)
+
+    def test_problem_4_step_1(self):
+        initial = 'b*x=a+x-1'
+        target = 'b*x=a+x+-1*1'
+        rule = 'a-b => a+(-1*b)'
+
+        self.assert_step(initial, target, rule)
+
+    def test_problem_4_step_2(self):
+        initial = 'a-1=x*b+-1*x'
+        target = 'a-1=x*b+x*-1'
+        rule = 'a*b => b*a'
+
+        self.assert_step(initial, target, rule)
+
+    def test_problem_5_step_1(self):
+        initial = 'a=a*(x*b)'
+        target = 'a=(x*b)*a'
+        rule = 'a*b => b*a'
+
         self.assert_step(initial, target, rule)
 
 

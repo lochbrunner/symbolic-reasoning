@@ -43,12 +43,12 @@ def main(args):
                        '-v': '',
                        '--training-solver-filename': str(path_on_compute),
                        '--files-solver-trainings-data': str(path_on_compute),
-                       '--files-model': 'out/number-crunching.sp',
+                       '--files-model': 'out/basics.sp',
                        '--files-training-statistics': 'out/training-statistics.yaml',
                        '--use-solved-problems': '',
                        '--tensorboard': '',
-                       '--training-num-epochs': '1000',
-                       '-r': '10',
+                       '--training-num-epochs': '500',
+                       '--training-report-rate': '10',
                        '--create-fresh-model': ''},
         source_directory=Path(__file__).absolute().parents[1],
         user_managed=True,
@@ -71,7 +71,7 @@ def main(args):
                            primary_metric_name='exact (np) [5]',
                            primary_metric_goal=PrimaryMetricGoal.MINIMIZE,
                            max_total_runs=20,
-                           max_concurrent_runs=4)
+                           max_concurrent_runs=2)
 
     experiment = Experiment(workspace=ws, name=args.name)
 
@@ -84,8 +84,8 @@ if __name__ == '__main__':
 
     add_default_parsers(parser)
 
-    parser.add_argument('--trainings-data', default='experiments/number-crunching/solver-trainings-data.bin', type=Path)
-    parser.add_argument('--config', default='real_world_problems/number_crunching/config.yaml', type=Path)
+    parser.add_argument('--trainings-data', default='experiments/basics/solver-trainings-data.bin', type=Path)
+    parser.add_argument('--config', default='real_world_problems/basics/config.yaml', type=Path)
 
     parser.add_argument('--tags', nargs='*', default=[])
     parser.add_argument('--name', default='training')

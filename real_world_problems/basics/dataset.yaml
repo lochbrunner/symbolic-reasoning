@@ -19,8 +19,13 @@ rules:
   # others
   commutative property 1: a*b => b*a
   commutative property 2: a+b => b+a
+  commutative property 3: a-b <=> a+(-1*b)
   associative property 1: a*(b*c) <=> (a*b)*c
   associative property 2: a*(b/c) <=> (a*b)/c
+  associative property 3: a+(b+c) <=> (a+b)+c
+  associative property 4: a+(b-c) <=> (a+b)-c
+  associative property 5: a-(b+c) <=> (a-b)-c # Should we replace this by 'a-(b+c) <=> a+ -1*(b+c)' ?
+  associative property 6: a-(b-c) <=> (a-b)+c # See above
   distributive property 1: a*(b+c) <=> a*b+a*c
   distributive property 2: a*(b-c) <=> a*b-a*c
   # neutrals
@@ -34,11 +39,11 @@ rules:
   neutral exponent: a^1 => a
   trivial exponent: a^0 => 1
   # equations
-  equation 1: a - b = 0 => a = b
-  equation 3: a / b = 1 => a = b
-  equation 4: a = b => b = a
-  equation 5: a + b = c <=> a = c - b
-  divide multiplication: a*b = c <=> a = c/b
+  equation 1: a + b = c <=> a = c - b
+  equation 1.1: a - b = 0 <=> a = b # corollary from 1
+  equation 2: a / b = c <=> a = c*b
+  equation 2.1: a / b = 1 => a = b # corollary from 3
+  equation commutative: a = b => b = a
   subtraction 1: a - b <=> a + (-b)
 premises: [] # no data generation
 problems:

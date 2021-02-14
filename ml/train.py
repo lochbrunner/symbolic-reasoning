@@ -42,9 +42,9 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutionParameter:
-    def __init__(self, report_rate: int, device: str, tensorboard: bool,
+    def __init__(self, device: str, tensorboard: bool, training: object,
                  manual_seed: bool, use_solved_problems: bool, create_fresh_model: bool, **kwargs):
-        self.report_rate = report_rate
+        self.report_rate = training.report_rate
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
@@ -56,7 +56,6 @@ class ExecutionParameter:
 
     @staticmethod
     def add_parsers(parser: ArgumentParser):
-        parser.add_argument('-r', '--report-rate', type=int, default=20)
         parser.add_argument('-d', '--device', choices=['cpu', 'cuda', 'auto'], default='cpu')
         parser.add_argument('--tensorboard', action='store_true', default=False)
         parser.add_argument('--manual-seed', action='store_true', default=False)
