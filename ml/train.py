@@ -27,14 +27,14 @@ except ImportError:
     pass
 
 from dataset import create_scenario, ScenarioParameter
-from models import create_model, all_models
+from models import create_model
 
 from common import grid_search
 from common import io
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.timer import Timer
-from common.utils import setup_logging
+from common.utils import setup_logging, get_rule_mapping_by_config
 from common.validation import validate
 from training import train
 
@@ -114,7 +114,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                              **dataset.model_params)
         model.to(device)
 
-        optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
+        if learn_params.optimizer == 'adadelta':
+            optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
+        elif learn_params.optimizer == 'adam':
+            optimizer = optim.Adam(model.parameters(), lr=learn_params.learning_rate)
+        else:
+            raise RuntimeError(f'Unknown optimizer "{learn_params.optimizer}"')
         timer.stop_and_log()
     else:
         dataset, model, optimizer, _ = io.load(config.files.model, device)
@@ -126,6 +131,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         logger.info('Loaded empty bagfile. Skip training.')
         save_snapshot()
         return []
+
+    rule_mapping = get_rule_mapping_by_config(config)
+    rule_mapping = {k: rule.name for k, rule in rule_mapping.items()}
+    rule_mapping[0] = 'padding'
 
     validation_ratio = 0.1
     validation_size = int(len(dataset) * validation_ratio)
@@ -191,11 +200,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         timer = Timer('Training per sample:')
         model.train()
 
-        def report(epoch, epoch_loss):
+        def report(epoch, epoch_loss, **kwargs):
             if (epoch+1) % exe_params.report_rate != 0:
                 return True
             model.eval()
-            error = validate(model, validation_dataloader)
+            validation = validate(model, validation_dataloader, **kwargs)
+            error = validation.error
             model.train()
             loss = learn_params.batch_size * epoch_loss
             logbook.append((epoch, error, loss))
@@ -207,7 +217,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 error.exact_no_padding.log(azure_run.log, 'exact (np)')
                 error.with_padding.log(azure_run.log, 'class')
                 error.when_rule.log(azure_run.log, 'class (np)')
-                azure_run.log('loss', loss.item())
+                azure_run.log('loss/training', loss)
+                azure_run.log('loss/validation/policy', validation.policy_loss)
+                azure_run.log('loss/validation/value', validation.value_loss)
                 azure_run.log('value/all', float(error.value_all))
                 azure_run.log('value/positive', float(error.value_positive))
                 azure_run.log('value/negative', float(error.value_negative))
@@ -217,10 +229,15 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 error.exact_no_padding.log_bundled(writer, 'policy/exact (no padding)', epoch)
                 error.with_padding.log_bundled(writer, 'policy/class', epoch)
                 error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
-                writer.add_scalar('loss', loss.item(), epoch)
+                writer.add_scalar('loss/training', loss, epoch)
+                writer.add_scalar('loss/validation/policy', validation.policy_loss, epoch)
+                writer.add_scalar('loss/validation/value', validation.value_loss, epoch)
                 writer.add_scalar('value/all', float(error.value_all), epoch)
                 writer.add_scalar('value/positive', float(error.value_positive), epoch)
                 writer.add_scalar('value/negative', float(error.value_negative), epoch)
+
+                writer.add_scalars('distribution/rule',
+                                   {rule_mapping[i]: c for i, c in enumerate(validation.predicted_rule_distribution)}, epoch)
 
             if early_abort_hook is not None:
                 # Primary metric
@@ -233,9 +250,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
 
         if not no_sig_handler:
             signal.signal(signal.SIGINT, original_sigint_handler)
-        error = validate(model, validation_dataloader)
-        if logging.INFO >= logging.root.level:
-            error.exact_no_padding.printHistogram()
+        error = validate(model, validation_dataloader).error
 
         logbook.append((learn_params.num_epochs, error, None))
         save_snapshot()
@@ -245,6 +260,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 'learning-rate': learn_params.learning_rate,
                 'gradient-clipping': learn_params.gradient_clipping,
                 'value-lossweight': learn_params.value_loss_weight,
+                'optimizer': learn_params.optimizer,
                 ** learn_params.model_hyper_parameter
             },
                 metric_dict={'kpi/value-all': float(error.value_all),

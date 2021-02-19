@@ -43,10 +43,11 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
             torch.nn.utils.clip_grad_value_(
                 model.parameters(), learn_params.gradient_clipping)
             optimizer.step()
-            epoch_loss += loss
+            epoch_loss += loss.item()
         if report_hook:
             timer.pause()
-            early_abort = report_hook(epoch, epoch_loss)
+            early_abort = report_hook(epoch=epoch, epoch_loss=epoch_loss,
+                                      policy_loss_function=policy_loss_function, value_loss_function=value_loss_function)
             timer.resume()
             if early_abort is not None and not early_abort:
                 logger.warning(f'Early abort by hook at #{epoch}')

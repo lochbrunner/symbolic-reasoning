@@ -414,6 +414,7 @@ impl PyProblemSummary {
         success: bool,
         iterations: Option<Vec<PyIterationSummary>>,
         initial_latex: Option<String>,
+        target_latex: Option<String>,
     ) -> Self {
         let iterations = iterations
             .unwrap_or(vec![])
@@ -426,6 +427,7 @@ impl PyProblemSummary {
                 success,
                 iterations,
                 initial_latex,
+                target_latex: target_latex.unwrap_or_default(),
             },
         }
     }

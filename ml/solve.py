@@ -8,6 +8,7 @@ from typing import Dict
 from common.config_and_arg_parser import ArgumentParser
 from common.timer import Timer
 from common.validation import Mean
+from common.utils import get_rule_mapping
 from pycore import ProblemStatistics, Rule, Scenario, SolverStatistics, Symbol, Trace
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
@@ -16,7 +17,6 @@ try:
     from azureml.core import Run
     import azureml
     azure_run = Run.get_context(allow_offline=False)
-    from azureml.tensorboard import Tensorboard
 except ImportError:
     azure_run = None
 except AttributeError:  # Running in offline mode
@@ -33,17 +33,7 @@ def main(options, config):
         scenario = Scenario.load(config.files.scenario)
     use_network = not options.fresh_model
 
-    rule_mapping: Dict[int, Rule] = {}
-    used_rules = set()
-    max_width = max(len(s.name) for s in scenario.rules.values())+1
-    for i, rule in enumerate(scenario.rules.values(), 1):
-        rule_mapping[i] = rule
-        used_rules.add(str(rule))
-        logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
-
-    for scenario_rule in scenario.rules.values():
-        if str(scenario_rule) not in used_rules:
-            logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
+    rule_mapping = get_rule_mapping(scenario)
 
     if use_network:
         inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)

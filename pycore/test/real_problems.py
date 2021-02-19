@@ -175,10 +175,10 @@ class RealProblems(unittest.TestCase):
 
         self.assert_step(initial, target, rule)
 
-    def test_problem_5_step_1(self):
-        initial = 'a=a*(x*b)'
-        target = 'a=(x*b)*a'
-        rule = 'a*b => b*a'
+    def test_problem_6_step_1(self):
+        initial = '(a-b)/x=a/b-1'
+        target = '(a-b)/x=(a-1*b)/b'
+        rule = 'a/b-c => (a-c*b)/b'
 
         self.assert_step(initial, target, rule)
 

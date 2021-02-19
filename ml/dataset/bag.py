@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from pycore import Bag, BagMeta
 
 from common.node import Node
-from common.terminal_utils import printProgressBar, clearProgressBar
+from tqdm import tqdm
 
 import logging
 
@@ -94,9 +94,14 @@ class BagDataset(Dataset):
         # Merge use largest
 
         if data_size_limit is None:
-            limit = -1
+            self.container = samples
+        elif isinstance(data_size_limit, int):
+            self.container = samples[:data_size_limit]
+        elif isinstance(data_size_limit, float):
+            r = int(1 // data_size_limit)
+            self.container = samples[::r]
         else:
-            limit = data_size_limit
+            raise RuntimeError(f'Type {type(data_size_limit)} for data_size_limit is not supported!')
 
         self.container = samples[:limit]
         self._max_depth = max_depth
@@ -106,12 +111,8 @@ class BagDataset(Dataset):
         logger.debug(f'number of rules: {len(self._rule_map)}')
 
         if preprocess:
-            def progress(i, sample):
-                if i % 50 == 0:
-                    printProgressBar(i, len(self.container), suffix='loading')
-                return sample
-            self.samples = [progress(i, self._process_sample(sample)) for i, sample in enumerate(self.container)]
-            clearProgressBar()
+            self.samples = [self._process_sample(sample)
+                            for sample in tqdm(self.container, desc='loading', leave=False)]
         else:
             self.samples = self.container
 

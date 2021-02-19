@@ -6,7 +6,7 @@ rules:
   trivial subtraction: a-a => 0
   trivial division: a/a => 1
   trivial multiplication 1: 0*a => 0
-  trivial multiplication 2: 1*a <=> a
+  # trivial multiplication 2: 1*a <=> a
   # counting
   counting 2: 1+1 => 2
   counting 3: 1+2 => 3
@@ -31,8 +31,14 @@ rules:
   # neutrals
   neutral sum: a+0 <=> a
   neutral subtraction: a-0 => a
-  neutral product: 1*a => a
-  neutral division: a/1 => a
+  neutral product: 1*a <=> a
+  neutral division 1: a/1 => a
+  # neutral division 2: a/a <=> 1   # dangerous: needs trained variable generator
+  # division corollaries
+  subtract divisions: a/b-c/d <=> (a*d-c*b)/(b*d)
+  subtract divisions (corollary): a/b-c <=> (a-c*b)/b
+  add divisions: a/b-c/d <=> (a*d-c*b)/(b*d)
+  revert division (a!=0 c!=0): a/b = c/d <=> b/a = d/c
   # exponentiation
   square: a*a <=> a^2
   next exponent: a*a^n <= a^(n+1)

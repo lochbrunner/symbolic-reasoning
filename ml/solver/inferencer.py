@@ -69,7 +69,7 @@ class Inferencer:
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
         p = torch.ones(x.shape[:-1])
         y, v = self.model(x, s, p)
-        y = y.squeeze()  # shape: rules, localisation
+        y = y.squeeze()  # shape: rules, path
         y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
         value = v.cpu().detach().numpy()[0][0]
         value = np.exp(value)
