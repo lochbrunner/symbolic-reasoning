@@ -238,6 +238,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
 
                 writer.add_scalars('distribution/rule',
                                    {rule_mapping[i]: c for i, c in enumerate(validation.predicted_rule_distribution)}, epoch)
+                for name, param in model.named_parameters():
+                    writer.add_histogram(name, param, epoch)
 
             if early_abort_hook is not None:
                 # Primary metric
