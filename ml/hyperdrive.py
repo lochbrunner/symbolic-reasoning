@@ -43,6 +43,21 @@ def create_training_parameters():
     ]
 
 
+def create_training_seed():
+    return {
+        'batch-size': 32,
+        'learning-rate': 0.01,
+        'gradient-clipping': 0.1,
+        'value-loss-weight': 0.25,
+        # Model parameters
+        'dropout': 0.,
+        'embedding_size': 24,
+        'hidden_layers': 3,
+        'use_props': False,
+        'residual': True,
+    }
+
+
 def touch(prefix: str):
     datestring = time.strftime('%b%d_%H-%M-%S')
     record_filename = Path(f'runs/hyperdrive/{datestring}-{prefix}/summary.yaml')
@@ -53,18 +68,26 @@ def touch(prefix: str):
     return record_filename
 
 
+def create_algorithm(args, seed_configuration: dict):
+    if args.algorithm == 'bayesian':
+        return sherpa.algorithms.bayesian_optimization.GPyOpt(max_num_trials=args.max_num_trials)
+    elif args.algorithm == 'local':
+        return sherpa.algorithms.core.LocalSearch(seed_configuration=seed_configuration)
+    else:
+        raise RuntimeError(f'Not supported optimization algorithm: {args.algorithm}')
+
+
 def train_cmd(args, config):
     parameters = create_training_parameters()
 
-    algorithm = sherpa.algorithms.bayesian_optimization.GPyOpt(
-        max_num_trials=args.max_num_trials)
+    algorithm = create_algorithm(args, create_training_seed())
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
                          lower_is_better=True)
 
     scenario_params = ScenarioParameter.from_config(config, use_solver_data=True)
-    exe_params = ExecutionParameter(report_rate=config.training.report_rate, device='cpu', tensorboard=True,
+    exe_params = ExecutionParameter(training=config.training, device='cpu', tensorboard=True,
                                     manual_seed=True, use_solved_problems=True, create_fresh_model=True)
 
     record_filename = touch('training')
@@ -106,8 +129,16 @@ def t3loop_cmd(args, config):
         sherpa.Choice('problems.iterations', [5, 7, 9]),
     ]
 
-    algorithm = sherpa.algorithms.bayesian_optimization.GPyOpt(
-        max_num_trials=args.max_num_trials)
+    seed_configuration = {
+        'num-epochs': 30,
+        'problems.beam-size': 15,
+        'problems.num_epochs': 15,
+        'problems.max_track_loss': 3,
+        'problems.max_fit_results': 1000,
+        'problems.iterations': 7
+    }
+
+    algorithm = create_algorithm(args, seed_configuration)
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
@@ -148,16 +179,19 @@ def t3loop_cmd(args, config):
 
 def solve_cmd(args, config):
     parameters = [
-        sherpa.Choice('num-epochs', [30]),
-        sherpa.Choice('problems.beam-size', list(range(3, 20))),
-        sherpa.Choice('problems.num_epochs', list(range(10, 20))),
-        sherpa.Choice('problems.max_track_loss', list(range(2, 5))),
-        sherpa.Choice('problems.max_fit_results', [500, 1000, 1500]),
-        sherpa.Choice('problems.iterations', [5, 7, 9]),
+        # sherpa.Choice('num-epochs', [30]),
+        # sherpa.Choice('problems.beam-size', list(range(3, 20))),
+        # sherpa.Choice('problems.num_epochs', list(range(10, 20))),
+        # sherpa.Choice('problems.max_track_loss', list(range(2, 5))),
+        sherpa.Choice('problems.max_fit_results', list(range(1000, 7000, 1000))),
+        # sherpa.Choice('problems.iterations', [5, 7, 9]),
     ]
 
-    algorithm = sherpa.algorithms.bayesian_optimization.GPyOpt(
-        max_num_trials=args.max_num_trials)
+    seed_configuration = {
+        'problems.max_fit_results': 1000
+    }
+
+    algorithm = create_algorithm(args, seed_configuration)
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
@@ -170,19 +204,21 @@ def solve_cmd(args, config):
     self_args.policy_last = True
     self_args.fresh_model = True
     self_args.no_dumping = True
+    self_args.solve_training = True
 
     for i, trial in enumerate(study):
         solving_rate = {}
 
-        config_args.evaluation.num_epochs = trial.parameters['num-epochs']
-        config_args.evaluation.problems.beam_size = trial.parameters['problems.beam-size']
-        config_args.evaluation.problems.num_epochs = trial.parameters['problems.num_epochs']
-        config_args.evaluation.problems.max_track_loss = trial.parameters['problems.max_track_loss']
+        # config_args.evaluation.num_epochs = trial.parameters['num-epochs']
+        # config_args.evaluation.problems.beam_size = trial.parameters['problems.beam-size']
+        # config_args.evaluation.problems.num_epochs = trial.parameters['problems.num_epochs']
+        # config_args.evaluation.problems.max_fit_results = trial.parameters['problems.max_track_loss']
         config_args.evaluation.problems.max_fit_results = trial.parameters['problems.max_fit_results']
 
         self_args.tensorboard_dir = record_filename.parent / f'solve-{i}'
 
         success_rate = solve(self_args, config_args)
+        logger.info(f'{success_rate} with {trial.parameters}')
         study.add_observation(trial=trial, objective=success_rate, iteration=0)
 
         study.finalize(trial=trial)
@@ -198,10 +234,11 @@ def main(args):
 
 
 if __name__ == '__main__':
-    setup_logging(verbose=False, log='warning')
+    setup_logging(verbose=False, log='info')
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=Path, default='real_world_problems/number_crunching/config.yaml')
     parser.add_argument('--max-num-trials', type=int, default=100)
+    parser.add_argument('--algorithm', default='local', choices=['local', 'bayesian'])
     subparsers = parser.add_subparsers()
 
     parser_train = subparsers.add_parser('train')
