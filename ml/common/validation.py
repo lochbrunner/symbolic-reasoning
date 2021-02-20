@@ -2,8 +2,7 @@ import unittest
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
-from common.terminal_utils import printHistogram
+from dataclasses import dataclass
 
 
 class Mean:
@@ -121,8 +120,8 @@ class Ratio:
             self.tops[top] += 1
         self.sum += 1
 
-    def printHistogram(self):
-        printHistogram(self.tops, range(self.size), self.sum)
+    # def printHistogram(self):
+    #     printHistogram(self.tops, range(self.size), self.sum)
 
     def as_dict(self):
         return {'tops': self.tops.tolist(), 'total': self.sum}
@@ -149,9 +148,22 @@ class Error:
                 }
 
 
+@dataclass
+class ValidationResult:
+    error: Error
+    predicted_rule_distribution: np.array
+    policy_loss: float
+    value_loss: float
+
+
 @torch.no_grad()
-def validate(model: torch.nn.Module, dataloader: DataLoader):
+def validate(model: torch.nn.Module, dataloader: DataLoader,
+             policy_loss_function=None, value_loss_function=None) -> ValidationResult:
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
+
+    policy_loss = 0
+    value_loss = 0
+    predicted_rule_distribution = None
 
     for x, s, y, p, v in dataloader:
         x = x.to(model.device)
@@ -159,16 +171,29 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
         y = y.to(model.device)
         p = p.to(model.device)
         v = v.to(model.device)
+        v = v.squeeze()
         # Dimensions
         # x: batch * label * length
         # y: batch * length
         py, pv = model(x, s, p)
+        # py: batch x rule x path
+        if value_loss_function is not None:
+            value_loss += value_loss_function(pv, v).item()
+        if policy_loss_function is not None:
+            policy_loss += policy_loss_function(py, y).item()
+        if predicted_rule_distribution is None:
+            predicted_rule_distribution = np.zeros(py.shape[1], dtype=int)
         assert py.size(0) == y.size(0), f'{py.size(0)} == {y.size(0)}'
         batch_size = py.size(0)
         py = py.cpu().numpy()
         y = y.cpu().numpy()
         pv = pv.cpu().numpy()
         gt_v = v.cpu().numpy()
+
+        ry = py.max(axis=2).argmax(axis=1)
+        bins = np.bincount(ry, minlength=py.shape[1])
+        predicted_rule_distribution += bins
+
         for i in range(batch_size):
             # policy
             truth = y[i, :]
@@ -190,7 +215,8 @@ def validate(model: torch.nn.Module, dataloader: DataLoader):
             else:
                 error.value_negative += np.exp(pv[i, 1-gt_v[i]]).item()
 
-    return error
+    return ValidationResult(error=error, policy_loss=policy_loss, value_loss=value_loss,
+                            predicted_rule_distribution=predicted_rule_distribution)
 
 
 class TestRatio(unittest.TestCase):

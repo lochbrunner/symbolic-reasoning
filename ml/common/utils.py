@@ -2,6 +2,30 @@ import logging
 import sys
 import unittest
 from argparse import Namespace
+from typing import Dict
+from pycore import Scenario, Rule
+
+logger = logging.getLogger(__name__)
+
+
+def get_rule_mapping(scenario: Scenario) -> Dict[int, Rule]:
+    rule_mapping: Dict[int, Rule] = {}
+    used_rules = set()
+    max_width = max(len(s.name) for s in scenario.rules.values())+1
+    for i, rule in enumerate(scenario.rules.values(), 1):
+        rule_mapping[i] = rule
+        used_rules.add(str(rule))
+        logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
+
+    for scenario_rule in scenario.rules.values():
+        if str(scenario_rule) not in used_rules:
+            logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
+    return rule_mapping
+
+
+def get_rule_mapping_by_config(config) -> Dict[int, Rule]:
+    scenario = Scenario.load(config.files.scenario)
+    return get_rule_mapping(scenario)
 
 
 def make_namespace(value):

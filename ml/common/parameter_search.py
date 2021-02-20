@@ -8,6 +8,7 @@ class LearningParmeter:
                  batch_size: int = 10, gradient_clipping: float = 0.1,
                  value_loss_weight: float = 0.5,
                  model_hyper_parameter: dict = None,
+                 optimizer: str = "adadelta",
                  fine_tuning=None, **kwargs):
         self.model_name = model_name
         self.num_epochs = num_epochs
@@ -15,6 +16,7 @@ class LearningParmeter:
         self.batch_size = batch_size
         self.gradient_clipping = gradient_clipping
         self.value_loss_weight = value_loss_weight
+        self.optimizer = optimizer
         if isinstance(model_hyper_parameter, Namespace):
             self.model_hyper_parameter = vars(model_hyper_parameter)
         else:
@@ -38,6 +40,7 @@ class LearningParmeter:
                                 gradient_clipping=training.gradient_clipping,
                                 value_loss_weight=training.value_loss_weight,
                                 model_hyper_parameter=vars(training.model_parameter),
+                                optimizer=training.optimizer,
                                 fine_tuning=vars(config.fine_tuning)
                                 )
 
