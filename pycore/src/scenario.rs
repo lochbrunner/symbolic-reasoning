@@ -135,9 +135,10 @@ impl PyScenario {
     /// Loads a scenario from file
     #[staticmethod]
     #[text_signature = "(filename, /)"]
-    fn load(filename: String) -> PyResult<PyScenario> {
-        let scenario =
-            Scenario::load_from_yaml(&filename).map_err(PyErr::new::<exceptions::IOError, _>)?;
+    #[args(filename, no_dependencies = false)]
+    fn load(filename: String, no_dependencies: bool) -> PyResult<PyScenario> {
+        let scenario = Scenario::load_from_yaml(&filename, no_dependencies)
+            .map_err(PyErr::new::<exceptions::IOError, _>)?;
         Ok(Self {
             inner: Arc::new(scenario),
         })
@@ -162,10 +163,14 @@ impl PyScenario {
     }
 
     #[getter]
-    fn problems(&self) -> PyResult<PyScenarioProblems> {
-        Ok(PyScenarioProblems {
-            inner: Arc::new(self.inner.problems.clone()),
-        })
+    fn problems(&self) -> PyResult<Option<PyScenarioProblems>> {
+        if let Some(ref problems) = self.inner.problems {
+            Ok(Some(PyScenarioProblems {
+                inner: Arc::new(problems.clone()),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     #[getter]

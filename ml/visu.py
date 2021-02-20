@@ -7,7 +7,7 @@ import yaml
 import logging
 
 # dash
-import tree_dash_component
+# import tree_dash_component
 import dash
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
@@ -26,25 +26,28 @@ import torch
 from common.node import Node
 from common.utils import Compose
 from common import io
-from dataset.transformers import Embedder, ident_to_id
-from dataset.generate import SymbolBuilder
-from pycore import Symbol, Context
+# from dataset.transformers import Embedder, ident_to_id
+# from dataset.generate import SymbolBuilder
+from pycore import Symbol, Context, Scenario
 
 
-def traverse_for_scores(model, node: Node, activation_name: str = 'scores'):
-    builder = SymbolBuilder(node)
+# def traverse_for_scores(model, node: Node, ident_to_id: Dict[str, int], activation_name: str = 'scores'):
+#     scenario = Scenario.load(config.files.scenario)
+#     idents = scenario.idents()
+#     ident_to_id = {ident: (value+1) for (value, ident) in enumerate(idents)}
+#     builder = SymbolBuilder(node)
 
-    all_scores = []
-    all_paths = []
+#     all_scores = []
+#     all_paths = []
 
-    for path, node in builder.traverse_bfs_path():
-        activations = model.introspect(node, ident_to_id)
-        scores = activations[activation_name].detach().numpy()
-        all_scores.insert(0, scores)
-        path = '/'.join([str(d) for d in path])
-        all_paths.insert(0, f'{node.ident} @ {path}')
+#     for path, node in builder.traverse_bfs_path():
+#         activations = model.introspect(node, ident_to_id)
+#         scores = activations[activation_name].detach().numpy()
+#         all_scores.insert(0, scores)
+#         path = '/'.join([str(d) for d in path])
+#         all_paths.insert(0, f'{node.ident} @ {path}')
 
-    return all_scores, all_paths
+#     return all_scores, all_paths
 
 
 def create_ground_truth_string(sample):
@@ -64,11 +67,12 @@ def create_ground_truth_rule_indices(sample):
 @torch.no_grad()
 def predict_path_and_label(model, x, s, *args, **kwargs):
 
-    x = model(x, s)
+    p = torch.ones(x.shape[:-1])
+    y, v = model(x, s, p)
 
-    x = x.squeeze()
-    x = x.cpu().numpy()
-    scores = x
+    y = y.squeeze()
+    y = y.cpu().numpy()
+    scores = y
     prediction = np.argmax(x, axis=0)
     x = np.transpose(x)
 
@@ -95,14 +99,14 @@ def main(args):
     app.layout = html.Div([
         html.H2(id='title', children=model.__class__.__name__),
         html.Div(style={}, className='tree-container', children=[
-            tree_dash_component.TreeDashComponent(
-                id='symbol',
-                symbol=dataset.get_node(0).as_dict()
-            ),
-            tree_dash_component.TreeDashComponent(
-                id='pattern-1',
-                symbol=Node('?').as_dict()
-            ),
+            # tree_dash_component.TreeDashComponent(
+            #     id='symbol',
+            #     symbol=dataset.get_node(0).as_dict()
+            # ),
+            # tree_dash_component.TreeDashComponent(
+            #     id='pattern-1',
+            #     symbol=Node('?').as_dict()
+            # ),
             DashKatex(expression=dataset.container[0].initial.latex, id='initial'),
             html.Div(id='gt-container', children=[
                 html.Div(dataset.get_rule_of_sample(0).name, id='gt-rule-name'),
@@ -148,8 +152,8 @@ def main(args):
 
     @app.callback(
         [
-            Output(component_id='symbol', component_property='symbol'),
-            Output(component_id='pattern-1', component_property='symbol'),
+            # Output(component_id='symbol', component_property='symbol'),
+            # Output(component_id='pattern-1', component_property='symbol'),
             Output(component_id='tag', component_property='children'),
             Output(component_id='tag_prediction', component_property='children'),
             Output(component_id='prediction-heat', component_property='data'),
@@ -205,7 +209,8 @@ def main(args):
             rules_coords = create_ground_truth_rule_indices(dataset.container[sample_id])
             prediction_heat = {'xlabel': x_label, 'ylabel': y_label, 'values': tag_scores, 'markings': rules_coords}
 
-            return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+            # return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
+            return ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, gt_rule.latex, gt_rule.name
         else:
             last_test_button_time = test_user_input
             context = Context.standard()
@@ -231,7 +236,8 @@ def main(args):
             colored_initial = initial.latex_with_colors(colors)
             rule = dataset.get_rule_raw(rule_id)
 
-            return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, '\\text{n.a.}', 'n.a.'
+            # return node.as_dict(), pattern.as_dict(), ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, '\\text{n.a.}', 'n.a.'
+            return ground_truth, prediction, prediction_heat, colored_initial, rule.latex, rule.name, '\\text{n.a.}', 'n.a.'
 
     app.run_server(debug=True)
 

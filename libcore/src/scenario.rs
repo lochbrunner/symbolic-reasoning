@@ -57,13 +57,22 @@ impl ScenarioProblems {
 
     fn try_from(
         value: &ScenarioProblemEnum,
+        no_dependencies: bool,
         parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
-    ) -> Result<Self, String> {
+    ) -> Result<Option<Self>, String> {
         match value {
             ScenarioProblemEnum::Inline(value) => {
-                ScenarioProblems::try_from_inline(value, parse_rule)
+                let problems = ScenarioProblems::try_from_inline(value, parse_rule)?;
+                Ok(Some(problems))
             }
-            ScenarioProblemEnum::Filename(filename) => Self::load(filename),
+            ScenarioProblemEnum::Filename(filename) => {
+                if no_dependencies {
+                    Ok(None)
+                } else {
+                    let problems = Self::load(filename)?;
+                    Ok(Some(problems))
+                }
+            }
         }
     }
 
@@ -97,12 +106,12 @@ struct ScenarioStringAsRule {
 pub struct Scenario {
     pub declarations: Context,
     pub rules: HashMap<String, Rule>,
-    pub problems: ScenarioProblems,
+    pub problems: Option<ScenarioProblems>,
     pub premises: Vec<Symbol>,
 }
 
 impl Scenario {
-    pub fn load_from_yaml_reader<R>(reader: R) -> Result<Scenario, String>
+    pub fn load_from_yaml_reader<R>(reader: R, no_dependencies: bool) -> Result<Scenario, String>
     where
         R: std::io::Read + Sized,
     {
@@ -132,7 +141,7 @@ impl Scenario {
         let rules: Result<HashMap<String, Rule>, String> =
             ss.rules.iter().map(parse_rule).flatten().collect();
         let rules = rules?;
-        let problems = ScenarioProblems::try_from(&ss.problems, &parse_rule)?;
+        let problems = ScenarioProblems::try_from(&ss.problems, no_dependencies, &parse_rule)?;
 
         let premises = ss
             .premises
@@ -150,9 +159,9 @@ impl Scenario {
         })
     }
 
-    pub fn load_from_yaml(filename: &str) -> Result<Scenario, String> {
+    pub fn load_from_yaml(filename: &str, no_dependencies: bool) -> Result<Scenario, String> {
         let file = File::open(filename).map_err(|msg| msg.to_string())?;
-        Scenario::load_from_yaml_reader(file)
+        Scenario::load_from_yaml_reader(file, no_dependencies)
     }
 
     pub fn idents(&self, ignore_declaration: bool) -> Vec<String> {
@@ -163,7 +172,9 @@ impl Scenario {
         if !ignore_declaration {
             idents.extend(self.declarations.declarations.keys().cloned());
         }
-        idents.extend(self.problems.additional_idents.iter().cloned());
+        if let Some(ref problems) = self.problems {
+            idents.extend(problems.additional_idents.iter().cloned());
+        }
         let mut idents = idents.into_iter().collect::<Vec<String>>();
         idents.sort();
 

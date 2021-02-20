@@ -24,7 +24,7 @@ def get_rule_mapping(scenario: Scenario) -> Dict[int, Rule]:
 
 
 def get_rule_mapping_by_config(config) -> Dict[int, Rule]:
-    scenario = Scenario.load(config.files.scenario)
+    scenario = Scenario.load(config.files.scenario, no_dependencies=True)
     return get_rule_mapping(scenario)
 
 

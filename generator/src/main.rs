@@ -236,7 +236,7 @@ fn main() {
     let config_filename = matches.value_of("config").unwrap();
     let config = Configuration::load(config_filename, &matches)
         .expect(&format!("load config {}", config_filename));
-    let scenario = Scenario::load_from_yaml(&config.scenario_filename).unwrap();
+    let scenario = Scenario::load_from_yaml(&config.scenario_filename, false).unwrap();
 
     let rules = scenario
         .rules
