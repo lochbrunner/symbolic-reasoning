@@ -51,11 +51,13 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
 
         with Timer(f'Solving problem "{problem_name}"', logger=logger, quite=show_progress):
             search_strategy = beam_search_policy_last if options.policy_last else beam_search
-            solution, statistics = search_strategy(inferencer, rule_mapping, problem.condition,
-                                                   [problem.conclusion], variable_generator,
+            solution, statistics = search_strategy(inference=inferencer,
+                                                   rule_mapping=rule_mapping, initial=problem.condition,
+                                                   targets=[problem.conclusion], variable_generator=variable_generator,
                                                    use_network=use_network,
-                                                   black_list_terms=eval_config.black_list_terms,
-                                                   black_list_rules=eval_config.black_list_rules,
+                                                   black_list_terms=getattr(eval_config, 'black_list_terms', []),
+                                                   white_list_terms=getattr(eval_config, 'white_list_terms', []),
+                                                   black_list_rules=getattr(eval_config, 'black_list_rules', []),
                                                    max_size=eval_config.max_size,
                                                    max_grow=eval_config.max_grow,
                                                    **vars(eval_config.problems), **kwargs)

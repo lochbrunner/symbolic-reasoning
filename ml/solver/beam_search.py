@@ -51,16 +51,17 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
     return None, statistics
 
 
-def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
-                            black_list_terms: List[str], black_list_rules: List[str],
+def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
+                            black_list_terms: List[str], white_list_terms: List[str], black_list_rules: List[str],
                             max_size: int, max_grow: int, max_fit_results: int, use_network=True, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
 
     if not use_network:
         logging.debug('Don\'t use policy and value network. Just try brutforce solving.')
 
-    black_list_terms = set(black_list_terms)
+    black_list_terms = (black_list_terms or None) and set(black_list_terms)
     black_list_rules = set(black_list_rules)
+    white_list_terms = set(white_list_terms)
     seen = set([initial.verbose])
     statistics = Statistics(initial)
     max_size = min(max_size, initial.size+max_grow)
@@ -117,6 +118,10 @@ def beam_search_policy_last(inference, rule_mapping, initial, targets, variable_
                 seen.add(deduced.verbose)
                 if deduced.size > max_size:
                     continue
+
+                if white_list_terms and not deduced.verbose in white_list_terms:
+                    continue
+
                 statistics.fit_results += 1
                 rule = rule_mapping[rule_id]
                 apply_info = ApplyInfo(
