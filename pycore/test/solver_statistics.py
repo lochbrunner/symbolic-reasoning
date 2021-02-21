@@ -109,7 +109,7 @@ class TestSolverStatistics(unittest.TestCase):
         problem = ProblemStatistics('Problem a', 'a')
         stats += problem
 
-        expected_summary = ProblemSummary('Problem a', False)
+        expected_summary = ProblemSummary('Problem a', False, target_latex='a')
 
         self.assertEqual(stats.header[0], expected_summary)
 
@@ -127,7 +127,7 @@ class TestSolverStatistics(unittest.TestCase):
 
             loaded = SolverStatistics.load(filename)
 
-            expected_summary = ProblemSummary('Problem a', False, [IterationSummary(0, False, 1)], '')
+            expected_summary = ProblemSummary('Problem a', False, [IterationSummary(0, False, 1)], '', target_latex='a')
             self.assertEqual(loaded.header[0], expected_summary)
 
         finally:

@@ -9,6 +9,8 @@ pub struct StepInfo {
     // TODO: abort_reason ?
     pub value: Option<f32>,
     pub confidence: Option<f32>,
+    // How to handle multiple ways leading to the same term?
+    // Vec<enum{StepInfo, String}> ?
     pub subsequent: Vec<StepInfo>,
     pub rule_id: u32,
     pub path: Vec<usize>,

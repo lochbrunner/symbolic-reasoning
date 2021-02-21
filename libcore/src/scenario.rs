@@ -28,15 +28,15 @@ impl Default for ScenarioProblemEnum {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ScenarioProblems {
-    pub training: HashMap<String, Rule>,
-    pub validation: HashMap<String, Rule>,
+    pub training: Vec<Rule>,
+    pub validation: Vec<Rule>,
     pub additional_idents: Vec<String>,
 }
 
 impl ScenarioProblems {
     fn try_from_inline(
         value: &ScenarioStringAsProblem,
-        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
+        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<Rule, String>>,
     ) -> Result<Self, String> {
         Ok(Self {
             training: value
@@ -44,13 +44,13 @@ impl ScenarioProblems {
                 .iter()
                 .map(parse_rule)
                 .flatten()
-                .collect::<Result<HashMap<_, _>, _>>()?,
+                .collect::<Result<Vec<_>, _>>()?,
             validation: value
                 .validation
                 .iter()
                 .map(parse_rule)
                 .flatten()
-                .collect::<Result<HashMap<_, _>, _>>()?,
+                .collect::<Result<Vec<_>, _>>()?,
             additional_idents: value.additional_idents.clone(),
         })
     }
@@ -58,7 +58,7 @@ impl ScenarioProblems {
     fn try_from(
         value: &ScenarioProblemEnum,
         no_dependencies: bool,
-        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<(String, Rule), String>>,
+        parse_rule: &dyn Fn((&String, &String)) -> Vec<Result<Rule, String>>,
     ) -> Result<Option<Self>, String> {
         match value {
             ScenarioProblemEnum::Inline(value) => {
@@ -105,7 +105,7 @@ struct ScenarioStringAsRule {
 #[derive(Debug)]
 pub struct Scenario {
     pub declarations: Context,
-    pub rules: HashMap<String, Rule>,
+    pub rules: Vec<Rule>,
     pub problems: Option<ScenarioProblems>,
     pub premises: Vec<Symbol>,
 }
@@ -123,7 +123,7 @@ impl Scenario {
         };
         declarations.register_standard_operators();
 
-        let parse_rule = |(name, code): (&String, &String)| -> Vec<Result<(String, Rule), String>> {
+        let parse_rule = |(name, code): (&String, &String)| -> Vec<Result<Rule, String>> {
             let postfix = vec!["", " (i)", " (ii)"];
             match Rule::parse(&declarations, code) {
                 Err(msg) => vec![Err(msg)],
@@ -132,15 +132,24 @@ impl Scenario {
                     rules
                         .into_iter()
                         .enumerate()
-                        .map(|(i, r)| Ok((format!("{}{}", name, postfix[offset + i]), r)))
+                        .map(|(i, mut r)| {
+                            r.name = format!("{}{}", name, postfix[offset + i]);
+                            Ok(r)
+                        })
                         .collect::<Vec<_>>()
                 }
             }
         };
 
-        let rules: Result<HashMap<String, Rule>, String> =
-            ss.rules.iter().map(parse_rule).flatten().collect();
-        let rules = rules?;
+        let mut rules = ss
+            .rules
+            .iter()
+            .map(parse_rule)
+            .flatten()
+            .collect::<Result<Vec<_>, _>>()?;
+        // sort_by_key has lifetime issues: See
+        // https://stackoverflow.com/questions/47121985/why-cant-i-use-a-key-function-that-returns-a-reference-when-sorting-a-vector-wi
+        rules.sort_by(|x, y| x.name.cmp(&y.name));
         let problems = ScenarioProblems::try_from(&ss.problems, no_dependencies, &parse_rule)?;
 
         let premises = ss
@@ -165,10 +174,7 @@ impl Scenario {
     }
 
     pub fn idents(&self, ignore_declaration: bool) -> Vec<String> {
-        let mut idents = extract_idents_from_rules(
-            &self.rules.iter().map(|(_, r)| r).collect::<Vec<_>>(),
-            |r| r,
-        );
+        let mut idents = extract_idents_from_rules(&self.rules, |r| r);
         if !ignore_declaration {
             idents.extend(self.declarations.declarations.keys().cloned());
         }
@@ -205,7 +211,7 @@ mod specs {
               - x = 0",
         );
 
-        let actual = Scenario::load_from_yaml_reader(reader).unwrap();
+        let actual = Scenario::load_from_yaml_reader(reader, false).unwrap();
 
         assert_eq!(
             actual.declarations.declarations.get("A").unwrap(),
@@ -217,8 +223,8 @@ mod specs {
         );
 
         assert_eq!(actual.rules.len(), 2);
-        assert!(actual.problems.training.is_empty());
-        assert!(actual.problems.validation.is_empty());
+        assert!(actual.problems.as_ref().unwrap().training.is_empty());
+        assert!(actual.problems.as_ref().unwrap().validation.is_empty());
         assert_eq!(actual.premises.len(), 2);
 
         assert_eq!(

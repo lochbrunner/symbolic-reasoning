@@ -38,15 +38,15 @@ def main(options, config, early_abort_hook=None):
         # model, idents, rules = io.load_model(model, depth=9)
         rule_mapping = {}
         used_rules = set()
-        max_width = max(len(s.name) for s in scenario.rules.values())+1
-        for i, rule in enumerate(scenario.rules.values(), 1):
+        max_width = max(len(s.name) for s in scenario.rules)+1
+        for i, rule in enumerate(scenario.rules, 1):
             rule_mapping[i] = rule
             used_rules.add(str(rule))
             logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
 
         logger.info(f'Using {len(used_rules)} rules.')
 
-        for scenario_rule in scenario.rules.values():
+        for scenario_rule in scenario.rules:
             if str(scenario_rule) not in used_rules:
                 logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
 
@@ -64,8 +64,8 @@ def main(options, config, early_abort_hook=None):
         optimizer = optim.Adadelta(inferencer.model.parameters(), lr=learn_params.learning_rate)
 
         trainings_data_dumper = TrainingsDataDumper(config, scenario)
-        problems_statistics = {problem_name: ProblemStatistics(problem_name, problem.conclusion.latex)
-                               for problem_name, problem in scenario.problems.training.items()}
+        problems_statistics = {problem.name: ProblemStatistics(problem.name, problem.conclusion.latex)
+                               for problem in scenario.problems.training}
 
         for iteration in range(config.evaluation.problems.iterations):
             # Try

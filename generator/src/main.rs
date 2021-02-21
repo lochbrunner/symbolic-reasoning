@@ -85,7 +85,7 @@ fn deduce_impl<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &Symbol,
-    rules: &'a [(String, Rule)],
+    rules: &'a [Rule],
     stages: &[usize],
     stage_index: usize,
     rules_distribution: &mut Vec<usize>,
@@ -101,7 +101,7 @@ fn deduce_impl<'a>(
     let max_stage_size = stages[stage_index];
     let mut stage = vec![];
     // How to reduce for all rules in sum
-    for (rule_id, (_, rule)) in rules.iter().enumerate() {
+    for (rule_id, rule) in rules.iter().enumerate() {
         let max_rule = rules_distribution
             .iter()
             .cloned()
@@ -145,12 +145,12 @@ fn deduce<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &'a Symbol,
-    rules: &'a [(String, Rule)],
+    rules: &'a [Rule],
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
     let mut used_idents = extract_idents_from_rules(
-        &rules.iter().map(|(_, r)| r.reverse()).collect::<Vec<_>>(),
+        &rules.iter().map(|r| r.reverse()).collect::<Vec<_>>(),
         |r| r,
     );
 
@@ -241,7 +241,7 @@ fn main() {
     let rules = scenario
         .rules
         .iter()
-        .map(|(k, v)| (k.clone(), v.reverse()))
+        .map(|rule| rule.reverse())
         .collect::<Vec<_>>();
 
     let alphabet = create_alphabet();

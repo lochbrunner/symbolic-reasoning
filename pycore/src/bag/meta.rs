@@ -44,9 +44,8 @@ impl PyBagMeta {
             .data
             .rules
             .iter()
-            .map(|(l, r)| PyRule {
+            .map(|r| PyRule {
                 inner: Arc::new(r.clone()),
-                name: l.clone(),
             })
             .collect())
     }

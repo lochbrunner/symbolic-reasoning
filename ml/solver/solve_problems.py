@@ -36,7 +36,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
     if hasattr(eval_config.problems, 'white_list') and eval_config.problems.white_list:
         white_list = set(s.replace(' ', '') for s in eval_config.problems.white_list)
         unfiltered_problems = problems
-        problems = {n: v for n, v in problems.items() if str(v.condition) in white_list}
+        problems = {problem.name: problem for problem in problems if str(problem.condition) in white_list}
         if len(problems) < 1:
             print('Available:\n' + '\n'.join(f'"{v.condition}"' for _, v in unfiltered_problems.items()))
             raise AssertionError(f'No problems found in the white list: {white_list}')

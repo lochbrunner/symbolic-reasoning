@@ -21,11 +21,7 @@ pub struct PyApplyInfo {
 impl PyApplyInfo {
     #[getter]
     fn get_rule(&self) -> PyResult<PyRule> {
-        let inner = Arc::new(self.inner.rule.clone());
-        Ok(PyRule {
-            inner,
-            name: String::new(),
-        })
+        Ok(PyRule::from(&self.inner.rule))
     }
 
     #[getter]
@@ -238,16 +234,7 @@ impl PyMeta {
     }
     #[getter]
     fn rules(&self) -> PyResult<Vec<PyRule>> {
-        Ok(self
-            .trace
-            .meta
-            .rules
-            .iter()
-            .map(|(n, r)| PyRule {
-                inner: Arc::new(r.clone()),
-                name: n.clone(),
-            })
-            .collect())
+        Ok(self.trace.meta.rules.iter().map(PyRule::from).collect())
     }
 }
 

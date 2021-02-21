@@ -1,8 +1,6 @@
 use core::scenario::{Scenario, ScenarioProblems};
-use core::Rule;
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::sync::Arc;
@@ -15,23 +13,6 @@ pub struct PyScenarioProblems {
     pub inner: Arc<ScenarioProblems>,
 }
 
-fn export_rules<'a, I>(rules: I) -> HashMap<String, PyRule>
-where
-    I: Iterator<Item = (&'a String, &'a Rule)>,
-{
-    rules
-        .map(|(k, v)| {
-            (
-                k.clone(),
-                PyRule {
-                    inner: Arc::new(v.clone()),
-                    name: k.clone(),
-                },
-            )
-        })
-        .collect()
-}
-
 #[pymethods]
 impl PyScenarioProblems {
     #[new]
@@ -42,23 +23,24 @@ impl PyScenarioProblems {
     }
 
     #[getter]
-    fn validation(&self) -> PyResult<HashMap<String, PyRule>> {
-        Ok(export_rules(self.inner.validation.iter()))
+    fn validation(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self.inner.validation.iter().map(PyRule::from).collect())
     }
 
     #[getter]
-    fn training(&self) -> PyResult<HashMap<String, PyRule>> {
-        Ok(export_rules(self.inner.training.iter()))
+    fn training(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self.inner.training.iter().map(PyRule::from).collect())
     }
 
     #[getter]
-    fn all(&self) -> PyResult<HashMap<String, PyRule>> {
-        Ok(export_rules(
-            self.inner
-                .training
-                .iter()
-                .chain(self.inner.validation.iter()),
-        ))
+    fn all(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self
+            .inner
+            .training
+            .iter()
+            .chain(self.inner.validation.iter())
+            .map(PyRule::from)
+            .collect())
     }
 
     #[getter]
@@ -83,27 +65,23 @@ impl PyScenarioProblems {
         Ok(())
     }
 
-    fn add_to_training(&mut self, rule: PyRule, name: &str) -> PyResult<()> {
+    fn add_to_training(&mut self, rule: PyRule) -> PyResult<()> {
         let problems =
             Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<exceptions::ReferenceError, _>(
                 "Could not mutable borrow reference.".to_owned(),
             ))?;
 
-        problems
-            .training
-            .insert(name.to_owned(), (*rule.inner).clone());
+        problems.training.push((*rule.inner).clone());
         Ok(())
     }
 
-    fn add_to_validation(&mut self, rule: PyRule, name: &str) -> PyResult<()> {
+    fn add_to_validation(&mut self, rule: PyRule) -> PyResult<()> {
         let problems =
             Arc::get_mut(&mut self.inner).ok_or(PyErr::new::<exceptions::ReferenceError, _>(
                 "Could not mutable borrow reference.".to_owned(),
             ))?;
 
-        problems
-            .validation
-            .insert(name.to_owned(), (*rule.inner).clone());
+        problems.validation.push((*rule.inner).clone());
         Ok(())
     }
 
@@ -145,21 +123,8 @@ impl PyScenario {
     }
 
     #[getter]
-    fn rules(&self) -> PyResult<HashMap<String, PyRule>> {
-        Ok(self
-            .inner
-            .rules
-            .iter()
-            .map(|(k, v)| {
-                (
-                    k.clone(),
-                    PyRule {
-                        inner: Arc::new(v.clone()),
-                        name: k.clone(),
-                    },
-                )
-            })
-            .collect())
+    fn rules(&self) -> PyResult<Vec<PyRule>> {
+        Ok(self.inner.rules.iter().map(PyRule::from).collect())
     }
 
     #[getter]

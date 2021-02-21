@@ -5,6 +5,7 @@ use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::exceptions;
 use pyo3::prelude::*;
+use std::convert::From;
 use std::sync::Arc;
 
 /// Python Wrapper for core::Rule
@@ -12,7 +13,14 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct PyRule {
     pub inner: Arc<Rule>,
-    pub name: String,
+}
+
+impl From<&Rule> for PyRule {
+    fn from(rule: &Rule) -> Self {
+        Self {
+            inner: Arc::new(rule.clone()),
+        }
+    }
 }
 
 #[pymethods]
@@ -23,18 +31,28 @@ impl PyRule {
             inner: Arc::new(Rule {
                 condition: (*condition.inner).clone(),
                 conclusion: (*conclusion.inner).clone(),
+                name: name.to_owned(),
             }),
-            name: name.to_owned(),
         }
     }
 
+    /// Just uses the first rule.
     #[staticmethod]
     fn parse(context: &PyContext, code: String, name: Option<String>) -> PyResult<PyRule> {
         match Rule::parse(&context.inner, &code) {
-            Ok(mut rule) => Ok(PyRule {
-                inner: Arc::new(rule.pop().unwrap()),
-                name: name.unwrap_or(format!("Parsed from {}", code)),
-            }),
+            Ok(mut rule) => {
+                if let Some(mut rule) = rule.pop() {
+                    rule.name = name.unwrap_or(format!("Parsed from {}", code));
+                    Ok(PyRule {
+                        inner: Arc::new(rule),
+                    })
+                } else {
+                    Err(PyErr::new::<exceptions::ValueError, _>(format!(
+                        "Can not parse rule from {}",
+                        code
+                    )))
+                }
+            }
             Err(msg) => Err(PyErr::new::<exceptions::TypeError, _>(msg)),
         }
     }
@@ -57,8 +75,8 @@ impl PyRule {
             inner: Arc::new(Rule {
                 conclusion: self.inner.condition.clone(),
                 condition: self.inner.conclusion.clone(),
+                name: format!("Reverse of {}", &self.inner.name),
             }),
-            name: format!("Reverse of {}", self.name),
         })
     }
 
@@ -82,8 +100,20 @@ impl PyRule {
     }
 
     #[getter]
-    fn name(&self) -> PyResult<String> {
-        Ok(self.name.clone())
+    fn get_name(&self) -> PyResult<String> {
+        Ok(self.inner.name.clone())
+    }
+
+    #[setter]
+    fn set_name(&mut self, name: &str) -> PyResult<()> {
+        if let Some(rule) = Arc::get_mut(&mut self.inner) {
+            rule.name = name.to_owned();
+            Ok(())
+        } else {
+            Err(PyErr::new::<exceptions::ReferenceError, _>(
+                "Could not mutable borrow reference of rule".to_owned(),
+            ))
+        }
     }
 }
 

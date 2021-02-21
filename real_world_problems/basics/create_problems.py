@@ -48,12 +48,11 @@ def main(args):
     validation_indices = set(random.sample(range(problem_size), k=problem_size // 10))
 
     for i, problem in tqdm(enumerate(problems), desc=f'Dumping to {problems_path}', smoothing=0., leave=False):
-        rule = Rule.parse(context, problem)
-        name = f'solving {i+1}'
+        rule = Rule.parse(context, problem, f'solving {i+1}')
         if i in validation_indices:
-            scenario_problems.add_to_validation(rule, name)
+            scenario_problems.add_to_validation(rule)
         else:
-            scenario_problems.add_to_training(rule, name)
+            scenario_problems.add_to_training(rule)
 
     logger.info(f'Used idents: {", ".join(used_idents)}')
     scenario_problems.add_additional_idents(list(set(used_idents)))

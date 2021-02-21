@@ -93,11 +93,10 @@ impl PyBag {
         let rules = rules
             .into_iter()
             .map(|item| {
-                let name = item.get_item(0).extract::<String>()?;
                 let rule = (*item.get_item(1).extract::<PyRule>()?.inner).clone();
-                Ok((name, rule))
+                Ok(rule)
             })
-            .collect::<Result<Vec<(std::string::String, Rule)>, PyErr>>()?;
+            .collect::<Result<Vec<Rule>, PyErr>>()?;
         Ok(PyBag {
             meta_data: bag::Meta {
                 idents: vec![],
@@ -124,7 +123,6 @@ impl PyBag {
             .map_err(|msg| PyErr::new::<FileNotFoundError, _>(format!("{}: \"{}\"", msg, path)))?;
         let reader = BufReader::new(file);
         let bag = bag::Bag::read_bincode(reader).map_err(PyErr::new::<TypeError, _>)?;
-
         let meta_data = bag.meta;
         let containers = bag
             .containers
@@ -182,7 +180,7 @@ impl PyBag {
     }
 
     fn update_meta(&mut self) -> PyResult<()> {
-        let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |(_, r)| r);
+        let mut idents = bag::extract_idents_from_rules(&self.meta_data.rules, |r| r);
         let mut rule_distribution: Vec<(u32, u32)> = vec![(0, 0); self.meta_data.rules.len()];
         let mut positive_contributions = 0;
         let mut negative_contributions = 0;

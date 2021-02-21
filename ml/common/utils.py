@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 def get_rule_mapping(scenario: Scenario) -> Dict[int, Rule]:
     rule_mapping: Dict[int, Rule] = {}
     used_rules = set()
-    max_width = max(len(s.name) for s in scenario.rules.values())+1
-    for i, rule in enumerate(scenario.rules.values(), 1):
+    max_width = max(len(s.name) for s in scenario.rules)+1
+    for i, rule in enumerate(scenario.rules, 1):
         rule_mapping[i] = rule
         used_rules.add(str(rule))
         logger.debug(f'Using rule {i:2}# {rule.name.ljust(max_width)} {rule.verbose}')
 
-    for scenario_rule in scenario.rules.values():
+    for scenario_rule in scenario.rules:
         if str(scenario_rule) not in used_rules:
             logger.warning(f'The rule "{scenario_rule}" was not in the model created by the training.')
     return rule_mapping

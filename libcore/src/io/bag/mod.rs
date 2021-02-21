@@ -43,20 +43,13 @@ pub struct Meta {
     /// contributed, not contributed
     pub value_distribution: (u32, u32),
     /// Rule at index 0 is padding
-    pub rules: Vec<(String, Rule)>,
+    pub rules: Vec<Rule>,
     // Should we add the scenario file name?
 }
 
 impl Meta {
     pub fn from_scenario(scenario: &Scenario, ignore_declaration: bool) -> Self {
-        let mut rules: Vec<(String, Rule)> = Vec::new();
-        rules.push(("padding".to_string(), Default::default()));
-        let scenario_rules = scenario
-            .rules
-            .iter()
-            .map(|(k, v)| (k.clone(), v.reverse()))
-            .collect::<Vec<_>>();
-        rules.extend_from_slice(&scenario_rules);
+        let rules = [&[Rule::default()], &scenario.rules[..]].concat();
         Self {
             rule_distribution: vec![(1, 1); rules.len()],
             value_distribution: (0, 0),
@@ -103,8 +96,7 @@ impl Bag {
         augment: &dyn Fn((&Symbol, FitInfo)) -> Vec<(Symbol, FitInfo)>,
     ) -> Self {
         let mut rule_map: HashMap<&Rule, u32> = HashMap::new();
-        let mut rules: Vec<(String, Rule)> = Vec::new();
-        rules.push(("padding".to_string(), Default::default()));
+        let mut rules: Vec<Rule> = vec![Default::default()];
 
         let mut initials: HashMap<Symbol, Vec<FitInfo>> = HashMap::new();
         let mut idents: HashSet<String> = HashSet::new();
@@ -112,10 +104,10 @@ impl Bag {
             for ident in trace.meta.used_idents.iter() {
                 idents.insert(ident.clone());
             }
-            for (name, rule) in trace.meta.rules.iter() {
+            for rule in trace.meta.rules.iter() {
                 if !rule_map.contains_key(&rule) {
                     rule_map.insert(&rule, rules.len() as u32);
-                    rules.push((name.to_string(), rule.clone()));
+                    rules.push(rule.clone());
                 }
             }
             for (deduced, fitinfo) in trace
@@ -260,9 +252,9 @@ mod specs {
         let b = Symbol::parse(&context, "b").unwrap();
         let c = Symbol::parse(&context, "c").unwrap();
         let d = Symbol::parse(&context, "d").unwrap();
-        let r1 = ("r1".to_string(), Rule::parse_first(&context, "a => b"));
-        let r2 = ("r2".to_string(), Rule::parse_first(&context, "c => d"));
-        let pad_rule = ("padding".to_string(), Default::default());
+        let r1 = Rule::parse_first(&context, "a => b");
+        let r2 = Rule::parse_first(&context, "c => d");
+        let pad_rule = Default::default();
 
         let traces = vec![
             Trace {
@@ -273,7 +265,7 @@ mod specs {
                 initial: &a,
                 stages: vec![TraceStep {
                     info: ApplyInfo {
-                        rule: &r1.1,
+                        rule: &r1,
                         path: vec![0, 0],
                         initial: a.clone(),
                         deduced: b.clone(),
@@ -289,7 +281,7 @@ mod specs {
                 initial: &c,
                 stages: vec![TraceStep {
                     info: ApplyInfo {
-                        rule: &r2.1,
+                        rule: &r2,
                         path: vec![0, 0],
                         initial: c.clone(),
                         deduced: d.clone(),
