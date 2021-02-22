@@ -25,6 +25,8 @@ class ApplyInfo:
         self.path = path
         self.top = top
         self.contributed = False
+        self.alternative_traces = []
+
         if hasattr(confidence, 'item'):
             self.confidence = confidence.item()
         else:
@@ -59,9 +61,14 @@ class ApplyInfo:
         }
 
     def contribute(self):
+        # Already done?
+        if self.contributed:
+            return
         self.contributed = True
         if self.previous is not None:
             self.previous.contribute()
+        for alternative in self.alternative_traces:
+            alternative.contribute()
 
     def new_rules(self):
         '''Rules from all previous steps to current'''
@@ -197,15 +204,8 @@ class Tops:
         return 0
 
 
-def calculate_policy_tops(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None):
-    # # tops:
-    # # tops begin with 1
-    # if prev_tops:
-    #     tops = {**prev_tops}
-    # else:
-    #     tops = {}
-    # total = 0
-    tops = Tops()
+def calculate_policy_tops(solutions: List[ApplyInfo], tops: Tops = None):
+    tops = tops or Tops()
     for solution in solutions:
         for step in solution.trace:
             tops += step.top
@@ -213,8 +213,8 @@ def calculate_policy_tops(solutions: List[ApplyInfo], prev_tops: Dict[int, int] 
     return tops
 
 
-def calculate_value_tops(solutions: List[ApplyInfo]):
-    tops = Tops()
+def calculate_value_tops(solutions: List[ApplyInfo], tops: Tops = None):
+    tops = tops or Tops()
 
     for solution in solutions:
         for step in solution.trace:
@@ -237,16 +237,40 @@ def calculate_value_tops(solutions: List[ApplyInfo]):
     return tops
 
 
-def solution_summary(solutions: List[ApplyInfo], prev_tops: Dict[int, int] = None, as_dict=False):
+def solution_summary(solutions: List[ApplyInfo], as_dict=False):
     if as_dict:
         return {
-            'policy': calculate_policy_tops(solutions, prev_tops).as_dict(),
+            'policy': calculate_policy_tops(solutions).as_dict(),
             'value': calculate_value_tops(solutions).as_dict()
         }
     return {
-        'policy': calculate_policy_tops(solutions, prev_tops),
+        'policy': calculate_policy_tops(solutions),
         'value': calculate_value_tops(solutions)
     }
+
+
+class SolutionSummarieser:
+    '''The same as solution function but accumulative'''
+
+    def __init__(self):
+        self.policy_tops = Tops()
+        self.value_tops = Tops()
+
+    def __add__(self, solution: ApplyInfo):
+        self.policy_tops = calculate_policy_tops([solution], self.policy_tops)
+        self.value_tops = calculate_value_tops([solution], self.value_tops)
+        return self
+
+    def summary(self, as_dict=False):
+        if as_dict:
+            return {
+                'policy': self.policy_tops.as_dict(),
+                'value': self.value_tops.as_dict()
+            }
+        return {
+            'policy': self.policy_tops,
+            'value': self.value_tops
+        }
 
 
 class Statistics:

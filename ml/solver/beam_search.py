@@ -62,7 +62,7 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
     black_list_terms = (black_list_terms or None) and set(black_list_terms)
     black_list_rules = set(black_list_rules)
     white_list_terms = set(white_list_terms)
-    seen = set([initial.verbose])
+    seen = {initial.verbose: None}
     statistics = Statistics(initial)
     max_size = min(max_size, initial.size+max_grow)
 
@@ -101,21 +101,18 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
                 possible_fits = (v for _, v in sorted(ranked_fits.items()))
 
                 # filter out already seen terms
-                possible_fits = [(*args, deduced) for *args, deduced in possible_fits if deduced.verbose
-                                 not in seen and deduced.verbose not in black_list_terms]
+                possible_fits = [(*args, deduced)
+                                 for *args, deduced in possible_fits if deduced.verbose not in black_list_terms]
                 if beam_size is not None:
                     possible_fits = possible_fits[:beam_size]
             else:
                 possible_fits = []
                 for rule_id, fits in possible_rules.items():
                     for deduced, fit_result in fits:
-                        if deduced.verbose in seen:
-                            continue
                         confidence = None
                         possible_fits.append((rule_id, fit_result, confidence, deduced))
 
             for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits, 1):
-                seen.add(deduced.verbose)
                 if deduced.size > max_size:
                     continue
 
@@ -130,6 +127,14 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
                     previous=prev, mapping=fit_result.variable,
                     confidence=confidence, top=top,
                     rule_id=rule_id, path=fit_result.path)
+
+                # Loop detection
+                if deduced.verbose in seen:
+                    # Initial is None
+                    if (sister := seen[deduced.verbose]) is not None:
+                        sister.alternative_traces.append(apply_info)
+                    continue
+                seen[deduced.verbose] = apply_info
 
                 if use_network and apply_info.track_loss > max_track_loss:
                     continue

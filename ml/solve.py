@@ -9,7 +9,7 @@ from common.config_and_arg_parser import ArgumentParser
 from common.timer import Timer
 from common.validation import Mean
 from common.utils import get_rule_mapping
-from pycore import ProblemStatistics, Rule, Scenario, SolverStatistics, Symbol, Trace
+from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
 
@@ -41,22 +41,21 @@ def main(options, config):
         inferencer = None
 
     problems = scenario.problems.training if options.solve_training else scenario.problems.validation
-    problems_statistics = {problem_name: ProblemStatistics(problem_name, problem.conclusion.latex)
-                           for problem_name, problem in problems.items()}
-
-    _, problem_statistics, problem_traces = solve_problems(
-        options, config, problems, inferencer, rule_mapping, use_network=use_network)
-
-    # Trace
-    for problem_name, problem_trace in problem_traces.items():
-        problems_statistics[problem_name] += problem_trace
+    problems_statistics = {problem.name: ProblemStatistics(problem.name, problem.conclusion.latex)
+                           for problem in problems}
 
     success_rate = Mean()
     needed_fits = Mean()
-    for problem_statistic in problem_statistics:
-        success_rate += problem_statistic.success
-        if problem_statistic.success:
-            needed_fits += problem_statistic.fit_results
+    for statistics, _ in solve_problems(
+            options, config, problems, inferencer, rule_mapping, use_network=use_network):
+
+        # Trace
+        success_rate += statistics.success
+        if statistics.success:
+            needed_fits += statistics.fit_results
+
+        problems_statistics[statistics.name] += statistics.as_builtin
+        # Trace
 
     if success_rate.correct == 0.0:
         logger.warning('Could not solve any of the training problems.')

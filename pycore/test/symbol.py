@@ -161,6 +161,11 @@ class TestSymbol(unittest.TestCase):
     def test_number_of_embedded_properties(self):
         self.assertEqual(Symbol.number_of_embedded_properties, 3)
 
+    def test_memory_usage(self):
+        context = Context.standard()
+        symbol = Symbol.parse(context, 'a+b=c*d')
+        self.assertLess(symbol.memory_usage, 1000)
+
 
 if __name__ == '__main__':
     unittest.main()

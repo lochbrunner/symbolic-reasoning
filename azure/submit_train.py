@@ -62,7 +62,7 @@ def main(args):
             '--training-model-parameter-embedding_size': choice([48, 64]),
             '--training-model-parameter-hidden_layers': choice([1, 2, 3]),
             '--training-batch-size': choice([8, 16]),
-            '--training-learning-rate': choice([0.1, 0.01])
+            '--training-learning-rate': choice([0.01, 0.001])
         }
     )
 

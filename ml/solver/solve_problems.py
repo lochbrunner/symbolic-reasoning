@@ -28,28 +28,25 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
 
     eval_config = config.evaluation
 
-    problem_traces = {}
-
     if options.smoke:
         problems = dict(itertools.islice(problems.items(), 1))
 
     if hasattr(eval_config.problems, 'white_list') and eval_config.problems.white_list:
         white_list = set(s.replace(' ', '') for s in eval_config.problems.white_list)
         unfiltered_problems = problems
-        problems = {problem.name: problem for problem in problems if str(problem.condition) in white_list}
+        problems = [problem for problem in problems if str(problem.condition) in white_list]
         if len(problems) < 1:
             print('Available:\n' + '\n'.join(f'"{v.condition}"' for _, v in unfiltered_problems.items()))
             raise AssertionError(f'No problems found in the white list: {white_list}')
         logger.warning(f'Using {len(problems)} filtered problems from white list')
 
-    for problem_name in tqdm(problems, desc='solve', disable=not show_progress, leave=False):
-        problem = problems[problem_name]
+    for problem in tqdm(problems, desc='solve', disable=not show_progress, leave=False):
         # Get first problem
         logger.debug(f'problem: {problem}')
         source = problem.condition
         target = problem.conclusion
 
-        with Timer(f'Solving problem "{problem_name}"', logger=logger, quite=show_progress):
+        with Timer(f'Solving problem "{problem.name}"', logger=logger, quite=show_progress):
             search_strategy = beam_search_policy_last if options.policy_last else beam_search
             solution, statistics = search_strategy(inference=inferencer,
                                                    rule_mapping=rule_mapping, initial=problem.condition,
@@ -61,15 +58,11 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
                                                    max_size=eval_config.max_size,
                                                    max_grow=eval_config.max_grow,
                                                    **vars(eval_config.problems), **kwargs)
-        if solution is not None:
-            problem_solutions.append(solution)
 
-        else:
+        if solution is None:
             logger.debug(f'No solution found for {source} => {target}')
 
-        statistics.name = problem_name
+        statistics.name = problem.name
         logger.debug(statistics)
-        problem_statistics.append(statistics)
-        problem_traces[problem_name] = statistics.as_builtin
 
-    return problem_solutions, problem_statistics, problem_traces
+        yield statistics, solution

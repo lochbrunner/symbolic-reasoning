@@ -48,7 +48,7 @@ def create_linear(left_length=3, right_length=3, num_symbols=2, **kwargs):
 
     problems = []
     seen = set()
-    for left_operations, left_symbols, right_operations, right_symbols in tqdm(total_combis, total=size, smoothing=0.):
+    for left_operations, left_symbols, right_operations, right_symbols in tqdm(total_combis, total=size, smoothing=0., leave=False, desc='create'):
         try:
             left_term = create_term(left_operations, left_symbols)
             right_term = create_term(right_operations, right_symbols)

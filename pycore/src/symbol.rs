@@ -497,6 +497,11 @@ impl PySymbol {
         Ok(self.inner.size())
     }
 
+    #[getter]
+    fn memory_usage(&self) -> PyResult<usize> {
+        Ok(self.inner.memory_usage())
+    }
+
     /// Assumes spread of 2.
     #[getter]
     fn density(&self) -> PyResult<f32> {

@@ -18,7 +18,7 @@ from dataset.bag import BagDataset
 from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
-from solver.trace import TrainingsDataDumper, solution_summary
+from solver.trace import TrainingsDataDumper, SolutionSummarieser
 from training import train
 
 logger = logging.getLogger(__name__)
@@ -70,23 +70,26 @@ def main(options, config, early_abort_hook=None):
         for iteration in range(config.evaluation.problems.iterations):
             # Try
             use_network = not options.fresh_model or iteration > 0
-            problem_solutions, problem_statistics, problem_traces = solve_problems(
-                options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger, use_network=use_network)
-            tops = solution_summary(problem_solutions)
-            report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
-            report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
-
-            # Trace
-            for problem_name, problem_trace in problem_traces.items():
-                problems_statistics[problem_name] += problem_trace
+            solution_summarieser = SolutionSummarieser()
 
             success_rate = Mean()
             needed_fits = Mean()
-            for problem_statistic in problem_statistics:
-                success_rate += problem_statistic.success
-                if problem_statistic.success:
-                    needed_fits += problem_statistic.fit_results
-                    trainings_data_dumper += problem_statistic
+            for statistics, solution in solve_problems(
+                    options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger, use_network=use_network):
+                if solution is not None:
+                    solution_summarieser += solution
+
+            # Trace
+                success_rate += statistics.success
+                if statistics.success:
+                    trainings_data_dumper += statistics
+                    needed_fits += statistics.fit_results
+
+                problems_statistics[statistics.name] += statistics.as_builtin
+
+            tops = solution_summarieser.summary()
+            report_tops(tops['policy'], epoch=iteration, writer=writer, label='policy')
+            report_tops(tops['value'], epoch=iteration, writer=writer, label='value')
 
             if writer:
                 writer.add_scalar('solved/relative', success_rate.summary, iteration)
@@ -124,7 +127,7 @@ def main(options, config, early_abort_hook=None):
         intro += stat
     logger.info(f'Dumping traces to "{config.files.t3_loop_traces}" ...')
     with tqdm(total=100, desc='Create index', leave=False) as progress_bar:
-        intro.create_index(lambda progress: progress_bar.update(100*progress))
+        intro.create_index(lambda progress: progress_bar.update(min(100*progress, 100)))
     intro.dump(config.files.t3_loop_traces)
 
     trainings_data_dumper.dump()

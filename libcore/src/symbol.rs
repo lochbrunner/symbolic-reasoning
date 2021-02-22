@@ -2,6 +2,7 @@ use crate::io::bag::FitInfo;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::mem;
 use std::str;
 
 use std::collections::VecDeque;
@@ -264,6 +265,11 @@ impl Symbol {
     #[inline]
     pub fn size(&self) -> u32 {
         self.childs.iter().map(|c| c.size()).sum::<u32>() + 1
+    }
+
+    pub fn memory_usage(&self) -> usize {
+        (mem::size_of::<Self>() * (1 + self.childs.capacity() - self.childs.len()))
+            + self.childs.iter().map(|c| c.memory_usage()).sum::<usize>()
     }
 
     fn print_tree_impl(&self, buffer: &mut String, indent: usize) {
