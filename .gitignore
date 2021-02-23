@@ -25,3 +25,5 @@ tmp
 ~*
 real_world_problems/number_crunching/dataset.yaml
 .vscode/c_cpp_properties.json
+node_modules
+dist

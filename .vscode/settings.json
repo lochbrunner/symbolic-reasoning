@@ -1,15 +1,19 @@
 {
     "files.exclude": {
-        "**/.classpath": true,
-        "**/.project": true,
-        "**/.settings": true,
-        "**/.factorypath": true,
-        "**/.ropeproject": true,
         "**/__pycache__": true,
+        "**/.classpath": true,
+        "**/.factorypath": true,
+        "**/.project": true,
+        "**/.ropeproject": true,
+        "**/.settings": true,
         "Cargo.lock": true,
-        "target": true,
+        "dist": true,
+        "node_modules": true,
+        "pycore.so": true,
+        "runs": true,
         "snapshots": true,
-        "pycore.so": true
+        "target": true,
+        "yarn.lock": true
     },
     "cSpell.words": [
         "Deque",
