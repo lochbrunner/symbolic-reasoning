@@ -51,7 +51,8 @@ class Ratio:
         self.size = size
         self.count_print = count_print
 
-    def topk(self, k):
+    def topk(self, k: int):
+        '''k starts with 1 as it stands for the (first) best match ratio. '''
         nom = np.sum(self.tops[:k])
         return float(nom) / max(1, float(self.sum))
 
@@ -111,14 +112,19 @@ class Ratio:
         n = predict.shape[1]
         predict = (-predict).flatten().argsort()
 
-        truth_path = np.argmax(truth)
-        truth_rule_id = truth[truth_path]
-        encoded_id = truth_rule_id * n + truth_path
-        top = np.where(predict == encoded_id)[0][0]
+        # Multiple solutions (>0) could be valid
+        truth_paths = truth.nonzero()[0]
+        # Probably the negatives are masked out?
+        if len(truth_paths) > 0:
+            top = self.size
+            for truth_path in truth_paths:
+                truth_rule_id = truth[truth_path]
+                encoded_id = truth_rule_id * n + truth_path
+                top = min(top, np.where(predict == encoded_id)[0][0])
 
-        if top < self.size:
-            self.tops[top] += 1
-        self.sum += 1
+            if top < self.size:
+                self.tops[top] += 1
+            self.sum += 1
 
     # def printHistogram(self):
     #     printHistogram(self.tops, range(self.size), self.sum)
@@ -158,7 +164,7 @@ class ValidationResult:
 
 @torch.no_grad()
 def validate(model: torch.nn.Module, dataloader: DataLoader,
-             policy_loss_function=None, value_loss_function=None) -> ValidationResult:
+             policy_loss_function=None, value_loss_function=None, no_negative=True) -> ValidationResult:
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
 
     policy_loss = 0
@@ -187,12 +193,16 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
         batch_size = py.size(0)
         py = py.cpu().numpy()
         y = y.cpu().numpy()
+        p = p.cpu().numpy()
         pv = pv.cpu().numpy()
         gt_v = v.cpu().numpy()
 
         ry = py.max(axis=2).argmax(axis=1)
         bins = np.bincount(ry, minlength=py.shape[1])
         predicted_rule_distribution += bins
+
+        if no_negative:
+            y = y*(p+1)/2
 
         for i in range(batch_size):
             # policy
@@ -249,6 +259,47 @@ class TestRatio(unittest.TestCase):
         mask = np.array([True, True])
         ratio.update_global(mask, predict, truth)
         self.assertEqual(float(ratio), 1)
+
+    def test_update_global_all_multiples(self):
+        mask = np.array([True, True])
+        # three rules. two nodes
+        # Rule 1 should be applied at 0
+        # #rules * n
+        predict = np.array([[0.95, 0.8], [1, 0.9], [0.85, 1.0]])
+
+        # rule 2 @ 0 was predicted with 0.85 -> 5. best.
+        truth = np.array([2, 0])
+        ratio = Ratio()
+        ratio.update_global(mask, predict, truth)
+        self.assertEqual(ratio.tops.tolist(), [0, 0, 0, 0, 1, 0, 0, 0, 0, 0])
+
+        # rule 1 @ 1 was predicted with 0.9 -> 4. best.
+        truth = np.array([0, 1])
+        ratio = Ratio()
+        ratio.update_global(mask, predict, truth)
+        self.assertEqual(ratio.tops.tolist(), [0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+
+        # The best of both -> 4
+        truth = np.array([2, 1])
+        ratio = Ratio()
+        ratio.update_global(mask, predict, truth)
+        self.assertEqual(ratio.tops.tolist(), [0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+
+    def test_update_global_single_symbol(self):
+        ratio = Ratio()
+        # rules * length
+        mask = np.array([True])
+        correct_predict = np.array([[0.9], [1]])
+        truth = np.array([1])
+        ratio.update_global(mask, correct_predict, truth)
+        self.assertEqual(ratio.topk(1), 1.0)
+        self.assertEqual(ratio.topk(2), 1.0)
+
+        ratio = Ratio()
+        wrong_predict = np.array([[1.], [0.9]])
+        ratio.update_global(mask, wrong_predict, truth)
+        self.assertEqual(ratio.topk(1), 0.0)
+        self.assertEqual(ratio.topk(2), 1.0)
 
 
 if __name__ == '__main__':
