@@ -1,0 +1,9 @@
+GET http://127.0.0.1:5000/api/sample/1
+
+
+
+###
+
+
+
+GET http://127.0.0.1:5000/api/sample-overview

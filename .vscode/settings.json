@@ -15,6 +15,10 @@
         "target": true,
         "yarn.lock": true
     },
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}/ml"
+    },
+    "python.envFile": "${workspaceFolder}/.env",
     "cSpell.words": [
         "Deque",
         "Inferencer",

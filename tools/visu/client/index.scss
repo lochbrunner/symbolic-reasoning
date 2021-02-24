@@ -1,4 +1,34 @@
-h1 {
+body{
     font-family: Verdana, sans-serif;
+}
+
+h1 {
     font-weight: 200;
+}
+
+header {
+    text-align: center;
+}
+
+
+.detail {
+    text-align: center;
+    >.term {
+        margin: 30px;
+        font-size: 150%;
+    }
+
+    .navbar {
+        margin-top: 100px;
+        a {
+            margin: 10px;
+            user-select: none;
+            text-decoration: none;
+            color: #333;
+
+            &:hover{
+                text-decoration:underline;
+            }
+        }
+    }
 }
