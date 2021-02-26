@@ -6,7 +6,6 @@ from flask import Flask, request, jsonify, send_from_directory
 from common.config_and_arg_parser import ArgumentParser
 from dataset.bag import BagDataset
 from common.utils import setup_logging, get_rule_mapping_by_config
-# from ml.pycore import Symbol
 
 
 def main(config, options):
@@ -31,8 +30,23 @@ def main(config, options):
     @app.route('/api/sample/<path:index>')
     def sample(index):
         index = int(index)
-        initial = dataset.container[index].initial
-        return jsonify({'latex': initial.latex, 'index': index})
+        raw_sample = dataset.container[index]
+        initial = raw_sample.initial
+        x, s, y, p, v = dataset[index]
+        parts_path = [p for p, _ in initial.parts_bfs_with_path]
+        highlight_color = '#000000'
+        off_focus = ('#888888', [])
+        print(f'v: {v}')
+        return jsonify({
+            'latex': initial.latex,
+            'index': index,
+            'x': x.tolist(),
+            's': s.tolist(),
+            'policy': [{'ruleId': ruleId, 'policy': policy, 'path': i} for i, (ruleId, policy) in enumerate(zip(y.tolist(), p.tolist())) if ruleId != 0],
+            'v': v.tolist(),
+            'parts': [initial.latex] + [initial.latex_with_colors([off_focus, (highlight_color, path)]) for path in parts_path[1:]],
+            'rules': [rule.latex for rule in dataset.get_rules_raw()]
+        })
 
     @app.route('/api/sample-overview')
     def sample_count():
