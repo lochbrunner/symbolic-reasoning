@@ -17,6 +17,7 @@ def main(config, options):
     app = Flask(__name__, static_url_path=str(dist_folder))
 
     dataset = BagDataset.load(config.files.solver_trainings_data)
+    embed2ident = dataset.embed2ident
 
     @app.route('/')
     def root():
@@ -39,7 +40,10 @@ def main(config, options):
         return jsonify({
             'latex': initial.latex,
             'index': index,
-            'idents': x.tolist(),
+            'idents': [embed2ident[embed] for embed in x[:, 0].tolist()],
+            'isOperator': [iv == 1 for iv in x[:, 1].tolist()],
+            'isFixed': [iv == 1 for iv in x[:, 2].tolist()],
+            'isNumber': [iv == 1 for iv in x[:, 3].tolist()],
             'indexMap': s.tolist(),
             'policy': [{'ruleId': ruleId, 'policy': policy, 'path': i} for i, (ruleId, policy) in enumerate(zip(y.tolist(), p.tolist())) if ruleId != 0],
             'value': v.tolist()[0],

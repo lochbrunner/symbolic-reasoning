@@ -13,13 +13,25 @@ header {
 
 .detail {
     text-align: center;
-    >.term {
+    .term {
+        display: inline;
         margin: 30px;
         font-size: 150%;
     }
 
+    .value {
+        font-size: 200%;
+        float: right;
+        .contributed{
+            color:green;
+        }
+        .not-contributed {
+            color: red;
+        }
+    }
+
     .navbar {
-        margin-top: 100px;
+        margin-top: 70px;
         
         a {
             margin: 10px;

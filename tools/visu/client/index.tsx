@@ -5,19 +5,20 @@ import TeX from '@matejmazur/react-katex';
 import { HashRouter, Link, Redirect, Route, Switch, useHistory, useParams } from 'react-router-dom';
 
 import { render as Activation } from './components/activation';
+import { Sample } from './interfaces';
 
-interface Sample {
-    latex: string;
-    index: number;
-    idents: number[][];
-    policy: { ruleId: number, policy: number, path: number }[];
-    indexMap: number[][];
-    value: number;
-    predictedValue: number;
-    parts: string[];
-    rules: string[];
-    predictions: number[][];
-    possibilities: { ruleId: number, path: number }[];
+function Value(props: { gt: number, predicted: number }): JSX.Element {
+    let mark;
+    if (props.gt > 0.5) {
+        mark = <span className="contributed">✓</span>;
+    } else {
+        mark = <span className="not-contributed">✗</span>;
+    }
+    return (
+        <div className="value">
+            {mark}
+        </div>
+    );
 }
 
 function Term(): JSX.Element {
@@ -49,19 +50,20 @@ function Term(): JSX.Element {
         if (index != sample.index) {
             newSample();
         }
-        const groundTruth = sample.policy.filter(gt => gt.ruleId > 0);
-
         return (
             <div className="detail">
-                <div className="term">
-                    <TeX >{sample.latex}</TeX>
-                </div>
-                <Activation xLabels={sample.parts} yLabels={sample.rules} groundTruth={groundTruth} values={sample.idents} />
+                <div className="summary">
+                    <div className="term">
+                        <TeX >{sample.latex}</TeX>
+                    </div>
+                    <Value gt={sample.value} predicted={sample.predictedValue} />
+                </div >
+                <Activation sample={sample} />
                 <div onKeyDown={onKeyDown as any} className="navbar">
                     <Link to={next}>Previous</Link>
                     <Link to={prev}>Next</Link>
                 </div>
-            </div>
+            </div >
         );
     } else {
         newSample();
