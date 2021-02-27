@@ -36,16 +36,18 @@ def main(config, options):
         parts_path = [p for p, _ in initial.parts_bfs_with_path]
         highlight_color = '#000000'
         off_focus = ('#888888', [])
-        print(f'v: {v}')
         return jsonify({
             'latex': initial.latex,
             'index': index,
-            'x': x.tolist(),
-            's': s.tolist(),
+            'idents': x.tolist(),
+            'indexMap': s.tolist(),
             'policy': [{'ruleId': ruleId, 'policy': policy, 'path': i} for i, (ruleId, policy) in enumerate(zip(y.tolist(), p.tolist())) if ruleId != 0],
-            'v': v.tolist(),
-            'parts': [initial.latex] + [initial.latex_with_colors([off_focus, (highlight_color, path)]) for path in parts_path[1:]],
-            'rules': [rule.latex for rule in dataset.get_rules_raw()]
+            'value': v.tolist()[0],
+            'predictedValue': None,
+            'parts': [initial.latex] + [initial.latex_with_colors([off_focus, (highlight_color, path)]) for path in parts_path[1:]][:14],
+            'rules': [rule.latex for rule in dataset.get_rules_raw()],
+            'predictions': [[]],
+            'possibilities': []
         })
 
     @app.route('/api/sample-overview')

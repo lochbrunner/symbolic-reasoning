@@ -1,4 +1,3 @@
-// const ReactDOM = require('react-dom');
 import ReactDOM from 'react-dom';
 import './index.scss';
 import React, { useState } from 'react';
@@ -10,12 +9,15 @@ import { render as Activation } from './components/activation';
 interface Sample {
     latex: string;
     index: number;
-    x: number[][];
+    idents: number[][];
     policy: { ruleId: number, policy: number, path: number }[];
-    s: number[][];
-    v: number[];
+    indexMap: number[][];
+    value: number;
+    predictedValue: number;
     parts: string[];
     rules: string[];
+    predictions: number[][];
+    possibilities: { ruleId: number, path: number }[];
 }
 
 function Term(): JSX.Element {
@@ -54,7 +56,7 @@ function Term(): JSX.Element {
                 <div className="term">
                     <TeX >{sample.latex}</TeX>
                 </div>
-                <Activation xLabels={sample.parts} yLabels={sample.rules} groundTruth={groundTruth} values={sample.x} />
+                <Activation xLabels={sample.parts} yLabels={sample.rules} groundTruth={groundTruth} values={sample.idents} />
                 <div onKeyDown={onKeyDown as any} className="navbar">
                     <Link to={next}>Previous</Link>
                     <Link to={prev}>Next</Link>
