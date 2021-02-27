@@ -13,25 +13,33 @@ header {
 
 .detail {
     text-align: center;
-    .term {
-        display: inline;
-        margin: 30px;
-        font-size: 150%;
-    }
-
-    .value {
-        font-size: 200%;
-        float: right;
-        .contributed{
-            color:green;
+    .summary {
+        margin: 20px;
+        .term {
+            display: inline;
+            margin: 30px;
+            font-size: 150%;
         }
-        .not-contributed {
-            color: red;
+        
+        .value {
+            .mark{
+                font-size: 200%;
+            }
+            .number{
+                margin: 3px;
+            }
+            float: right;
+            .contributed{
+                color:green;
+            }
+            .not-contributed {
+                color: red;
+            }
         }
     }
 
     .navbar {
-        margin-top: 70px;
+        margin-top: 30px;
         
         a {
             margin: 10px;

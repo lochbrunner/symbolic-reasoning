@@ -7,10 +7,10 @@ export interface Sample {
     isNumber: boolean[];
     policy: { ruleId: number, policy: number, path: number }[];
     indexMap: number[][];
-    value: number;
     predictedValue: number;
+    groundTruthValue: number;
     parts: string[];
     rules: string[];
     predictions: number[][];
-    possibilities: { ruleId: number, path: number }[];
+    predictedPolicy: number[][];
 }

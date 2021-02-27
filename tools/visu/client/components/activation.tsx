@@ -1,6 +1,8 @@
 import TeX from '@matejmazur/react-katex';
 import React, { useState } from 'react';
 import Switch from '@material-ui/core/Switch';
+declare function require(module: string): any;
+const createColorMap = require('colormap');
 
 import './activation.scss'
 import { FormControlLabel, FormGroup } from '@material-ui/core';
@@ -84,6 +86,25 @@ function BooleanLayer(props: { dx: number, values: boolean[], label: string }): 
     );
 }
 
+function createMap(predictions: number[][], dx: number, dy: number): JSX.Element[] {
+    const SHADES_COUNT = 100;
+    const colors: string[] = createColorMap({
+        colormap: 'jet',
+        nshades: SHADES_COUNT,
+        format: 'hex',
+        alpha: 1
+    });
+    const min = Math.min(...predictions.map(s => Math.min(...s)));
+    const max = Math.max(...predictions.map(s => Math.max(...s)));
+    const color = (value: number) => {
+        const normedValue = (value - min) * SHADES_COUNT / (max - min);
+        return colors[Math.floor(normedValue)];
+    };
+    const width = `${dx}px`;
+    const height = `${dy}px`;
+    return predictions.map((path, iy) => path.map((rule, ix) => <rect key={`${ix}-${iy}`} y={`${(iy + 1) * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
+}
+
 export function render(props: Props) {
     const [size, changeSize] = useState<Size>({ width: 100, height: 100 });
     const [showGroundTruth, changeShowGroundTruth] = useState<boolean>(true);
@@ -153,6 +174,7 @@ export function render(props: Props) {
                 <div className="upper-container">
                     <div className="upper" style={{ height: `${ny * dy}px` }}>
                         <svg ref={updateSizeBind as any} preserveAspectRatio='none' height={`${ny * 18}px`}>
+                            {createMap(sample.predictedPolicy, dx, dy)}
                             {layers}
                         </svg>
                         <div className="y-label">{y_labels}</div>

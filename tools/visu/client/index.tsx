@@ -16,7 +16,8 @@ function Value(props: { gt: number, predicted: number }): JSX.Element {
     }
     return (
         <div className="value">
-            {mark}
+            <span className="number">{props.predicted.toFixed(2)}</span>
+            <span className="mark">{mark}</span>
         </div>
     );
 }
@@ -56,7 +57,7 @@ function Term(): JSX.Element {
                     <div className="term">
                         <TeX >{sample.latex}</TeX>
                     </div>
-                    <Value gt={sample.value} predicted={sample.predictedValue} />
+                    <Value gt={sample.groundTruthValue} predicted={sample.predictedValue} />
                 </div >
                 <Activation sample={sample} />
                 <div onKeyDown={onKeyDown as any} className="navbar">

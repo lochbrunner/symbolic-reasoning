@@ -2,7 +2,7 @@
 import numpy as np
 import torch
 
-from pycore import Scenario
+from pycore import Scenario, Symbol
 
 # project
 from models import create_model
@@ -55,14 +55,7 @@ class Inferencer:
         # Copy of BagDataset
         self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(idents)}
 
-    def __call__(self, initial, count=None):
-        '''
-        returns a tuple:
-          * [(rule id, path)]
-          * value
-        '''
-
-        # x, s, _ = self.dataset.embed_custom(initial)
+    def inference(self, initial: Symbol):
         x, s, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
                                          initial.depth, [], True, index_map=True, positional_encoding=False)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
@@ -73,6 +66,27 @@ class Inferencer:
         y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
         value = v.cpu().detach().numpy()[0][0]
         value = np.exp(value)
+        return y, value
+
+    def __call__(self, initial: Symbol, count=None):
+        '''
+        returns a tuple:
+          * [(rule id, path)]
+          * value
+        '''
+
+        # x, s, _ = self.dataset.embed_custom(initial)
+        # x, s, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
+        #                                  initial.depth, [], True, index_map=True, positional_encoding=False)
+        # x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
+        # s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
+        # p = torch.ones(x.shape[:-1])
+        # y, v = self.model(x, s, p)
+        # y = y.squeeze()  # shape: rules, path
+        # y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
+        # value = v.cpu().detach().numpy()[0][0]
+        # value = np.exp(value)
+        y, value = self.inference(initial)
 
         parts_path = [p[0] for p in initial.parts_bfs_with_path]
         i = (-y).flatten().argsort()
