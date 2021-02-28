@@ -1,3 +1,4 @@
+use crate::common::RefEquality;
 use crate::io::bag::FitInfo;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -441,12 +442,12 @@ impl Symbol {
     }
 
     /// Needed for CNN based architecture
-    /// self, ..childs, (parent later)
-    fn index_map(
-        &self,
+    /// self, ..childs, parent
+    fn index_map<'a>(
+        &'a self,
         spread: usize,
         padding_index: i16,
-        ref_to_index: &HashMap<&Self, i16>,
+        ref_to_index: &HashMap<RefEquality<'a, Self>, i16>,
     ) -> Vec<Vec<i16>> {
         let mut index_map = self
             .iter_bfs()
@@ -455,7 +456,7 @@ impl Symbol {
                 let mut row = Vec::with_capacity(spread + 2);
                 row.push(i as i16);
                 for child in s.childs.iter() {
-                    row.push(ref_to_index[child])
+                    row.push(ref_to_index[&RefEquality(child)]);
                 }
                 while row.len() < spread + 1 {
                     row.push(padding_index);
@@ -468,9 +469,9 @@ impl Symbol {
         // root has no parent
         index_map[0].push(padding_index);
         for parent in self.iter_bfs() {
-            let parent_index = ref_to_index[parent];
+            let parent_index = ref_to_index[&RefEquality(parent)];
             for child in parent.childs.iter() {
-                let index = ref_to_index[child] as usize;
+                let index = ref_to_index[&RefEquality(child)] as usize;
                 index_map[index].push(parent_index);
             }
         }
@@ -492,12 +493,12 @@ impl Symbol {
         index_map: bool,
         positional_encoding: bool,
     ) -> Result<Embedding, String> {
-        let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
+        let mut ref_to_index: HashMap<RefEquality<Self>, i16> = HashMap::new();
         let mut embedded = self
             .iter_bfs()
             .enumerate()
             .map(|(i, s)| {
-                ref_to_index.insert(s, i as i16);
+                ref_to_index.insert(RefEquality(s), i as i16);
                 dict.get(&s.ident)
                     .map(|i| {
                         vec![
@@ -531,7 +532,7 @@ impl Symbol {
             let child = self
                 .at(&fit.path)
                 .ok_or(format!("Symbol {} has no element at {:?}", self, fit.path))?;
-            let index = ref_to_index[child] as usize;
+            let index = ref_to_index[&RefEquality(child)] as usize;
             label[index] = fit.rule_id as i64;
             policy[index] = fit.policy.value();
         }
@@ -750,6 +751,33 @@ mod specs {
         dict.into_iter()
             .map(|(k, v)| (k.to_string(), v))
             .collect::<HashMap<String, _>>()
+    }
+
+    #[test]
+    fn index_map_bug_1() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b+1=(a−b)*x").unwrap();
+        let ref_to_index: HashMap<RefEquality<Symbol>, i16> = symbol
+            .iter_bfs()
+            .enumerate()
+            .map(|(i, symbol)| (RefEquality(symbol), i as i16))
+            .collect();
+        let index_map = symbol.index_map(2, symbol.size() as i16, &ref_to_index);
+        let expected = vec![
+            vec![0, 1, 2, 11],
+            vec![1, 3, 4, 0],
+            vec![2, 5, 6, 0],
+            vec![3, 7, 8, 1],
+            vec![4, 11, 11, 1],
+            vec![5, 9, 10, 2],
+            vec![6, 11, 11, 2],
+            vec![7, 11, 11, 3],
+            vec![8, 11, 11, 3],
+            vec![9, 11, 11, 5],
+            vec![10, 11, 11, 5],
+            vec![11, 11, 11, 11],
+        ];
+        assert_eq!(index_map, expected);
     }
 
     #[test]
