@@ -1,3 +1,12 @@
+export interface Position {
+    ruleId: number;
+    path: number;
+}
+
+export interface Policy extends Position {
+    policy: number;
+}
+
 export interface Sample {
     latex: string;
     index: number;
@@ -5,7 +14,7 @@ export interface Sample {
     isOperator: boolean[];
     isFixed: boolean[];
     isNumber: boolean[];
-    policy: { ruleId: number, policy: number, path: number }[];
+    policy: Policy[];
     indexMap: number[][];
     predictedValue: number;
     groundTruthValue: number;
@@ -13,4 +22,6 @@ export interface Sample {
     rules: string[];
     predictions: number[][];
     predictedPolicy: number[][];
+    possibleFits: Position[];
+    validationMetrics: undefined;
 }

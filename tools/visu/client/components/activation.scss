@@ -46,6 +46,10 @@ $side-menu-width: 50px;
                             stroke:#f00;
                         }
                     }
+
+                    rect.possibility {
+                        fill:#888;
+                    }
                 }
             }
         }
@@ -144,6 +148,12 @@ $side-menu-width: 50px;
 
     .layer-control {
         user-select: none;
-        margin: 10px 20%;
+        margin: 10px 10%;
+
+        .MuiFormLabel-root{
+            padding: 9px;
+            width: 120px;
+            text-align: right;
+        }
     }
 }

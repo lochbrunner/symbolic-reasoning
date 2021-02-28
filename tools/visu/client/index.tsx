@@ -75,9 +75,6 @@ function Term(): JSX.Element {
 function Index() {
     return (
         <div>
-            <header>
-                <h1>Live Visu</h1>
-            </header>
             <HashRouter>
                 <Switch>
                     <Route path='/:index' >

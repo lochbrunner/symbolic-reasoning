@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import Switch from '@material-ui/core/Switch';
 declare function require(module: string): any;
 const createColorMap = require('colormap');
+import _ from 'lodash';
 
 import './activation.scss'
-import { FormControlLabel, FormGroup } from '@material-ui/core';
-import { Sample } from '../interfaces';
+import { FormControlLabel, FormGroup, FormLabel } from '@material-ui/core';
+import { Position, Sample } from '../interfaces';
 
 export interface Props {
     sample: Sample;
@@ -105,6 +106,49 @@ function createMap(predictions: number[][], dx: number, dy: number): JSX.Element
     return predictions.map((path, iy) => path.map((rule, ix) => <rect key={`${ix}-${iy}`} y={`${(iy + 1) * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
 }
 
+function createMapFiltered(predictions: number[][], dx: number, dy: number, filter: Position[], ruleMap: { [orig: number]: number }): JSX.Element[] {
+    const SHADES_COUNT = 100;
+    const colors: string[] = createColorMap({
+        colormap: 'jet',
+        nshades: SHADES_COUNT,
+        format: 'hex',
+        alpha: 1
+    });
+    const apply = (ruleId: number, path: number) => {
+        return filter.some(pos => pos.path === path && pos.ruleId === ruleId);
+    }
+    const min = Math.min(...predictions.map((paths, ruleId) => Math.min(...paths.filter((j, path) => apply(ruleId, path)))));
+    const max = Math.max(...predictions.map((paths, ruleId) => Math.max(...paths.filter((j, path) => apply(ruleId, path)))));
+    const color = (value: number) => {
+        const normedValue = (value - min) * SHADES_COUNT / (max - min);
+        return colors[Math.floor(normedValue)];
+    };
+    const width = `${dx}px`;
+    const height = `${dy}px`;
+    return predictions.map((paths, iy) => paths.map((rule, ix) => ({ rule, ix }))
+        .filter((rule, ix) => apply(iy, ix))
+        .map(({ rule, ix }) => <rect key={`${ix}-${iy}`} y={`${ruleMap[iy] * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
+}
+
+function createSortedMap(predictions: number[][], dx: number, dy: number, filter: Position[], ruleMap: { [orig: number]: number }): JSX.Element[] {
+    const colors: string[] = createColorMap({
+        colormap: 'jet',
+        nshades: filter.length,
+        format: 'hex',
+        alpha: 1
+    });
+    const possibilities = filter.map(position => ({ position, confidence: predictions[position.ruleId][position.path] })).sort((a, b) => a.confidence - b.confidence)
+    const width = `${dx}px`;
+    const height = `${dy}px`;
+    return possibilities.map((possibility, i) => <rect key={`pred - ${i} `} y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[i] }} ><title>{possibility.confidence}</title></rect>);
+}
+
+function possibilitiesMap(possibilities: Position[], dx: number, dy: number): JSX.Element[] {
+    const width = `${dx}px`;
+    const height = `${dy}px`;
+    return possibilities.map((possibility, i) => <rect key={`possibility - ${i} `} className="possibility" y={`${(possibility.ruleId + 0) * dy}px`} x={`${possibility.path * dx}px`} height={height} width={width}></rect>);
+}
+
 export function render(props: Props) {
     const [size, changeSize] = useState<Size>({ width: 100, height: 100 });
     const [showGroundTruth, changeShowGroundTruth] = useState<boolean>(true);
@@ -113,6 +157,10 @@ export function render(props: Props) {
     const [showNumber, changeShowNumber] = useState<boolean>(false);
     const [showFixed, changeShowFixed] = useState<boolean>(false);
     const [showIndexMap, changeShowIndexMap] = useState<boolean>(true);
+    const [showPredictions, changeShowPredictions] = useState<boolean>(true);
+    const [showPossibilities, changeShowPossibilities] = useState<boolean>(false);
+    const [filterPossibilities, changeFilterPossibilities] = useState<boolean>(false);
+    const [sortPossibilities, changeSortPossibilities] = useState<boolean>(false);
 
     const { sample } = props;
 
@@ -129,24 +177,52 @@ export function render(props: Props) {
         }
     };
 
-    const ny = sample.rules.length;
     const nx = sample.parts.length + 1;
     const dx = size.width / nx;
     const dy = 25;
 
+    let layers: JSX.Element[] = [];
+    // It would be possible to use a Hashset but dictionaries are less error prone.
+    let ruleMap: { [orig: number]: number } | null = null;
+
+    if (showPredictions) {
+        if (filterPossibilities) {
+            const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId))
+            ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
+            if (sortPossibilities) {
+                layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)]
+            } else {
+                layers = [...layers, ...createMapFiltered(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
+            }
+        } else {
+            layers = [...layers, ...createMap(sample.predictedPolicy, dx, dy)];
+        }
+    }
     const x_labels = sample.parts.map((l, i) => <div key={i} style={{
         right: `${(nx - i - 0.8) * dx}px`
     }}><TeX math={l} /></div>);
-    const y_labels = sample.rules.map((l, i) => <div key={i} style={{
-        top: `${dy * i}px`,
-    }}><TeX math={l} /></div>);
+    let rules = sample.rules.map((rule, ruleId) => ({ rule, ruleId }));
+    if (ruleMap !== null) {
+        rules = rules.filter(({ rule, ruleId }) => ruleId in (ruleMap as any)).map(({ rule, ruleId }) => ({ rule, ruleId: (ruleMap as any)[ruleId] }));
+    }
+    const y_labels = rules.map(({ rule, ruleId }) => <div key={ruleId} style={{
+        top: `${dy * ruleId}px`,
+    }}><TeX math={rule} /></div>);
 
-    let layers: JSX.Element[] = [];
+    if (showPossibilities && !(filterPossibilities && showPredictions)) {
+        layers = [...layers, ...possibilitiesMap(sample.possibleFits, dx, dy)];
+    }
 
     if (showGroundTruth) {
         const groundTruthValues = sample.policy.filter(gt => gt.ruleId > 0);
-        const groundTruth = groundTruthValues.map((v, i) =>
-            <rect key={`gt-${i}`} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'}`} x={v.path * dx} width={dx} y={v.ruleId * dy} height={dy} />)
+        let groundTruth;
+        if (ruleMap !== null) {
+            groundTruth = groundTruthValues.map((v, i) =>
+                <rect key={`gt - ${i} `} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'} `} x={v.path * dx} width={dx} y={(ruleMap as any)[v.ruleId] * dy} height={dy} />)
+        } else {
+            groundTruth = groundTruthValues.map((v, i) =>
+                <rect key={`gt - ${i} `} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'} `} x={v.path * dx} width={dx} y={v.ruleId * dy} height={dy} />)
+        }
         layers = [...layers, ...groundTruth];
     }
 
@@ -168,13 +244,14 @@ export function render(props: Props) {
         inputLayers = [...inputLayers, <BooleanLayer key="number" label="number" dx={dx} values={sample.isNumber} />]
     }
 
+    const ny = y_labels.length;
+
     return (
         <div className="activation">
             <div className="main" >
                 <div className="upper-container">
-                    <div className="upper" style={{ height: `${ny * dy}px` }}>
-                        <svg ref={updateSizeBind as any} preserveAspectRatio='none' height={`${ny * 18}px`}>
-                            {createMap(sample.predictedPolicy, dx, dy)}
+                    <div className="upper" style={{ height: `${ny * dy} px` }}>
+                        <svg ref={updateSizeBind as any} preserveAspectRatio='none' style={{ height: `${ny * dy}px` }}>
                             {layers}
                         </svg>
                         <div className="y-label">{y_labels}</div>
@@ -189,9 +266,25 @@ export function render(props: Props) {
             </div>
             <div className="layer-control">
                 <FormGroup row>
+                    <FormLabel component="legend">Output Layer</FormLabel>
+                    <FormControlLabel label="Prediction" control={
+                        <Switch checked={showPredictions} onChange={changeShowX(changeShowPredictions)} color="primary" />
+                    } />
+                    <FormControlLabel label="Possibilities" control={
+                        <Switch checked={showPossibilities} disabled={showPredictions && (filterPossibilities || sortPossibilities)} onChange={changeShowX(changeShowPossibilities)} color="primary" />
+                    } />
+                    <FormControlLabel label="Filter Possibilities" control={
+                        <Switch checked={filterPossibilities} disabled={!showPredictions} onChange={changeShowX(changeFilterPossibilities)} color="primary" />
+                    } />
+                    <FormControlLabel label="Sort Possibilities" control={
+                        <Switch checked={sortPossibilities} disabled={!showPredictions || !filterPossibilities} onChange={changeShowX(changeSortPossibilities)} color="primary" />
+                    } />
                     <FormControlLabel label="Ground Truth" control={
                         <Switch checked={showGroundTruth} onChange={changeShowX(changeShowGroundTruth)} color="primary" />
                     } />
+                </FormGroup>
+                <FormGroup row>
+                    <FormLabel component="legend">Input Layer</FormLabel>
                     <FormControlLabel label="Idents" control={
                         <Switch checked={showIdents} onChange={changeShowX(changeShowIdents)} color="primary" />
                     } />

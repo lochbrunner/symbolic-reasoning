@@ -6,8 +6,9 @@ from flask import Flask, request, jsonify, send_from_directory
 from common.config_and_arg_parser import ArgumentParser
 from dataset.bag import BagDataset
 from common.utils import setup_logging, get_rule_mapping_by_config
+from common.utils import get_rule_mapping
 from solver.inferencer import Inferencer
-from pycore import Scenario
+from pycore import Scenario, fit
 
 
 def main(config, options):
@@ -20,6 +21,7 @@ def main(config, options):
 
     dataset = BagDataset.load(config.files.solver_trainings_data)
     scenario = Scenario.load(config.files.scenario)
+    rule_mapping = get_rule_mapping(scenario)
     inferencer = Inferencer(config, scenario, fresh_model=False)
     embed2ident = dataset.embed2ident
 
@@ -39,12 +41,22 @@ def main(config, options):
         initial = raw_sample.initial
         x, s, y, p, v = dataset[index]
         py, pv = inferencer.inference(initial)
-        print(f'py: {py.shape}')
         parts_path = [p for p, _ in initial.parts_bfs_with_path]
         highlight_color = '#000000'
         off_focus = ('#888888', [])
+
+        # Investigate all possible fits
+        def hashPath(path: list):
+            return '/'.join(str(p) for p in path)
+        path2id = {hashPath(path): i for i, path in enumerate(parts_path)}
+        possibleFits = []
+        for ruleId, rule in rule_mapping.items():
+            for fitmap in fit(initial, rule.condition):
+                locId = path2id[hashPath(fitmap.path)]
+                possibleFits.append({'ruleId': ruleId, 'path': locId})
+
         return jsonify({
-            'latex': initial.latex,
+            'latex': initial.latex_verbose,
             'index': index,
             'idents': [embed2ident[embed] for embed in x[:, 0].tolist()],
             'isOperator': [iv == 1 for iv in x[:, 1].tolist()],
@@ -56,8 +68,9 @@ def main(config, options):
             'predictedValue': pv.tolist(),
             'predictedPolicy': py.tolist(),
             'parts': [initial.latex] + [initial.latex_with_colors([off_focus, (highlight_color, path)]) for path in parts_path[1:]][:14],
-            'rules': [rule.latex for rule in dataset.get_rules_raw()],
-            'possibilities': []
+            'rules': [rule.latex_verbose for rule in dataset.get_rules_raw()],
+            'possibleFits': possibleFits,
+            'validationMetrics': None
         })
 
     @app.route('/api/sample-overview')

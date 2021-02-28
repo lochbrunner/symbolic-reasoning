@@ -100,6 +100,15 @@ impl PyRule {
     }
 
     #[getter]
+    fn latex_verbose(&self) -> PyResult<String> {
+        Ok(format!(
+            "{} \\Rightarrow {} ",
+            dump_latex(&self.inner.condition, vec![], true),
+            dump_latex(&self.inner.conclusion, vec![], true)
+        ))
+    }
+
+    #[getter]
     fn get_name(&self) -> PyResult<String> {
         Ok(self.inner.name.clone())
     }
