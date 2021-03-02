@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 
 class ExecutionParameter:
     def __init__(self, device: str, tensorboard: bool, training: object,
-                 manual_seed: bool, use_solved_problems: bool, create_fresh_model: bool, **kwargs):
+                 manual_seed: bool, use_solved_problems: bool, create_fresh_model: bool,
+                 dont_dump_model: bool = False, **kwargs):
         self.report_rate = training.report_rate
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -53,6 +54,7 @@ class ExecutionParameter:
         self.manual_seed = manual_seed
         self.use_solved_problems = use_solved_problems
         self.create_fresh_model = create_fresh_model
+        self.dont_dump_model = dont_dump_model
 
     @staticmethod
     def add_parsers(parser: ArgumentParser):
@@ -61,6 +63,7 @@ class ExecutionParameter:
         parser.add_argument('--manual-seed', action='store_true', default=False)
         parser.add_argument('--create-fresh-model', action='store_true', default=False)
         parser.add_argument('--use-solved-problems', action='store_true', default=False)
+        parser.add_argument('--dont-dump-model', action='store_true', default=False)
 
 
 def dump_statistics(config, logbooks):
@@ -75,29 +78,10 @@ def dump_statistics(config, logbooks):
     with filename.open('w') as f:
         yaml.dump(stat, f)
 
-    # if azure_run is not None:
-    #     print(azure_run)
-    #     for i, logbook in enumerate(logbooks):
-    #         (_, error, loss) = logbook[-1][0]
-
-    #         def sumup(name):
-    #             ratio = getattr(error, name)
-    #             return ratio.topk(5)
-
-    #         row = {n: sumup(n) for n in ['exact', 'exact_no_padding']}
-    #         azure_run.log_row(f'Parameter set {i+1}', **row)
-    #     # Last error
-    #     (_, last, _) = logbooks[-1][-1][0]
-    #     top1 = last.exact_no_padding.topk(1)
-    #     azure_run.log('top1', top1)
-    #     top2 = last.exact_no_padding.topk(2)
-    #     azure_run.log('top2', top2)
-    #     top3 = last.exact_no_padding.topk(3)
-    #     azure_run.log('top3', top3)
-
 
 def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
-         scenario_params: ScenarioParameter, config, early_abort_hook=None, no_sig_handler=False, tensorboard_dir=None):
+         scenario_params: ScenarioParameter, config,
+         early_abort_hook=None, no_sig_handler=False, tensorboard_dir=None):
     if exe_params.manual_seed:
         torch.manual_seed(0)
     device = torch.device(exe_params.device)
@@ -115,9 +99,11 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         model.to(device)
 
         if learn_params.optimizer == 'adadelta':
-            optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate)
+            optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate,
+                                       weight_decay=learn_params.weight_decay)
         elif learn_params.optimizer == 'adam':
-            optimizer = optim.Adam(model.parameters(), lr=learn_params.learning_rate)
+            optimizer = optim.Adam(model.parameters(), lr=learn_params.learning_rate,
+                                   weight_decay=learn_params.weight_decay)
         else:
             raise RuntimeError(f'Unknown optimizer "{learn_params.optimizer}"')
         timer.stop_and_log()
@@ -125,7 +111,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         dataset, model, optimizer, _ = io.load(config.files.model, device)
 
     def save_snapshot():
-        io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset)
+        if not exe_params.dont_dump_model:
+            io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset)
+        else:
+            logger.info(f'Skipping model dump to "{config.files.model}" as requested.')
 
     if len(dataset) == 0:
         logger.info('Loaded empty bagfile. Skip training.')
@@ -149,7 +138,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         'pin_memory': exe_params.device == 'cuda',
         'collate_fn': dataset.get_collate_fn()
     }
-    train_loader_params = {'batch_size': learn_params.batch_size,
+    train_loader_params = {'batch_size': int(learn_params.batch_size),
                            'shuffle': True,
                            **common_loader_params}
 
@@ -201,15 +190,15 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         model.train()
 
         def report(epoch, epoch_loss, **kwargs):
-            if (epoch+1) % exe_params.report_rate != 0:
+            if epoch % exe_params.report_rate != 0:
                 return True
             model.eval()
-            validation = validate(model, validation_dataloader, **kwargs)
+            validation = validate(model, validation_dataloader, no_negative=False, **kwargs)
             error = validation.error
             model.train()
-            loss = learn_params.batch_size * epoch_loss
+            loss = epoch_loss and learn_params.batch_size * epoch_loss
             logbook.append((epoch, error, loss))
-            if not writer:
+            if not writer and loss is not None:
                 logger.info(
                     f'#{epoch} Loss: {loss:.3f}  Error: {error.with_padding} (if rule: {error.when_rule}) exact: {error.exact} exact no padding: {error.exact_no_padding} value error (all): {error.value_all}')
             if azure_run is not None:
@@ -217,24 +206,28 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 error.exact_no_padding.log(azure_run.log, 'exact (np)')
                 error.with_padding.log(azure_run.log, 'class')
                 error.when_rule.log(azure_run.log, 'class (np)')
-                azure_run.log('loss/training', loss)
+                if loss is not None:
+                    azure_run.log('loss/training', loss)
                 azure_run.log('loss/validation/policy', validation.policy_loss)
                 azure_run.log('loss/validation/value', validation.value_loss)
                 azure_run.log('value/all', float(error.value_all))
                 azure_run.log('value/positive', float(error.value_positive))
                 azure_run.log('value/negative', float(error.value_negative))
+                azure_run.log('optimizer/learning rate', optimizer.param_groups[0]['lr'])
 
             if writer:
                 error.exact.log_bundled(writer, 'policy/exact', epoch)
                 error.exact_no_padding.log_bundled(writer, 'policy/exact (no padding)', epoch)
                 error.with_padding.log_bundled(writer, 'policy/class', epoch)
                 error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
-                writer.add_scalar('loss/training', loss, epoch)
+                if loss is not None:
+                    writer.add_scalar('loss/training', loss, epoch)
                 writer.add_scalar('loss/validation/policy', validation.policy_loss, epoch)
                 writer.add_scalar('loss/validation/value', validation.value_loss, epoch)
                 writer.add_scalar('value/all', float(error.value_all), epoch)
                 writer.add_scalar('value/positive', float(error.value_positive), epoch)
                 writer.add_scalar('value/negative', float(error.value_negative), epoch)
+                writer.add_scalar('optimizer/learning rate', optimizer.param_groups[0]['lr'], epoch)
 
                 writer.add_scalars('distribution/rule',
                                    {rule_mapping[i]: c for i, c in enumerate(validation.predicted_rule_distribution)}, epoch)
