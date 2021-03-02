@@ -6,16 +6,19 @@ use core::io::bag;
 use core::symbol::Embedding;
 use core::symbol::Symbol;
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
-use pyo3::class::PySequenceProtocol;
-use pyo3::exceptions::KeyError;
+use pyo3::class::basic::PyObjectProtocol;
+use pyo3::class::PyMappingProtocol;
+use pyo3::exceptions;
 use pyo3::prelude::*;
+use pyo3::PyNumberProtocol;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::From;
+use std::fmt::{Debug, Formatter, Result};
 use std::sync::Arc;
 
 /// Must be public as no counter part in core is available
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SampleData {
     initial: PySymbol,
     pub useful: bool,
@@ -26,6 +29,19 @@ pub struct SampleData {
 #[derive(Clone)]
 pub struct PySample {
     pub data: Arc<SampleData>,
+}
+
+impl Debug for PySample {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        self.data.fmt(f)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PySample {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:#?}", self.data))
+    }
 }
 
 #[pymethods]
@@ -87,7 +103,7 @@ impl PySample {
                 positional_encoding,
             )
             .map_err(|msg| {
-                PyErr::new::<KeyError, _>(format!(
+                PyErr::new::<exceptions::KeyError, _>(format!(
                     "Could not embed {}: \"{}\"",
                     self.data.initial.inner, msg
                 ))
@@ -95,6 +111,15 @@ impl PySample {
         Ok(PyEmbedding::new(embedding))
     }
 
+    #[args(
+        self,
+        ident2index,
+        padding,
+        spread,
+        max_depth,
+        index_map,
+        positional_encoding
+    )]
     fn embed(
         &self,
         py: Python,
@@ -140,7 +165,7 @@ impl PySample {
                 positional_encoding,
             )
             .map_err(|msg| {
-                PyErr::new::<KeyError, _>(format!(
+                PyErr::new::<exceptions::KeyError, _>(format!(
                     "Could not embed {}: \"{}\"",
                     self.data.initial.inner, msg
                 ))
@@ -207,19 +232,8 @@ pub struct PySampleSet {
     samples: HashMap<String, SampleData>,
 }
 
-/// Manages creating new samples
-/// Avoids duplicates and merges the fit resuĺts in case of collisions
-#[pymethods]
 impl PySampleSet {
-    #[new]
-    fn py_new() -> Self {
-        Self {
-            samples: HashMap::new(),
-        }
-    }
-
-    /// Returns true if the initial of the sample was not present yet.
-    fn add(&mut self, sample: PySample) -> PyResult<bool> {
+    fn try_add(&mut self, sample: PySample) -> bool {
         let key = dump_symbol_plain(&(*sample.data.initial.inner), true);
 
         match self.samples.get_mut(&key) {
@@ -243,8 +257,24 @@ impl PySampleSet {
                 }
             }
         }
+        true
+    }
+}
 
-        Ok(true)
+/// Manages creating new samples
+/// Avoids duplicates and merges the fit resuĺts in case of collisions
+#[pymethods]
+impl PySampleSet {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            samples: HashMap::new(),
+        }
+    }
+
+    /// Returns true if the initial of the sample was not present yet.
+    fn add(&mut self, sample: PySample) -> PyResult<bool> {
+        Ok(self.try_add(sample))
     }
 
     fn merge(&mut self, other: &PySampleSet) -> PyResult<()> {
@@ -311,11 +341,60 @@ impl PySampleSet {
         }
         Ok(sample_set)
     }
+
+    fn keys(&self) -> PyResult<Vec<String>> {
+        Ok(self.samples.keys().cloned().collect())
+    }
+
+    fn values(&self) -> PyResult<Vec<PySample>> {
+        Ok(self
+            .samples
+            .values()
+            .cloned()
+            .map(|v| PySample { data: Arc::new(v) })
+            .collect())
+    }
+
+    fn items(&self) -> PyResult<Vec<(String, PySample)>> {
+        Ok(self
+            .samples
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    PySample {
+                        data: Arc::new(v.clone()),
+                    },
+                )
+            })
+            .collect())
+    }
 }
 
 #[pyproto]
-impl PySequenceProtocol for PySampleSet {
+impl PyMappingProtocol for PySampleSet {
     fn __len__(&self) -> PyResult<usize> {
         Ok(self.samples.len())
+    }
+
+    fn __getitem__(&self, idx: String) -> PyResult<PySample> {
+        if let Some(sample) = self.samples.get(&idx) {
+            Ok(PySample {
+                data: Arc::new(sample.clone()),
+            })
+        } else {
+            Err(PyErr::new::<exceptions::IndexError, _>(format!(
+                "Required index {} is not in range [0, {})",
+                idx,
+                self.samples.len()
+            )))
+        }
+    }
+}
+
+#[pyproto]
+impl PyNumberProtocol for PySampleSet {
+    fn __iadd__(&mut self, problem: PySample) {
+        self.try_add(problem);
     }
 }

@@ -7,6 +7,7 @@ use crate::rule::PyRule;
 use crate::scenario::PyScenario;
 use core::io::bag;
 use core::rule::Rule;
+use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::PySequenceProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
 use pyo3::prelude::*;
@@ -19,12 +20,19 @@ pub use crate::bag::meta::PyBagMeta;
 pub use fitinfo::PyFitInfo;
 
 #[pyclass(name=Container,subclass)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyContainer {
     pub max_depth: u32,
     pub max_spread: u32,
     pub max_size: u32,
     pub samples: Vec<PySample>,
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyContainer {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:#?}", self))
+    }
 }
 
 #[pymethods]

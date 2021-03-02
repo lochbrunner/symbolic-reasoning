@@ -3,6 +3,7 @@ use pyo3::class::PyObjectProtocol;
 use pyo3::exceptions::NotImplementedError;
 use pyo3::prelude::*;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::{Debug, Formatter, Result};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -12,9 +13,16 @@ use crate::common::op_to_string;
 
 #[pyclass(name=FitInfo,subclass)]
 #[derive(Clone)]
+#[text_signature = "(rule_id, path, positive, /)"]
 pub struct PyFitInfo {
     /// Starting with 1 for better embedding
     pub data: Arc<bag::FitInfo>,
+}
+
+impl Debug for PyFitInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        self.data.fmt(f)
+    }
 }
 
 impl PyFitInfo {

@@ -8,6 +8,7 @@ from symbol import *
 # from trace import *
 from rule import *
 from solver_statistics import *
+from sample import *
 
 import unittest
 
