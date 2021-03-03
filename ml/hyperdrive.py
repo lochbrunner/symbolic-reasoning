@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import math
 import signal
-import time
 import sys
-import logging
+import time
 from pathlib import Path
 
+import numpy as np
 import sherpa
 import yaml
 
 from common.parameter_search import LearningParmeter
 from common.utils import make_namespace, setup_logging
 from dataset import ScenarioParameter
+from solve import create_parser as solve_parser
+from solve import main as solve
+from t3_loop import create_parser as t3_parser
+from t3_loop import main as t3_loop
 from train import ExecutionParameter
 from train import main as train
-from t3_loop import main as t3_loop, create_parser as t3_parser
-from solve import main as solve, create_parser as solve_parser
 
 logger = logging.getLogger(__name__)
 
@@ -43,19 +46,34 @@ def create_training_parameters():
     ]
 
 
-def create_training_seed():
+def create_training_seed(config):
     return {
-        'batch-size': 32,
-        'learning-rate': 0.01,
-        'gradient-clipping': 0.1,
-        'value-loss-weight': 0.25,
+        'batch-size': config.training.batch_size,
+        'learning-rate': config.training.learning_rate.initial,
+        'gradient-clipping': config.training.gradient_clipping,
+        'value-loss-weight': config.training.value_loss_weight,
         # Model parameters
-        'dropout': 0.,
-        'embedding_size': 24,
-        'hidden_layers': 3,
-        'use_props': False,
-        'residual': True,
+        'dropout': config.training.model_parameter.dropout,
+        'embedding_size': config.training.model_parameter.embedding_size,
+        'hidden_layers': config.training.model_parameter.hidden_layers,
+        'use_props': config.training.model_parameter.use_props,
+        'residual': config.training.model_parameter.residual,
     }
+
+
+def sanitize_numpy(param: dict):
+    '''Because of any reason the fields can flip to numpy types'''
+
+    def fix(value):
+        if isinstance(value, np.int64):
+            return int(value)
+        if isinstance(value, np.float):
+            return float(value)
+        if isinstance(value, np.bool_):
+            return bool(value)
+        return value
+
+    return {k: fix(v) for k, v in param.items()}
 
 
 def touch(prefix: str):
@@ -80,7 +98,7 @@ def create_algorithm(args, seed_configuration: dict):
 def train_cmd(args, config):
     parameters = create_training_parameters()
 
-    algorithm = create_algorithm(args, create_training_seed())
+    algorithm = create_algorithm(args, create_training_seed(config))
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
@@ -88,7 +106,7 @@ def train_cmd(args, config):
 
     scenario_params = ScenarioParameter.from_config(config, use_solver_data=True)
     exe_params = ExecutionParameter(training=config.training, device='cpu', tensorboard=True,
-                                    manual_seed=True, use_solved_problems=True, create_fresh_model=True)
+                                    manual_seed=True, use_solved_problems=True, create_fresh_model=True, dont_dump_model=True)
 
     record_filename = touch('training')
 
@@ -102,11 +120,13 @@ def train_cmd(args, config):
             return not study.should_trial_stop(trial)
 
         learn_params = LearningParmeter.from_config(config)
-        learn_params.learning_rate = trial.parameters['learning-rate']
-        learn_params.batch_size = trial.parameters['batch-size']
-        learn_params.gradient_clipping = trial.parameters['gradient-clipping']
-        learn_params.value_loss_weight = trial.parameters['value-loss-weight']
-        learn_params.model_hyper_parameter.update(trial.parameters)
+        params = sanitize_numpy(trial.parameters)
+
+        learn_params.learning_rate = params['learning-rate']
+        learn_params.batch_size = params['batch-size']
+        learn_params.gradient_clipping = params['gradient-clipping']
+        learn_params.value_loss_weight = params['value-loss-weight']
+        learn_params.model_hyper_parameter.update(params)
 
         train(exe_params=exe_params, scenario_params=scenario_params,
               learn_params=learn_params, config=config,
@@ -116,7 +136,7 @@ def train_cmd(args, config):
         study.finalize(trial=trial)
 
         with record_filename.open('a') as f:
-            yaml.safe_dump([{'hparams': trial.parameters, 'error': error}], f)
+            yaml.safe_dump([{'hparams': params, 'error': error}], f)
 
 
 def t3loop_cmd(args, config):

@@ -97,7 +97,6 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                              hyper_parameter=learn_params.model_hyper_parameter,
                              **dataset.model_params)
         model.to(device)
-
         if learn_params.optimizer == 'adadelta':
             optimizer = optim.Adadelta(model.parameters(), lr=learn_params.learning_rate,
                                        weight_decay=learn_params.weight_decay)
@@ -106,9 +105,16 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                                    weight_decay=learn_params.weight_decay)
         else:
             raise RuntimeError(f'Unknown optimizer "{learn_params.optimizer}"')
+        if learn_params.learning_rate_step_size is not None:
+            scheduler = optim.lr_scheduler.StepLR(optimizer,
+                                                  step_size=learn_params.learning_rate_step_size,
+                                                  gamma=learn_params.learning_rate_gamma)
+        else:
+            scheduler = None
         timer.stop_and_log()
     else:
         dataset, model, optimizer, _ = io.load(config.files.model, device)
+        scheduler = None
 
     def save_snapshot():
         if not exe_params.dont_dump_model:
@@ -240,7 +246,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 return early_abort_hook(epoch, primary_metric)
             return True
 
-        train(learn_params=learn_params, model=model, optimizer=optimizer,
+        train(learn_params=learn_params, model=model, optimizer=optimizer, scheduler=scheduler,
               training_dataloader=training_dataloader, policy_weight=policy_weight, value_weight=value_weight, report_hook=report, azure_run=azure_run)
 
         if not no_sig_handler:
