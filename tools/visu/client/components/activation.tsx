@@ -103,7 +103,7 @@ function createMap(predictions: number[][], dx: number, dy: number): JSX.Element
     };
     const width = `${dx}px`;
     const height = `${dy}px`;
-    return predictions.map((path, iy) => path.map((rule, ix) => <rect key={`${ix}-${iy}`} y={`${(iy + 1) * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
+    return predictions.map((path, iy) => path.map((rule, ix) => <rect key={`${ix}-${iy}`} y={`${(iy) * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
 }
 
 function createMapFiltered(predictions: number[][], dx: number, dy: number, filter: Position[], ruleMap: { [orig: number]: number }): JSX.Element[] {
@@ -140,13 +140,16 @@ function createSortedMap(predictions: number[][], dx: number, dy: number, filter
     const possibilities = filter.map(position => ({ position, confidence: predictions[position.ruleId][position.path] })).sort((a, b) => a.confidence - b.confidence)
     const width = `${dx}px`;
     const height = `${dy}px`;
-    return possibilities.map((possibility, i) => <rect key={`pred - ${i} `} y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[i] }} ><title>{possibility.confidence}</title></rect>);
+    return possibilities.map((possibility, i) => <g key={`pred-${i}`}>
+        <rect y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[i] }} ><title>{possibility.confidence}</title></rect>
+        <text text-anchor="middle" dominant-baseline="middle" y={`${(ruleMap[possibility.position.ruleId] + 0.5) * dy}px`} x={`${(possibility.position.path + 0.5) * dx}px`}>{filter.length - i}</text>
+    </g>);
 }
 
 function possibilitiesMap(possibilities: Position[], dx: number, dy: number): JSX.Element[] {
     const width = `${dx}px`;
     const height = `${dy}px`;
-    return possibilities.map((possibility, i) => <rect key={`possibility - ${i} `} className="possibility" y={`${(possibility.ruleId + 0) * dy}px`} x={`${possibility.path * dx}px`} height={height} width={width}></rect>);
+    return possibilities.map((possibility, i) => <rect key={`possibility-${i}`} className="possibility" y={`${(possibility.ruleId + 0) * dy}px`} x={`${possibility.path * dx}px`} height={height} width={width}></rect>);
 }
 
 export function render(props: Props) {
@@ -157,8 +160,8 @@ export function render(props: Props) {
     const [showNumber, changeShowNumber] = useState<boolean>(false);
     const [showFixed, changeShowFixed] = useState<boolean>(false);
     const [showIndexMap, changeShowIndexMap] = useState<boolean>(true);
-    const [showPredictions, changeShowPredictions] = useState<boolean>(true);
     const [showPossibilities, changeShowPossibilities] = useState<boolean>(false);
+    const [showPredictions, changeShowPredictions] = useState<boolean>(true);
     const [filterPossibilities, changeFilterPossibilities] = useState<boolean>(false);
     const [sortPossibilities, changeSortPossibilities] = useState<boolean>(false);
 

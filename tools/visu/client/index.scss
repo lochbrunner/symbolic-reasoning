@@ -14,26 +14,67 @@ header {
 .detail {
     text-align: center;
     .summary {
-        margin: 20px;
+        overflow:auto; 
+        margin: 10px;
         .term {
-            display: inline;
-            margin: 30px;
-            font-size: 150%;
+            display: inline-block;
+            margin: 25px;
+            font-size: 160%;
+            height: 80px;
+        }
+
+        .info {
+            margin: 6px 15px;
+            float: right;
+            box-shadow: 5px 6px 13px 1px #bbb;
+            height: 90px;
         }
         
         .value {
+            display: inline-block;
+            float: right;
+            width: 85px;
+            line-height: 80px;
+            
             .mark{
                 font-size: 200%;
             }
             .number{
                 margin: 3px;
             }
-            float: right;
             .contributed{
                 color:green;
             }
             .not-contributed {
                 color: red;
+            }
+        }
+
+        .validation {
+            // background-color: aquamarine;
+            width: 160px;
+            float: right;
+            
+            > div.tops {
+                position: relative;
+                height: calc(100% - 4px);
+                float: left;
+                width: 20%;
+                margin: 2px 2px;
+                
+                >div {
+                    position: absolute;
+                    bottom: 0;
+                    width: 100%;
+                    &.failed{
+                        background-color: red;
+                        height: 15%;
+                    }
+                    
+                    &.succeeded{
+                        background-color:green;
+                    }
+                }
             }
         }
     }

@@ -5,7 +5,9 @@ import TeX from '@matejmazur/react-katex';
 import { HashRouter, Link, Redirect, Route, Switch, useHistory, useParams } from 'react-router-dom';
 
 import { render as Activation } from './components/activation';
-import { Sample } from './interfaces';
+import { Sample, ValidationMetrics, ErrorTops } from './interfaces';
+import { Tooltip } from '@material-ui/core';
+
 
 function Value(props: { gt: number, predicted: number }): JSX.Element {
     let mark;
@@ -15,9 +17,41 @@ function Value(props: { gt: number, predicted: number }): JSX.Element {
         mark = <span className="not-contributed">✗</span>;
     }
     return (
-        <div className="value">
+        <div className="value info">
             <span className="number">{props.predicted.toFixed(2)}</span>
             <span className="mark">{mark}</span>
+        </div>
+    );
+}
+
+function TopBar(props: { tops: ErrorTops }) {
+    const error = props.tops.tops.findIndex(v => v > 0);
+    if (error == -1) {
+        return <div className="failed">-</div>;
+    } else {
+        const heightNumber = Math.max(15, (10 - error) * 10);
+        const height = `${heightNumber}%`
+        return <div style={{ height }} className="succeeded">{error}</div>;
+    }
+}
+
+function Tops(props: { tops: ErrorTops, label: string }) {
+    return (
+        <Tooltip title={<span style={{ fontSize: '120%' }}>{props.label}</span>}>
+            <div className="tops">
+                <TopBar tops={props.tops} />
+            </div >
+        </Tooltip>
+    );
+}
+
+function Validation(props: { validationMetrics: ValidationMetrics }): JSX.Element {
+    return (
+        <div className="validation info">
+            <Tops tops={props.validationMetrics['exact-no-padding']} label="exact no padding" />
+            <Tops tops={props.validationMetrics['exact']} label="exact with padding" />
+            <Tops tops={props.validationMetrics['when-rule']} label="when rule" />
+            <Tops tops={props.validationMetrics['with-padding']} label="when rule with padding" />
         </div>
     );
 }
@@ -58,6 +92,7 @@ function Term(): JSX.Element {
                         <TeX >{sample.latex}</TeX>
                     </div>
                     <Value gt={sample.groundTruthValue} predicted={sample.predictedValue} />
+                    <Validation validationMetrics={sample.validationMetrics} />
                 </div >
                 <Activation sample={sample} />
                 <div onKeyDown={onKeyDown as any} className="navbar">

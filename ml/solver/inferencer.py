@@ -55,7 +55,7 @@ class Inferencer:
         # Copy of BagDataset
         self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(idents)}
 
-    def inference(self, initial: Symbol):
+    def inference(self, initial: Symbol, keep_padding=False):
         x, s, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
                                          initial.depth, [], True, index_map=True, positional_encoding=False)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
@@ -63,7 +63,9 @@ class Inferencer:
         p = torch.ones(x.shape[:-1])
         y, v = self.model(x, s, p)
         y = y.squeeze()  # shape: rules, path
-        y = y.cpu().detach().numpy()[1:, :-1]  # Remove padding
+        y = y.cpu().detach().numpy()
+        if not keep_padding:
+            y = y[1:, :-1]  # Remove padding
         value = v.cpu().detach().numpy()[0][0]
         value = np.exp(value)
         return y, value

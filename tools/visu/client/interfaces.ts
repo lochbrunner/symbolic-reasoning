@@ -7,6 +7,17 @@ export interface Policy extends Position {
     policy: number;
 }
 
+export interface ErrorTops {
+    tops: number[];
+    total: number;
+}
+export interface ValidationMetrics {
+    'exact': ErrorTops;
+    'exact-no-padding': ErrorTops;
+    'when-rule': ErrorTops;
+    'with-padding': ErrorTops;
+}
+
 export interface Sample {
     latex: string;
     index: number;
@@ -23,5 +34,5 @@ export interface Sample {
     predictions: number[][];
     predictedPolicy: number[][];
     possibleFits: Position[];
-    validationMetrics: undefined;
+    validationMetrics: ValidationMetrics;
 }
