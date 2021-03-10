@@ -1,6 +1,7 @@
 from typing import List
 from copy import deepcopy
 from argparse import Namespace
+import numpy as np
 
 
 class LearningParmeter:
@@ -8,15 +9,24 @@ class LearningParmeter:
                  batch_size: int = 10, gradient_clipping: float = 0.1,
                  value_loss_weight: float = 0.5,
                  model_hyper_parameter: dict = None,
-                 optimizer: str = "adadelta",
+                 optimizer: str = 'adadelta',
+                 weight_decay: float = 0.0,
                  fine_tuning=None, **kwargs):
         self.model_name = model_name
         self.num_epochs = num_epochs
-        self.learning_rate = learning_rate
-        self.batch_size = batch_size
+        if isinstance(learning_rate, (int, float)):
+            self.learning_rate = learning_rate
+            self.learning_rate_step_size = None
+            self.learning_rate_gamma = None
+        else:
+            self.learning_rate = learning_rate.initial
+            self.learning_rate_step_size = learning_rate.step_size
+            self.learning_rate_gamma = learning_rate.gamma
+        self.batch_size = int(batch_size)
         self.gradient_clipping = gradient_clipping
         self.value_loss_weight = value_loss_weight
         self.optimizer = optimizer
+        self.weight_decay = weight_decay
         if isinstance(model_hyper_parameter, Namespace):
             self.model_hyper_parameter = vars(model_hyper_parameter)
         else:
@@ -29,6 +39,17 @@ class LearningParmeter:
             if not hasattr(self, k):
                 raise RuntimeError(f'Learning parameter {k} not found!')
             setattr(self, k, v)
+
+    def sanitize(self):
+        '''Because of any reason the fields can flip to numpy types'''
+
+        def fix(value):
+            if isinstance(value, np.int64):
+                return int(value)
+            if isinstance(value, np.float):
+                return float(value)
+
+        self.model_hyper_parameter = {k: fix(v) for k, v in self.model_hyper_parameter.items()}
 
     @staticmethod
     def from_config(config):
@@ -65,6 +86,7 @@ class LearningParmeter:
                                 learning_rate=training.learning_rate,
                                 batch_size=training.batch_size,
                                 gradient_clipping=training.gradient_clipping,
+                                weight_decay=training.weight_decay,
                                 value_loss_weight=training.value_loss_weight,
                                 model_hyper_parameter=model_hyper_parameter,
                                 fine_tuning=vars(config.fine_tuning)

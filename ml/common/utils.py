@@ -4,6 +4,7 @@ import unittest
 from argparse import Namespace
 from typing import Dict
 from pycore import Scenario, Rule
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,14 @@ def setup_logging(verbose, log, **kwargs):
     for mod_logger in all_loggers:
         mod_logger._cache.clear()  # pylint: disable=protected-access
         mod_logger.setLevel(logging.getLevelName(loglevel))
+
+
+def split_dataset(dataset: torch.utils.data.Dataset, validation_ratio=0.1):
+    generator = torch.Generator()
+    generator.manual_seed(0)
+    validation_size = int(len(dataset) * validation_ratio)
+    trainings_size = len(dataset) - validation_size
+    return torch.utils.data.random_split(dataset, [trainings_size, validation_size], generator=generator)
 
 
 class TestMakeNamespace(unittest.TestCase):

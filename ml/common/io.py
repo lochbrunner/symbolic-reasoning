@@ -32,7 +32,7 @@ def load(filename, device=torch.device('cpu'), transform=None):
 
 
 def load_model(filename, spread=None, depth=None, kernel_size=None):
-    with Timer(f'Loading snapshot from {filename}'):
+    with Timer(f'Loading model from snapshot {filename}'):
         snapshot = torch.load(filename)
         learn_params = snapshot['learning_parameter']
         padding_index = 0
@@ -50,7 +50,7 @@ def load_model(filename, spread=None, depth=None, kernel_size=None):
         return model, snapshot
 
 
-def save(filename, model, optimizer, scenario_params, learn_params, dataset):
+def save(filename, model, optimizer, scenario_params, learn_params, dataset, metrics=None):
     if filename is None:
         return
     filename = Path(filename)
@@ -60,7 +60,8 @@ def save(filename, model, optimizer, scenario_params, learn_params, dataset):
              'model_name': model.__class__.__name__,
              'learning_parameter': learn_params,
              'scenario_parameter': scenario_params,
-             'rules': [rule.verbose for rule in dataset.get_rules_raw()]  # For consistency checks
+             'rules': [rule.verbose for rule in dataset.get_rules_raw()],  # For consistency checks
+             'metrics': metrics
              }
     state.update(dataset.model_params)
     filename.parent.mkdir(exist_ok=True)

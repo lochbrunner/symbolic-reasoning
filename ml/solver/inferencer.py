@@ -44,11 +44,13 @@ class Inferencer:
             self.model = create_model(learn_params.model_name,
                                       hyper_parameter=learn_params.model_hyper_parameter,
                                       vocab_size=scenario.vocab_size(), tagset_size=scenario.tagset_size, pad_token=0, kernel_size=scenario.spread+2)
+            self.trained_metrics = None
         else:
             self.model, snapshot = io.load_model(config.files.model)
             idents = snapshot['idents']
             self.spread = snapshot['kernel_size'] - 2
             self.pad_token = snapshot['pad_token']
+            self.trained_metrics = snapshot.get('metrics', None)
             # self.weights = None
 
         self.model.eval()
