@@ -11,6 +11,12 @@ export interface ErrorTops {
     tops: number[];
     total: number;
 }
+
+export type ValidationMetricNames = 'exact' |
+    'exact-no-padding' |
+    'when-rule' |
+    'with-padding';
+
 export interface ValidationMetrics {
     'exact': ErrorTops;
     'exact-no-padding': ErrorTops;

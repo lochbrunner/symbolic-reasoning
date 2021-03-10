@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
-import numpy as np
 
+import numpy as np
 from common.config_and_arg_parser import ArgumentParser
-from dataset.bag import BagDataset
-from common.utils import setup_logging, get_rule_mapping_by_config
-from common.utils import get_rule_mapping
-from solver.inferencer import Inferencer
+from common.utils import (get_rule_mapping, get_rule_mapping_by_config,
+                          setup_logging, split_dataset)
 from common.validation import Error, Ratio
+from common.validation import validate as batch_validate
+from dataset.bag import BagDataset
+from flask import Flask, jsonify, request, send_from_directory
+from solver.inferencer import Inferencer
+from torch.utils import data
+import torch
+from tqdm import tqdm
+
 from pycore import Scenario, fit
 
 
@@ -28,6 +33,23 @@ def validate(truth, p, predict, no_negative=False) -> Error:
     return error
 
 
+def create_index(inferencer: Inferencer, dataset):
+    evaluation_results = []
+    for i, (_, _, y, p, _) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
+        raw_sample = dataset.container[i]
+        initial = raw_sample.initial
+        py, _ = inferencer.inference(initial, keep_padding=True)
+        evaluation_results.append(
+            {
+                'validation': validate(truth=y, predict=py, p=p).as_dict(),
+                'initial': initial.latex_verbose,
+                'index': i
+            }
+        )
+
+    return evaluation_results
+
+
 def main(config, options):
     setup_logging(**vars(options))
 
@@ -41,6 +63,9 @@ def main(config, options):
     rule_mapping = get_rule_mapping(scenario)
     inferencer = Inferencer(config, scenario, fresh_model=False)
     embed2ident = dataset.embed2ident
+    assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
+
+    overview_samples = create_index(inferencer, dataset)
 
     @app.route('/')
     def root():
@@ -91,9 +116,15 @@ def main(config, options):
             'validationMetrics': validate(truth=y, predict=py, p=p).as_dict()
         })
 
-    @app.route('/api/sample-overview')
+    @app.route('/api/length')
     def sample_count():
         return jsonify({'length': len(dataset.container)})
+
+    @app.route('/api/overview')
+    def overview():
+        begin = int(request.args['begin'])
+        end = int(request.args['end'])
+        return jsonify(overview_samples[begin:end])
 
     app.run()
 
