@@ -17,11 +17,42 @@ interface Sample {
     initial: string;
     validation: ValidationMetrics;
     index: number;
+    summary: {
+        'exact': number;
+        'exact-no-padding': number;
+        'when-rule': number;
+        'with-padding': number;
+    }
+}
+
+interface Sorting {
+    key: 'none' | ValidationMetricNames;
+    up: boolean;
 }
 
 export default function overview(): JSX.Element {
     const [samples, changeSamples] = useState<Sample[]>([]);
     const [size, changeSize] = useState<number | null>(null);
+    const [sorting, changeSorting] = useState<Sorting>({ key: 'none', up: true, });
+
+    const batch_size = 50;
+
+    function reset(newSorting: Sorting) {
+        fetch(`./api/overview?${encodeQueryData({ begin: 0, end: batch_size, ...sorting })}`)
+            .then(response => response.json())
+            .then(changeSamples)
+            .catch(console.error);
+        changeSorting(newSorting);
+    }
+
+    const updateSorting = (key: Sorting['key']) => {
+        return () => {
+            if (sorting.key === key)
+                reset({ ...sorting, up: !sorting.up });
+            else
+                reset({ key, up: true });
+        };
+    };
 
     const addSamples = (newSamples: Sample[]) => {
         changeSamples([...samples, ...newSamples]);
@@ -30,8 +61,8 @@ export default function overview(): JSX.Element {
     const next = () => {
         if (overview.length < (size ?? 1)) {
             const begin = samples.length;
-            const end = begin + 50;
-            fetch(`./api/overview?${encodeQueryData({ begin, end })}`)
+            const end = begin + batch_size;
+            fetch(`./api/overview?${encodeQueryData({ begin, end, ...sorting })}`)
                 .then(response => response.json())
                 .then(addSamples)
                 .catch(console.error);
@@ -63,11 +94,11 @@ export default function overview(): JSX.Element {
                     <table>
                         <thead>
                             <tr>
-                                <th>Initial</th>
-                                <th>exact no padding</th>
-                                <th>exact</th>
-                                <th>when rule</th>
-                                <th>with padding</th>
+                                <th className="clickable" onClick={updateSorting('none')}>Initial</th>
+                                <th className="clickable" onClick={updateSorting('exact-no-padding')}>exact no padding</th>
+                                <th className="clickable" onClick={updateSorting('exact')}>exact</th>
+                                <th className="clickable" onClick={updateSorting('when-rule')}>when rule</th>
+                                <th className="clickable" onClick={updateSorting('with-padding')}>with padding</th>
                             </tr>
                         </thead>
                         <tbody>

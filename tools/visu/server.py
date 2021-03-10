@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from typing import List
 
 import numpy as np
 from common.config_and_arg_parser import ArgumentParser
@@ -35,19 +36,58 @@ def validate(truth, p, predict, no_negative=False) -> Error:
 
 def create_index(inferencer: Inferencer, dataset):
     evaluation_results = []
+
+    def findFirst(array: List[int]) -> int:
+        indices = [i for i, e in enumerate(array) if e > 0]
+        if len(indices) > 0:
+            return indices[0]
+        else:
+            return len(array)
+
     for i, (_, _, y, p, _) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
         raw_sample = dataset.container[i]
         initial = raw_sample.initial
         py, _ = inferencer.inference(initial, keep_padding=True)
+        validation = validate(truth=y, predict=py, p=p)
+
         evaluation_results.append(
             {
-                'validation': validate(truth=y, predict=py, p=p).as_dict(),
+                'validation': validation.as_dict(),
                 'initial': initial.latex_verbose,
-                'index': i
+                'index': i,
+                'summary': {
+                    'exact': findFirst(validation.exact.tops),
+                    'exact-no-padding': findFirst(validation.exact_no_padding.tops),
+                    'when-rule': findFirst(validation.when_rule.tops),
+                    'with-padding': findFirst(validation.with_padding.tops)
+                }
             }
         )
 
-    return evaluation_results
+    exact = [(i, sample['summary']['exact']) for i, sample in enumerate(evaluation_results)]
+    exact = sorted(exact, key=lambda t: t[1])
+    exact = [i for i, _ in exact]
+
+    exact_no_padding = [(i, sample['summary']['exact-no-padding']) for i, sample in enumerate(evaluation_results)]
+    exact_no_padding = sorted(exact_no_padding, key=lambda t: t[1])
+    exact_no_padding = [i for i, _ in exact_no_padding]
+
+    when_rule = [(i, sample['summary']['when-rule']) for i, sample in enumerate(evaluation_results)]
+    when_rule = sorted(when_rule, key=lambda t: t[1])
+    when_rule = [i for i, _ in when_rule]
+
+    with_padding = [(i, sample['summary']['with-padding']) for i, sample in enumerate(evaluation_results)]
+    with_padding = sorted(with_padding, key=lambda t: t[1])
+    with_padding = [i for i, _ in with_padding]
+
+    indices = {
+        'exact': exact,
+        'exact-no-padding': exact_no_padding,
+        'when-rule': when_rule,
+        'with-padding': with_padding,
+    }
+
+    return evaluation_results, indices
 
 
 def main(config, options):
@@ -65,7 +105,7 @@ def main(config, options):
     embed2ident = dataset.embed2ident
     assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
 
-    overview_samples = create_index(inferencer, dataset)
+    overview_samples, indices = create_index(inferencer, dataset)
 
     @app.route('/')
     def root():
@@ -124,7 +164,21 @@ def main(config, options):
     def overview():
         begin = int(request.args['begin'])
         end = int(request.args['end'])
-        return jsonify(overview_samples[begin:end])
+        sorting_key = request.args['key'].lower()
+        sorting_up = request.args['up']
+        dt = 1
+        if sorting_up == 'true':
+            begin = -begin - 1
+            end = -end - 1
+            dt = -1
+        if sorting_key == 'none':
+            request_overview = overview_samples[begin:end:dt]
+        else:
+            if sorting_key not in indices:
+                raise NotImplementedError(f'Not supported sorting: "{sorting_key}"')
+            index_map = indices[sorting_key]
+            request_overview = [overview_samples[i] for i in index_map[begin:end:dt]]
+        return jsonify(request_overview)
 
     app.run()
 
