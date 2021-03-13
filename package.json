@@ -19,9 +19,11 @@
     "colormap": "^2.3.2",
     "katex": "^0.12.0",
     "lodash": "^4.17.21",
+    "plotly.js": "^1.58.4",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-infinite-scroll-component": "^6.0.0",
+    "react-plotly.js": "^2.5.1",
     "react-router-dom": "^5.2.0"
   },
   "devDependencies": {
@@ -30,6 +32,7 @@
     "@types/katex": "^0.11.0",
     "@types/lodash": "^4.14.168",
     "@types/react-infinite-scroll-component": "^4.2.5",
+    "@types/react-plotly.js": "^2.2.4",
     "@types/react-router-dom": "^5.1.7",
     "@types/webpack": "^4.41.26",
     "awesome-typescript-loader": "^5.2.1",

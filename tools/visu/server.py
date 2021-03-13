@@ -8,12 +8,9 @@ from common.config_and_arg_parser import ArgumentParser
 from common.utils import (get_rule_mapping, get_rule_mapping_by_config,
                           setup_logging, split_dataset)
 from common.validation import Error, Ratio
-from common.validation import validate as batch_validate
 from dataset.bag import BagDataset
 from flask import Flask, jsonify, request, send_from_directory
 from solver.inferencer import Inferencer
-from torch.utils import data
-import torch
 from tqdm import tqdm
 
 from pycore import Scenario, fit
@@ -44,16 +41,25 @@ def create_index(inferencer: Inferencer, dataset):
         else:
             return len(array)
 
-    for i, (_, _, y, p, _) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
+    for i, (_, _, y, p, v) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
         raw_sample = dataset.container[i]
         initial = raw_sample.initial
         py, _ = inferencer.inference(initial, keep_padding=True)
         validation = validate(truth=y, predict=py, p=p)
 
+        gt_policy = [policy for ruleId, policy in zip(y.tolist(), p.tolist()) if ruleId != 0]
+        gt_policy_positive = sum(1 for p in gt_policy if p > 0)
+        gt_policy_negative = sum(1 for p in gt_policy if p < 0)
+
         evaluation_results.append(
             {
                 'validation': validation.as_dict(),
                 'initial': initial.latex_verbose,
+                'contributed': raw_sample.useful,
+                'policy_gt': {
+                    'positive': gt_policy_positive,
+                    'negative': gt_policy_negative
+                },
                 'index': i,
                 'summary': {
                     'exact': findFirst(validation.exact.tops),
@@ -64,30 +70,31 @@ def create_index(inferencer: Inferencer, dataset):
             }
         )
 
-    exact = [(i, sample['summary']['exact']) for i, sample in enumerate(evaluation_results)]
-    exact = sorted(exact, key=lambda t: t[1])
-    exact = [i for i, _ in exact]
+    def sort(name):
+        extracted = [(i, sample['summary'][name]) for i, sample in enumerate(evaluation_results)]
+        extracted = sorted(extracted, key=lambda t: t[1])
+        return [i for i, _ in extracted]
 
-    exact_no_padding = [(i, sample['summary']['exact-no-padding']) for i, sample in enumerate(evaluation_results)]
-    exact_no_padding = sorted(exact_no_padding, key=lambda t: t[1])
-    exact_no_padding = [i for i, _ in exact_no_padding]
-
-    when_rule = [(i, sample['summary']['when-rule']) for i, sample in enumerate(evaluation_results)]
-    when_rule = sorted(when_rule, key=lambda t: t[1])
-    when_rule = [i for i, _ in when_rule]
-
-    with_padding = [(i, sample['summary']['with-padding']) for i, sample in enumerate(evaluation_results)]
-    with_padding = sorted(with_padding, key=lambda t: t[1])
-    with_padding = [i for i, _ in with_padding]
+    def hist(name):
+        hist, bin_edges = np.histogram([(sample['summary'][name])
+                                        for sample in evaluation_results], bins=list(range(21)))
+        return {'hist': hist.tolist(), 'bin_edges': bin_edges.tolist()}
 
     indices = {
-        'exact': exact,
-        'exact-no-padding': exact_no_padding,
-        'when-rule': when_rule,
-        'with-padding': with_padding,
+        'exact': sort('exact'),
+        'exact-no-padding': sort('exact-no-padding'),
+        'when-rule': sort('when-rule'),
+        'with-padding': sort('with-padding'),
     }
 
-    return evaluation_results, indices
+    histogram = {
+        'exact': hist('exact'),
+        'exact_no_padding': hist('exact-no-padding'),
+        'when_rule': hist('when-rule'),
+        'with_padding': hist('with-padding'),
+    }
+
+    return evaluation_results, indices, histogram
 
 
 def main(config, options):
@@ -105,7 +112,7 @@ def main(config, options):
     embed2ident = dataset.embed2ident
     assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
 
-    overview_samples, indices = create_index(inferencer, dataset)
+    overview_samples, indices, histogram_data = create_index(inferencer, dataset)
 
     @app.route('/')
     def root():
@@ -164,8 +171,8 @@ def main(config, options):
     def overview():
         begin = int(request.args['begin'])
         end = int(request.args['end'])
-        sorting_key = request.args['key'].lower()
-        sorting_up = request.args['up']
+        sorting_key = request.args.get('key', 'none').lower()
+        sorting_up = request.args.get('up', 'true')
         dt = 1
         if sorting_up == 'true':
             begin = -begin - 1
@@ -179,6 +186,10 @@ def main(config, options):
             index_map = indices[sorting_key]
             request_overview = [overview_samples[i] for i in index_map[begin:end:dt]]
         return jsonify(request_overview)
+
+    @app.route('/api/histogram')
+    def histogram():
+        return jsonify(histogram_data)
 
     app.run()
 
