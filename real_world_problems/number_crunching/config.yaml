@@ -30,6 +30,7 @@ training:
   report-rate: 10
   batch-size: 8
   learning-rate: 0.1
+  optimizer: adadelta
   gradient-clipping: 0.1
   value-loss-weight: 0.5
   model-name: TreeCnnSegmenter

@@ -1,6 +1,15 @@
 .overview {
-    h1 {
-        text-align: center;
+    header {
+        position: relative;
+        h1 {
+            text-align: center;
+        }
+        > div {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 300px;
+        }
     }
 
     table {

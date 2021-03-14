@@ -3,7 +3,8 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import TeX from '@matejmazur/react-katex';
 import './overview.scss';
 import { ValidationMetricNames } from '../interfaces';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useParams } from 'react-router-dom';
+import { TextField } from '@material-ui/core';
 
 function encodeQueryData(data: any) {
     const ret = [];
@@ -37,34 +38,46 @@ interface Sample {
 interface Sorting {
     key: 'none' | 'name' | ValidationMetricNames | 'value-gt' | 'value-predicted' | 'value-error';
     up: boolean;
+    filter: string;
 }
 
 export default function overview(): JSX.Element {
-    const [samples, changeSamples] = useState<Sample[]>([]);
+    const { sorting_key, direction, filter } = useParams<{ sorting_key: Sorting['key'], direction: string, filter: string }>();
+    const sorting = { key: sorting_key, filter: filter ? decodeURIComponent(filter) : '', up: direction === 'up' };
+    const [{ samples, prevSorting }, changeSamples] = useState<{ samples: Sample[], prevSorting: Sorting }>({ samples: [], prevSorting: sorting });
     const [size, changeSize] = useState<number | null>(null);
-    const [sorting, changeSorting] = useState<Sorting>({ key: 'none', up: true, });
-
+    const history = useHistory();
     const batch_size = 40;
 
-    function reset(newSorting: Sorting) {
+    if (prevSorting.filter !== sorting.filter || prevSorting.key !== sorting.key || prevSorting.up !== sorting.up) {
         fetch(`./api/overview?${encodeQueryData({ begin: 0, end: batch_size, ...sorting })}`)
             .then(response => response.json())
-            .then(changeSamples)
+            .then((samples: Sample[]) => changeSamples({ samples, prevSorting: sorting }))
             .catch(console.error);
-        changeSorting(newSorting);
     }
+
+    console.log(sorting);
+
+    const changeSorting = (newSorting: Sorting) => {
+        const { filter, key, up } = newSorting;
+        history.push(`/overview/${key}/${up ? 'up' : 'down'}/${encodeURIComponent(filter) ?? ''}`);
+    };
 
     const updateSorting = (key: Sorting['key']) => {
         return () => {
-            if (sorting.key === key)
-                reset({ ...sorting, up: !sorting.up });
+            if (sorting_key === key)
+                changeSorting({ ...sorting, up: !sorting.up });
             else
-                reset({ key, up: true });
+                changeSorting({ ...sorting, key, up: true });
         };
     };
 
+    const changeFilter = (newFilter: string) => {
+        changeSorting({ ...sorting, filter: newFilter });
+    }
+
     const addSamples = (newSamples: Sample[]) => {
-        changeSamples([...samples, ...newSamples]);
+        changeSamples({ prevSorting, samples: [...samples, ...newSamples] });
     };
 
     const next = () => {
@@ -78,7 +91,7 @@ export default function overview(): JSX.Element {
         }
 
     };
-    const history = useHistory();
+
     const positiveSpan = (value: boolean) => {
         if (value) {
             return <span className="positive">✓</span>;
@@ -114,7 +127,12 @@ export default function overview(): JSX.Element {
         });
         return (
             <div className="overview">
-                <h1>Overview</h1>
+                <header>
+                    <h1>Overview</h1>
+                    <div>
+                        <TextField value={sorting.filter} onChange={e => changeFilter(e.target.value)} id="standard-search" label="filter by rule" type="search" />
+                    </div>
+                </header>
                 <InfiniteScroll dataLength={samples.length} hasMore={size > samples.length} next={next} loader={<h1>Loading...</h1>}>
                     <table>
                         <thead>

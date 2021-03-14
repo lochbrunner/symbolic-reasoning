@@ -30,12 +30,15 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 2500
+  num-epochs: 100
   report-rate: 2
   batch-size: 32
-  learning-rate: 0.01
+  learning-rate:
+    initial: 0.01
+    step-size: 10
+    gamma: 0.99
   optimizer: adadelta
-  weight-decay: 0.001
+  weight-decay: 0.0
   gradient-clipping: 0.1
   value-loss-weight: 0.25
   model-name: TreeCnnSegmenter

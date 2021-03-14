@@ -77,15 +77,17 @@ class BagDataset(Dataset):
         max_size = bag.containers[-1].max_size
         return BagDataset(bag.meta, samples, max_depth, max_size, data_size_limit, preprocess)
 
-    def __init__(self, meta, samples, max_depth, max_size, data_size_limit=None, preprocess=False):
+    def __init__(self, meta, samples, max_depth, max_size, data_size_limit=None, preprocess=False, index_map: bool = True, positional_encoding: bool = False):
         self.preprocess = preprocess
 
         self.rule_conditions = [rule.condition for rule in meta.rules]
 
         self.idents = meta.idents
+        self.positional_encoding = positional_encoding
+        self.index_map = index_map
 
         # 0 is padding
-        self._ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
+        self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
 
         self.label_distribution = [p+n for p, n in meta.rule_distribution]
         self.value_distribution = meta.value_distribution
@@ -93,7 +95,7 @@ class BagDataset(Dataset):
 
         # Merge use largest
 
-        if data_size_limit is None:
+        if data_size_limit is None or data_size_limit == -1:
             self.container = samples
         elif isinstance(data_size_limit, int):
             self.container = samples[:data_size_limit]
@@ -103,7 +105,6 @@ class BagDataset(Dataset):
         else:
             raise RuntimeError(f'Type {type(data_size_limit)} for data_size_limit is not supported!')
 
-        self.container = samples[:limit]
         self._max_depth = max_depth
         self._max_size = max_size
         logger.debug(f'max size: {self._max_size}')
@@ -126,13 +127,23 @@ class BagDataset(Dataset):
         rule_id = self.container[index].fits[0].rule
         return self._rule_map[rule_id]
 
+    # def _positional_encoding_waves(self, points: np.array):
+    #     # points: d, l
+    #     points P np.repeat()
+    #     return []
+
     def _process_sample(self, sample):
-        channels = sample.embed(self._ident_dict, self.pad_token, self.spread,
-                                self._max_depth, index_map=True, positional_encoding=False)
-        return [c for c in channels if c is not None]
+        try:
+            channels = sample.embed(self.ident_dict, self.pad_token, self.spread,
+                                    self._max_depth, index_map=self.index_map, positional_encoding=self.positional_encoding)
+        # if self.positional_encoding:
+        #     channels[2] = self._positional_encoding_waves(channels[2])
+            return [c for c in channels if c is not None]
+        except KeyError as e:
+            raise RuntimeError(f'{e} Available idents are {self.ident_dict.keys()}')
 
     def embed_custom(self, initial, fits=None, useful=True):
-        return initial.embed(self._ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=self.positional_encoding)
+        return initial.embed(self.ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=self.positional_encoding)
 
     @property
     def max_depth(self):
@@ -183,6 +194,10 @@ class BagDataset(Dataset):
             'kernel_size': self.spread+2,
             'idents': self.idents
         }
+
+    @property
+    def embed2ident(self):
+        return {**{0: '<PAD>'}, **{embed: ident for ident, embed in self.ident_dict.items()}}
 
     collate_fn = dynamic_width_collate
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 import sqlite3
 
 import numpy as np
@@ -16,13 +16,13 @@ from tqdm import tqdm
 
 from pycore import Scenario, fit
 
-DATABASE = '/tmp/database.db'
+database_path = Path('/tmp/database.db')
 
 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
+        db = g._database = sqlite3.connect(database_path)
     return db
 
 
@@ -41,7 +41,7 @@ def validate(truth, p, predict, no_negative=False) -> Error:
     return error
 
 
-def query(begin: int, end: int, up: bool, sorting_key: str):
+def query(begin: int, end: int, up: bool, sorting_key: str, rule_filter: str, rule_id2verbose: Dict[int, str]):
     con = get_db()
     cur = con.cursor()
     if up:
@@ -61,7 +61,18 @@ def query(begin: int, end: int, up: bool, sorting_key: str):
 
     sorting_key = key_map.get(sorting_key, 'initial')
 
-    cur.execute(f'SELECT * FROM samples order by {sorting_key} {sorting} limit {begin}, {end}')
+    if rule_filter != '':
+        rule_ids = [str(i) for i, verbose in rule_id2verbose.items() if rule_filter in verbose]
+
+        rule_ids = ', '.join(rule_ids)
+
+        cur.execute(
+            f'SELECT * FROM samples inner join rules on rules.sample_id = samples.id where rules.id in ({rule_ids}) order by {sorting_key} {sorting} limit {begin}, {end}')
+
+    else:
+        cur.execute(
+            f'SELECT * FROM samples order by {sorting_key} {sorting} limit {begin}, {end}')
+
     return [
         {
             'initial': row[0],
@@ -88,7 +99,9 @@ def query(begin: int, end: int, up: bool, sorting_key: str):
 def create_index(inferencer: Inferencer, dataset):
     sqlite3.register_adapter(bool, int)
     sqlite3.register_converter('boolean', lambda v: bool(int(v)))
-    con = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES)
+    if database_path.exists():
+        database_path.unlink()
+    con = sqlite3.connect(database_path, detect_types=sqlite3.PARSE_DECLTYPES)
     cur = con.cursor()
     cur.execute('CREATE TABLE samples ('
                 'initial text, '
@@ -97,12 +110,13 @@ def create_index(inferencer: Inferencer, dataset):
                 'value__error real, '
                 'policy_gt__positive integer, '
                 'policy_gt__negative integer, '
-                'index_number integer, '
+                'id integer primary key, '
                 'summary__exact integer, '
                 'summary__exact_no_padding integer, '
                 'summary__when_rule integer, '
                 'summary__with_padding integer '
                 ')')
+    cur.execute('create table rules (id integer, sample_id integer)')
     con.commit()
 
     # evaluation_results = []
@@ -140,6 +154,9 @@ def create_index(inferencer: Inferencer, dataset):
             f"{findFirst(validation.when_rule.tops)}, "         # summary
             f"{findFirst(validation.with_padding.tops)} "      # summary
             ")")
+
+        for ruleId in [ruleId for ruleId, policy in zip(y.tolist(), p.tolist()) if ruleId != 0 and policy > 0]:
+            cur.execute(f'insert into rules values({ruleId}, {i})')
 
         evaluation_results.append(
             {
@@ -179,6 +196,8 @@ def main(config, options):
     dataset = BagDataset.load(config.files.solver_trainings_data)
     scenario = Scenario.load(config.files.scenario)
     rule_mapping = get_rule_mapping(scenario)
+    rule_id2verbose = {i: rule.verbose for i, rule in rule_mapping.items()}
+    # rule_verbose2id = {rule.verbose: i for i, rule in rule_mapping.items()}
     inferencer = Inferencer(config, scenario, fresh_model=False)
     embed2ident = dataset.embed2ident
     assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
@@ -244,7 +263,10 @@ def main(config, options):
         end = int(request.args['end'])
         sorting_key = request.args.get('key', 'none').lower()
         sorting_up = request.args.get('up', 'true')
-        return jsonify(query(begin=begin, end=end, up=sorting_up == 'true', sorting_key=sorting_key))
+        return jsonify(query(begin=begin, end=end,
+                             up=sorting_up == 'true', sorting_key=sorting_key,
+                             rule_filter=request.args['filter'],
+                             rule_id2verbose=rule_id2verbose))
 
     @app.route('/api/histogram')
     def histogram():

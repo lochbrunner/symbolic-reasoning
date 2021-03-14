@@ -1,7 +1,7 @@
 import ReactDOM from 'react-dom';
 import React from 'react';
 import './index.scss';
-import { HashRouter, Route, Switch } from 'react-router-dom';
+import { HashRouter, Redirect, Route, Switch } from 'react-router-dom';
 import Detail from './pages/detail';
 import Overview from './pages/overview';
 import Histogram from './pages/histogram';
@@ -18,8 +18,11 @@ function Index() {
                     <Route path='/histogram' >
                         <Histogram />
                     </Route>
+                    <Route path='/overview/:sorting_key/:direction/:filter?'>
+                        <Overview key={location.hash} />
+                    </Route>
                     <Route path='/'>
-                        <Overview />
+                        <Redirect to='/overview/none/up/' />
                     </Route>
                 </Switch>
             </HashRouter>

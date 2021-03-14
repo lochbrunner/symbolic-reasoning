@@ -1,6 +1,7 @@
 
 import logging
 from typing import List
+from memory_profiler import profile
 
 from solver.trace import ApplyInfo, Statistics
 from pycore import fit_at_and_apply, fit_and_apply
@@ -51,6 +52,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
     return None, statistics
 
 
+# @profile
 def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
                             black_list_terms: List[str], white_list_terms: List[str], black_list_rules: List[str],
                             max_size: int, max_grow: int, max_fit_results: int, use_network=True, **kwargs):
@@ -68,8 +70,14 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
 
     targets = set(t.verbose for t in targets)
 
+    # print(f'initial: {initial}')
+    # print(f'targets: {targets}')
+    # print(f'num_epochs: {num_epochs}')
+    # print(f'white_list_terms: {white_list_terms}')
+
     for epoch in range(num_epochs):
         logging.debug(f'epoch: {epoch}')
+        # print(f'epoch: {epoch}')
         successfull_epoch = False
         for prev in statistics.trace:
             possible_rules = {}

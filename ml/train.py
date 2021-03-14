@@ -34,7 +34,7 @@ from common import io
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.timer import Timer
-from common.utils import setup_logging, get_rule_mapping_by_config
+from common.utils import setup_logging, get_rule_mapping_by_config, split_dataset
 from common.validation import validate
 from training import train
 
@@ -116,9 +116,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         dataset, model, optimizer, _ = io.load(config.files.model, device)
         scheduler = None
 
-    def save_snapshot():
+    def save_snapshot(metrics=None):
         if not exe_params.dont_dump_model:
-            io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset)
+            io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset, metrics=metrics)
         else:
             logger.info(f'Skipping model dump to "{config.files.model}" as requested.')
 
@@ -131,11 +131,15 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
     rule_mapping = {k: rule.name for k, rule in rule_mapping.items()}
     rule_mapping[0] = 'padding'
 
-    validation_ratio = 0.1
-    validation_size = int(len(dataset) * validation_ratio)
-    trainings_size = len(dataset) - validation_size
+    # validation_ratio = 0.1
+    # validation_size = int(len(dataset) * validation_ratio)
+    # trainings_size = len(dataset) - validation_size
 
-    train_set, val_set = torch.utils.data.random_split(dataset, [trainings_size, validation_size])
+    # generator = torch.Generator()
+    # generator.manual_seed(0)
+    # train_set, val_set = torch.utils.data.random_split(dataset, [trainings_size, validation_size], generator=generator)
+
+    train_set, val_set = split_dataset(dataset)
 
     # Loading data
     common_loader_params = {
@@ -251,10 +255,10 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
 
         if not no_sig_handler:
             signal.signal(signal.SIGINT, original_sigint_handler)
-        error = validate(model, validation_dataloader).error
+        error = validate(model, validation_dataloader, no_negative=False).error
 
         logbook.append((learn_params.num_epochs, error, None))
-        save_snapshot()
+        save_snapshot(error)
         if writer:
             writer.add_hparams(hparam_dict={
                 'batch-size': learn_params.batch_size,

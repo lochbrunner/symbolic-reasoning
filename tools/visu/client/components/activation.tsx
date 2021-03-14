@@ -142,7 +142,7 @@ function createSortedMap(predictions: number[][], dx: number, dy: number, filter
     const height = `${dy}px`;
     return possibilities.map((possibility, i) => <g key={`pred-${i}`}>
         <rect y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[i] }} ><title>{possibility.confidence}</title></rect>
-        <text text-anchor="middle" dominant-baseline="middle" y={`${(ruleMap[possibility.position.ruleId] + 0.5) * dy}px`} x={`${(possibility.position.path + 0.5) * dx}px`}>{filter.length - i}</text>
+        <text textAnchor="middle" dominantBaseline="middle" y={`${(ruleMap[possibility.position.ruleId] + 0.5) * dy}px`} x={`${(possibility.position.path + 0.5) * dx}px`}>{filter.length - i}</text>
     </g>);
 }
 

@@ -34,9 +34,16 @@ class ValueHead(nn.Module):
     def __init__(self, embedding_size: int, config, kernel_size: int):
         super(ValueHead, self).__init__()
         self.hidden_size = config['value_head_hidden_size']
+        self.config = config
+
+        if self.config['use_batch_normalization']:
+            bn = [nn.BatchNorm1d(num_features=12)]
+        else:
+            bn = []
 
         self.cnn = SequentialByPass(
             IConv(in_size=embedding_size, out_size=self.hidden_size, kernel_size=kernel_size),
+            *bn,
             nn.LeakyReLU(inplace=True),
             IConv(in_size=self.hidden_size, out_size=self.hidden_size, kernel_size=kernel_size),
             nn.LeakyReLU(inplace=True),
@@ -45,6 +52,7 @@ class ValueHead(nn.Module):
 
     def forward(self, x, s):
         x = self.cnn(x, s)
+        x = F.dropout(x, p=self.config['dropout'])
         b, l, j = x.shape
         assert(self.hidden_size == j)
         # x: blj
@@ -54,7 +62,15 @@ class ValueHead(nn.Module):
         x = F.leaky_relu(x)
         x = x.view([b, l, 2])
         # bl2 -> b2
-        x = x.max(dim=1, keepdim=False).values
+        if self.config['value_accumulator'] == 'max':
+            x = x.max(dim=1, keepdim=False).values
+        elif self.config['value_accumulator'] == 'sum':
+            x = torch.sum(x, dim=1)
+        elif self.config['value_accumulator'] == 'mean':
+            x = torch.mean(x, dim=1)
+        else:
+            raise RuntimeError(f'{self.config["value_accumulator"]} is not a valid accumulator for the value head.')
+        # x = x.sum(dim=1, keepdim=False).values  # Add
         return F.log_softmax(x, dim=1)
 
 
@@ -92,7 +108,9 @@ class TreeCnnSegmenter(nn.Module):
             'dropout': 0.1,
             'use_props': True,
             'value_head_hidden_size': 8,
+            'value_accumulator': 'max',
             'residual': False,
+            'use_batch_normalization': False,
         }
         if isinstance(hyper_parameter, dict):
             self.config.update(hyper_parameter)
@@ -107,7 +125,6 @@ class TreeCnnSegmenter(nn.Module):
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size+1,
             embedding_dim=embedding_size,
-            # embedding_dim=embedding_size-(num_props if self.config['use_props'] else 0),
             padding_idx=pad_token
         )
 
@@ -115,14 +132,16 @@ class TreeCnnSegmenter(nn.Module):
             self.combine = nn.Bilinear(embedding_size, num_props, embedding_size)
 
         def create_layer():
-            return IConv(embedding_size, embedding_size, kernel_size=kernel_size)
+            bn = [nn.BatchNorm1d(num_features=12)] if self.config['use_batch_normalization'] else []
+            return [
+                IConv(embedding_size, embedding_size, kernel_size=kernel_size),
+                *bn,
+                nn.LeakyReLU(inplace=True),
+                # nn.Dropout(p=self.config['dropout'], inplace=False)
+            ]
 
         self.cnn_hidden = SequentialByPass(*[layer for _ in range(self.config['hidden_layers'])
-                                             for layer in [
-                                                 create_layer(),
-                                                 nn.LeakyReLU(inplace=True),
-                                                 nn.Dropout(p=self.config['dropout'], inplace=False)]],
-
+                                             for layer in create_layer()],
                                            residual=self.config['residual'])
 
         # Heads
@@ -133,7 +152,7 @@ class TreeCnnSegmenter(nn.Module):
     def forward(self, x, s, p, *args):  # pylint: disable=arguments-differ
         # p: b,l
         # x: b,l,(e,props)
-        e = x[:, :, 0].squeeze()
+        e = x[:, :, 0]  # .squeeze()
         e = self.embedding(e)
         if self.config['use_props']:
             props = x[:, :, 1:].type(torch.FloatTensor).to(e.device)
@@ -146,10 +165,10 @@ class TreeCnnSegmenter(nn.Module):
 
         return self.policy(x, s, p), self.value(x, s)
 
-    @staticmethod
+    @ staticmethod
     def activation_names():
         return []
 
-    @property
+    @ property
     def device(self):
         return next(self.parameters()).device
