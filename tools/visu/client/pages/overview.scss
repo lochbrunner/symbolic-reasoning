@@ -3,8 +3,22 @@
         text-align: center;
     }
 
-    .row {
-        cursor: pointer;
+    table {
+        border-spacing: 20px 0;
+
+        .row {
+            cursor: pointer;
+            .positive{
+                color: #070;
+            }
+            .negative{
+                color: #700;
+            }
+
+            td > span {
+                margin: 0 4px;
+            }
+        }
     }
 
     .clickable {

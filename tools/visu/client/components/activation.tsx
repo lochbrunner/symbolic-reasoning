@@ -162,8 +162,8 @@ export function render(props: Props) {
     const [showIndexMap, changeShowIndexMap] = useState<boolean>(true);
     const [showPossibilities, changeShowPossibilities] = useState<boolean>(false);
     const [showPredictions, changeShowPredictions] = useState<boolean>(true);
-    const [filterPossibilities, changeFilterPossibilities] = useState<boolean>(false);
-    const [sortPossibilities, changeSortPossibilities] = useState<boolean>(false);
+    const [filterPossibilities, changeFilterPossibilities] = useState<boolean>(true);
+    const [sortPossibilities, changeSortPossibilities] = useState<boolean>(true);
 
     const { sample } = props;
 

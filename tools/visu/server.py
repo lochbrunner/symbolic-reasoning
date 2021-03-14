@@ -41,10 +41,12 @@ def create_index(inferencer: Inferencer, dataset):
         else:
             return len(array)
 
+    rule_index = {}
+
     for i, (_, _, y, p, v) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
         raw_sample = dataset.container[i]
         initial = raw_sample.initial
-        py, _ = inferencer.inference(initial, keep_padding=True)
+        py, pv = inferencer.inference(initial, keep_padding=True)
         validation = validate(truth=y, predict=py, p=p)
 
         gt_policy = [policy for ruleId, policy in zip(y.tolist(), p.tolist()) if ruleId != 0]
@@ -55,7 +57,11 @@ def create_index(inferencer: Inferencer, dataset):
             {
                 'validation': validation.as_dict(),
                 'initial': initial.latex_verbose,
-                'contributed': raw_sample.useful,
+                'value': {
+                    'gt': raw_sample.useful,
+                    'predicted': pv.tolist(),
+                    'error': abs(pv.tolist() - v[0].tolist())
+                },
                 'policy_gt': {
                     'positive': gt_policy_positive,
                     'negative': gt_policy_negative
@@ -70,8 +76,8 @@ def create_index(inferencer: Inferencer, dataset):
             }
         )
 
-    def sort(name):
-        extracted = [(i, sample['summary'][name]) for i, sample in enumerate(evaluation_results)]
+    def sort(name, group='summary'):
+        extracted = [(i, sample[group][name]) for i, sample in enumerate(evaluation_results)]
         extracted = sorted(extracted, key=lambda t: t[1])
         return [i for i, _ in extracted]
 
@@ -85,6 +91,9 @@ def create_index(inferencer: Inferencer, dataset):
         'exact-no-padding': sort('exact-no-padding'),
         'when-rule': sort('when-rule'),
         'with-padding': sort('with-padding'),
+        'value-gt': sort('gt', 'value'),
+        'value-predicted': sort('predicted', 'value'),
+        'value-error': sort('error', 'value'),
     }
 
     histogram = {
