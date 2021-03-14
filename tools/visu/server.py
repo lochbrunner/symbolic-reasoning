@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import List
+import sqlite3
 
 import numpy as np
 from common.config_and_arg_parser import ArgumentParser
@@ -9,11 +10,20 @@ from common.utils import (get_rule_mapping, get_rule_mapping_by_config,
                           setup_logging, split_dataset)
 from common.validation import Error, Ratio
 from dataset.bag import BagDataset
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, g
 from solver.inferencer import Inferencer
 from tqdm import tqdm
 
 from pycore import Scenario, fit
+
+DATABASE = '/tmp/database.db'
+
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+    return db
 
 
 def validate(truth, p, predict, no_negative=False) -> Error:
@@ -31,8 +41,71 @@ def validate(truth, p, predict, no_negative=False) -> Error:
     return error
 
 
+def query(begin: int, end: int, up: bool, sorting_key: str):
+    con = get_db()
+    cur = con.cursor()
+    if up:
+        sorting = 'ASC'
+    else:
+        sorting = 'DESC'
+
+    key_map = {
+        'exact-no-padding': 'summary__exact_no_padding',
+        'exact': 'summary__exact',
+        'when-rule': 'summary__when_rule',
+        'with-padding': 'summary__with_padding',
+        'value-gt': 'value__predicted',
+        'value-error': 'value__error',
+        'name': 'initial',
+    }
+
+    sorting_key = key_map.get(sorting_key, 'initial')
+
+    cur.execute(f'SELECT * FROM samples order by {sorting_key} {sorting} limit {begin}, {end}')
+    return [
+        {
+            'initial': row[0],
+            'value': {
+                'gt': row[1] == 1,
+                'predicted': row[2],
+                'error': row[3]
+            },
+            'policy_gt': {
+                'positive': row[4],
+                'negative': row[5]
+            },
+            'index': row[6],
+            'summary': {
+                'exact': row[7],
+                'exact-no-padding': row[8],
+                'when-rule': row[9],
+                'with-padding': row[10]
+            }
+        }
+        for row in cur.fetchall()]
+
+
 def create_index(inferencer: Inferencer, dataset):
-    evaluation_results = []
+    sqlite3.register_adapter(bool, int)
+    sqlite3.register_converter('boolean', lambda v: bool(int(v)))
+    con = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES)
+    cur = con.cursor()
+    cur.execute('CREATE TABLE samples ('
+                'initial text, '
+                'value__gt boolean, '
+                'value__predicted real, '
+                'value__error real, '
+                'policy_gt__positive integer, '
+                'policy_gt__negative integer, '
+                'index_number integer, '
+                'summary__exact integer, '
+                'summary__exact_no_padding integer, '
+                'summary__when_rule integer, '
+                'summary__with_padding integer '
+                ')')
+    con.commit()
+
+    # evaluation_results = []
 
     def findFirst(array: List[int]) -> int:
         indices = [i for i, e in enumerate(array) if e > 0]
@@ -41,7 +114,7 @@ def create_index(inferencer: Inferencer, dataset):
         else:
             return len(array)
 
-    rule_index = {}
+    evaluation_results = []
 
     for i, (_, _, y, p, v) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
         raw_sample = dataset.container[i]
@@ -53,20 +126,23 @@ def create_index(inferencer: Inferencer, dataset):
         gt_policy_positive = sum(1 for p in gt_policy if p > 0)
         gt_policy_negative = sum(1 for p in gt_policy if p < 0)
 
+        cur.execute(
+            "INSERT INTO samples VALUES("
+            f"'{initial.latex_verbose}', "                      # initial
+            f"{raw_sample.useful}, "                            # value
+            f"{pv.tolist()}, "
+            f"{abs(pv.tolist() - v[0].tolist())}, "
+            f"{gt_policy_positive}, "
+            f"{gt_policy_negative}, "
+            f"{i}, "                                            # index
+            f"{findFirst(validation.exact.tops)}, "             # summary
+            f"{findFirst(validation.exact_no_padding.tops)}, "  # summary
+            f"{findFirst(validation.when_rule.tops)}, "         # summary
+            f"{findFirst(validation.with_padding.tops)} "      # summary
+            ")")
+
         evaluation_results.append(
             {
-                'validation': validation.as_dict(),
-                'initial': initial.latex_verbose,
-                'value': {
-                    'gt': raw_sample.useful,
-                    'predicted': pv.tolist(),
-                    'error': abs(pv.tolist() - v[0].tolist())
-                },
-                'policy_gt': {
-                    'positive': gt_policy_positive,
-                    'negative': gt_policy_negative
-                },
-                'index': i,
                 'summary': {
                     'exact': findFirst(validation.exact.tops),
                     'exact-no-padding': findFirst(validation.exact_no_padding.tops),
@@ -75,26 +151,12 @@ def create_index(inferencer: Inferencer, dataset):
                 }
             }
         )
-
-    def sort(name, group='summary'):
-        extracted = [(i, sample[group][name]) for i, sample in enumerate(evaluation_results)]
-        extracted = sorted(extracted, key=lambda t: t[1])
-        return [i for i, _ in extracted]
+    con.commit()
 
     def hist(name):
         hist, bin_edges = np.histogram([(sample['summary'][name])
                                         for sample in evaluation_results], bins=list(range(21)))
         return {'hist': hist.tolist(), 'bin_edges': bin_edges.tolist()}
-
-    indices = {
-        'exact': sort('exact'),
-        'exact-no-padding': sort('exact-no-padding'),
-        'when-rule': sort('when-rule'),
-        'with-padding': sort('with-padding'),
-        'value-gt': sort('gt', 'value'),
-        'value-predicted': sort('predicted', 'value'),
-        'value-error': sort('error', 'value'),
-    }
 
     histogram = {
         'exact': hist('exact'),
@@ -103,7 +165,7 @@ def create_index(inferencer: Inferencer, dataset):
         'with_padding': hist('with-padding'),
     }
 
-    return evaluation_results, indices, histogram
+    return histogram
 
 
 def main(config, options):
@@ -121,7 +183,7 @@ def main(config, options):
     embed2ident = dataset.embed2ident
     assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
 
-    overview_samples, indices, histogram_data = create_index(inferencer, dataset)
+    histogram_data = create_index(inferencer, dataset)
 
     @app.route('/')
     def root():
@@ -182,23 +244,17 @@ def main(config, options):
         end = int(request.args['end'])
         sorting_key = request.args.get('key', 'none').lower()
         sorting_up = request.args.get('up', 'true')
-        dt = 1
-        if sorting_up == 'true':
-            begin = -begin - 1
-            end = -end - 1
-            dt = -1
-        if sorting_key == 'none':
-            request_overview = overview_samples[begin:end:dt]
-        else:
-            if sorting_key not in indices:
-                raise NotImplementedError(f'Not supported sorting: "{sorting_key}"')
-            index_map = indices[sorting_key]
-            request_overview = [overview_samples[i] for i in index_map[begin:end:dt]]
-        return jsonify(request_overview)
+        return jsonify(query(begin=begin, end=end, up=sorting_up == 'true', sorting_key=sorting_key))
 
     @app.route('/api/histogram')
     def histogram():
         return jsonify(histogram_data)
+
+    @app.teardown_appcontext
+    def close_connection(exception):
+        db = getattr(g, '_database', None)
+        if db is not None:
+            db.close()
 
     app.run()
 

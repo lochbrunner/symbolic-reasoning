@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import TeX from '@matejmazur/react-katex';
 import './overview.scss';
-import { ValidationMetricNames, ValidationMetrics } from '../interfaces';
+import { ValidationMetricNames } from '../interfaces';
 import { useHistory } from 'react-router-dom';
 
 function encodeQueryData(data: any) {
@@ -15,7 +15,6 @@ function encodeQueryData(data: any) {
 
 interface Sample {
     initial: string;
-    validation: ValidationMetrics;
     index: number;
     value: {
         gt: boolean;
@@ -36,7 +35,7 @@ interface Sample {
 }
 
 interface Sorting {
-    key: 'none' | ValidationMetricNames | 'value-gt' | 'value-predicted' | 'value-error';
+    key: 'none' | 'name' | ValidationMetricNames | 'value-gt' | 'value-predicted' | 'value-error';
     up: boolean;
 }
 
@@ -90,7 +89,7 @@ export default function overview(): JSX.Element {
 
     if (size !== null) {
         const tops = (sample: Sample, label: ValidationMetricNames) => {
-            const error = sample.validation[label].tops.findIndex(v => v > 0);
+            const error = sample.summary[label];
             return <td>{error}</td>;
         };
 
@@ -120,7 +119,7 @@ export default function overview(): JSX.Element {
                     <table>
                         <thead>
                             <tr>
-                                <th className="clickable" onClick={updateSorting('none')}>Initial</th>
+                                <th className="clickable" onClick={updateSorting('name')}>Initial</th>
                                 <th className="clickable" onClick={updateSorting('exact-no-padding')}>exact no padding</th>
                                 <th className="clickable" onClick={updateSorting('exact')}>exact</th>
                                 <th className="clickable" onClick={updateSorting('when-rule')}>when rule</th>
