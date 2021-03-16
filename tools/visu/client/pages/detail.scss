@@ -8,6 +8,22 @@
             margin: 25px;
             font-size: 160%;
             height: 80px;
+            padding: 0px 50px;
+            position: relative;
+
+            .hidden-menu {
+                position: absolute;
+                right: 0px;
+                top: 5px;
+                display: none;
+                .icon {
+                    cursor: pointer;
+                }
+            }
+            
+            &:hover .hidden-menu  {
+                display: inline-block;
+            }
         }
 
         .info {

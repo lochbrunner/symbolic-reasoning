@@ -5,8 +5,10 @@ import { Link, useHistory, useParams } from 'react-router-dom';
 import { render as Activation } from '../components/activation';
 import { Sample, ValidationMetrics, ErrorTops } from '../interfaces';
 import { Tooltip } from '@material-ui/core';
+import Copy from '../components/copy';
 
 import './detail.scss';
+import { copyToClipboard } from '../utils';
 
 
 function Value(props: { gt: number, predicted: number }): JSX.Element {
@@ -56,7 +58,8 @@ function Validation(props: { validationMetrics: ValidationMetrics }): JSX.Elemen
     );
 }
 
-export default function term(): JSX.Element {
+
+export default function render(): JSX.Element {
     const { index: index_str } = useParams<{ index: string }>();
     const history = useHistory();
     const index = parseInt(index_str);
@@ -90,11 +93,16 @@ export default function term(): JSX.Element {
                 <div className="summary">
                     <div className="term">
                         <TeX >{sample.latex}</TeX>
+                        <div className="hidden-menu">
+                            <div onClick={e => copyToClipboard(sample.latex)}>
+                                <Copy />
+                            </div>
+                        </div>
                     </div>
                     <Value gt={sample.groundTruthValue} predicted={sample.predictedValue} />
                     <Validation validationMetrics={sample.validationMetrics} />
                 </div >
-                <Activation sample={sample} />
+                <Activation sample={sample} sampleId={index} />
                 <div onKeyDown={onKeyDown as any} className="navbar">
                     <Link to={next}>Previous</Link>
                     <Link to={prev}>Next</Link>

@@ -1,33 +1,42 @@
+
+% sample id: #19818
 \begin{tikzpicture}[scale=0.6]
-    \foreach \y [count=\n] in {
-        {74,25,39,20,3,3,3,3,3},
-        {25,53,31,17,7,7,42,33,2},
-        {39,31,90,24,3,3,13,3,13},
-        {20,17,24,37,2,22,16,5,5},
+    \foreach \y [count=\p] in {
+        {40,0,30,58,44,58,58},
+        {43,6,27,26,17,36,36},
+        {37,28,35,51,31,63,54},
+        {52,87,100,100,97,92,78},
+        {47,30,24,53,34,39,37},
+        {60,42,62,76,73,71,63},
+        {45,57,55,85,60,67,55},
+        {86,62,64,84,100,79,72},
         } {
-        \foreach \x [count=\m] in \y {
-            \node[fill=yellow!\x!purple, minimum size=6mm, text=white] at (\m,-\n) {};
+        \foreach \x [count=\r] in \y {
+            \node[fill=yellow!\x!purple, minimum size=6mm, text=white] at (\r,-\p) {};
         }
     }
-    \foreach \t [count=\n] in {
-        $a+b \to b+a$,
-        $a\cdot c+b\cdot c \to \left(a+b\right)\cdot c$,
-        $a+\left(b+c\right) \to \left(a+b\right)+c$,
-        $a+b=0 \to a = -b$
+    \foreach \t [count=\p] in {
+        $a\cdot b \Rightarrow b\cdot a $,
+        $a=b \Rightarrow a-b=0 $,
+        $a=c\cdot b \Rightarrow \frac{a}{b}=c $,
+        $\frac{a}{b}=c \Rightarrow a=c\cdot b $,
+        $a=b \Rightarrow b=a $,
+        $a \Rightarrow 1\cdot a $,
+        $1\cdot a \Rightarrow a $,
+        $a \Rightarrow a+0 $
     } {
-        \node[anchor=west] at (10, -\n) {\t};
+        \node[anchor=west] at (8, -\p) {\t};
     }
-    \foreach \t [count=\m] in {
-        $\color{MidnightBlue} 3x + 2x =  10$,
-        ${\color{MidnightBlue} 3x + 2x} =  10$,
-        $3x + 2x = \color{MidnightBlue} 10$,
-        ${\color{MidnightBlue} 3x} + 2x = 10$,
-        $3x + {\color{MidnightBlue} 2x} = 10$,
-        ${\color{MidnightBlue}3}x + 2x = 10$,
-        $3{\color{MidnightBlue}x} + 2x = 10$,
-        $3x + {\color{MidnightBlue}2}x = 10$,
-        $3x + 2{\color{MidnightBlue}x} = 10$,
+    \foreach \t [count=\r] in {
+        $\textcolor{MidnightBlue}{\frac{b}{x}=1\cdot a}$,
+        $\textcolor{Gray}{\textcolor{MidnightBlue}{\frac{b}{x}}=1\cdot a}$,
+        $\textcolor{Gray}{\frac{b}{x}=\textcolor{MidnightBlue}{1\cdot a}}$,
+        $\textcolor{Gray}{\frac{\textcolor{MidnightBlue}{b}}{x}=1\cdot a}$,
+        $\textcolor{Gray}{\frac{b}{\textcolor{MidnightBlue}{x}}=1\cdot a}$,
+        $\textcolor{Gray}{\frac{b}{x}=\textcolor{MidnightBlue}{1}\cdot a}$,
+        $\textcolor{Gray}{\frac{b}{x}=1\cdot \textcolor{MidnightBlue}{a}}$
     } {
-        \node[anchor=west, rotate=-45] at (\m - 0.2, -4.7) {\t};
+        \node[anchor=west, rotate=-45] at (\r - 0.2, -8.7) {\t};
     }
-\end{tikzpicture}
+    \end{tikzpicture}
+    

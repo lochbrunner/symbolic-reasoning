@@ -8,9 +8,12 @@ import _ from 'lodash';
 import './activation.scss'
 import { FormControlLabel, FormGroup, FormLabel } from '@material-ui/core';
 import { Position, Sample } from '../interfaces';
+import Copy from '../components/copy';
+import { copyToClipboard, createLatexTable } from '../utils';
 
 export interface Props {
     sample: Sample;
+    sampleId: number;
 }
 
 interface Size {
@@ -190,10 +193,10 @@ export function render(props: Props) {
 
     if (showPredictions) {
         if (filterPossibilities) {
-            const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId))
+            const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId));
             ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
             if (sortPossibilities) {
-                layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)]
+                layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
             } else {
                 layers = [...layers, ...createMapFiltered(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
             }
@@ -204,9 +207,9 @@ export function render(props: Props) {
     const x_labels = sample.parts.map((l, i) => <div key={i} style={{
         right: `${(nx - i - 0.8) * dx}px`
     }}><TeX math={l} /></div>);
-    let rules = sample.rules.map((rule, ruleId) => ({ rule, ruleId }));
+    let rules = sample.rules.map((rule, ruleId) => ({ rule, ruleId, origId: ruleId }));
     if (ruleMap !== null) {
-        rules = rules.filter(({ rule, ruleId }) => ruleId in (ruleMap as any)).map(({ rule, ruleId }) => ({ rule, ruleId: (ruleMap as any)[ruleId] }));
+        rules = rules.filter(({ rule, ruleId }) => ruleId in (ruleMap as any)).map(({ rule, ruleId }) => ({ rule, origId: ruleId, ruleId: (ruleMap as any)[ruleId] }));
     }
     const y_labels = rules.map(({ rule, ruleId }) => <div key={ruleId} style={{
         top: `${dy * ruleId}px`,
@@ -228,6 +231,10 @@ export function render(props: Props) {
         }
         layers = [...layers, ...groundTruth];
     }
+
+    const download = () => {
+        copyToClipboard(createLatexTable({ sample, rules, sampleId: props.sampleId }));
+    };
 
     let inputLayers: JSX.Element[] = [];
 
@@ -303,6 +310,7 @@ export function render(props: Props) {
                     <FormControlLabel label="Number" control={
                         <Switch checked={showNumber} onChange={changeShowX(changeShowNumber)} color="primary" />
                     } />
+                    <div className="copy-table" onClick={e => download()}><Copy /></div>
                 </FormGroup>
             </div>
         </div>
