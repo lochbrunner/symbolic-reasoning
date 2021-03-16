@@ -9,7 +9,7 @@ import './activation.scss'
 import { FormControlLabel, FormGroup, FormLabel } from '@material-ui/core';
 import { Position, Sample } from '../interfaces';
 import Copy from '../components/copy';
-import { copyToClipboard, createLatexTable } from '../utils';
+import { copyToClipboard, createLatexTable, createLatexTableFiltered } from '../utils';
 
 export interface Props {
     sample: Sample;
@@ -233,7 +233,12 @@ export function render(props: Props) {
     }
 
     const download = () => {
-        copyToClipboard(createLatexTable({ sample, rules, sampleId: props.sampleId }));
+        if (ruleMap !== null) {
+            copyToClipboard(createLatexTableFiltered({ ruleMap, sample, rules, sampleId: props.sampleId }));
+        }
+        else {
+            copyToClipboard(createLatexTable({ sample, rules, sampleId: props.sampleId }));
+        }
     };
 
     let inputLayers: JSX.Element[] = [];

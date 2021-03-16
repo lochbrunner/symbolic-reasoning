@@ -37,7 +37,6 @@ export interface Sample {
     groundTruthValue: number;
     parts: string[];
     rules: string[];
-    predictions: number[][];
     predictedPolicy: number[][];
     possibleFits: Position[];
     validationMetrics: ValidationMetrics;
