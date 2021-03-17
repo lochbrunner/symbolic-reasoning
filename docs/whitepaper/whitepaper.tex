@@ -5,6 +5,7 @@
 \usepackage{lmodern}
 \usepackage{babel}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{mathtools}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{tikz}
@@ -21,30 +22,47 @@ sorting=none
 \author{Matthias Lochbrunner}
 \date{\today}
 
+\theoremstyle{definition}
+\newtheorem{exmp}{Example}[section]
+
 \begin{document}
 \maketitle
 \begin{center}
 	\textbf{Abstract}
 \end{center}
 \begin{abstract}
-	Solving mathematical problems with a rule based beam search using deep neuronal networks for policy and value estimation.
-	This natural approach is capable of solving problems in formal science. 
+	The combination of a rule based beam search and with deep learning is a promising approach to solve mathematical problems.
+	One obstacle to overcome is the amount of possible branches in that search when the number of rules and depth of the calculation increases.
+	This paper proposes this issue by constantly shrinking the beam size a multi-head neuronal network:
+	A policy head to select rules and positions in the current term. A value head to evaluate the probability that this trace might lead to desired solution.
+	Both heads help to reduce the beam size such that solving advanced mathematical problems is feasible.
 \end{abstract}
 
 \section{Motivation}
-Discover new knowledge from the known.  
-\begin{itemize}
-	\item Adapt human like approach and how they learn.
-	\item Scalable: This solution can be applied on each formal problem of any domain.
-	\item Correctness: The result is always correct as the generation process is based on hard correct rules.
-	\item Applicable to literature: As the network can grow it can incorporate new information formatted as rules as humans do. 
-\end{itemize}
+
+As current approaches to solve mathematical problems are using a complex but fixed rule set, it takes manual effort to increase their capabilities. [Citation needed]
+The here described generic approach could be capable to absorb additional formal described rules without the need of manual work.
+Furthermore it is not limited to mathematical calculus as long as the domain can be described by a well defined human readable rules.
+The correctness of the result only depends on the correctness of the given rules.
 
 \section{Method}
 
-\subsection{Fit and Apply}
+Given a problem, e.g. solve a equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$ the beam search could try to apply various rules at different nodes at the syntax tree of the equation.
+The policy head proposes the most promising combination of rules and positions in the current equation.
+The accumulated outcome of the value head can cancel the attempt solution path as it "seems" unlikely the this attempt may succeed.
 
-\textbf{Example}
+\subsection{Apply a Rule}
+
+Every rule has the shape of $A \Longrightarrow B$ or $A \equiv B$ which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
+Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper. Given the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
+We try to match condition $A$ with any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$ where $s$ is the maximal number of children per node the syntax tree.
+Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_c \to S_t$ where $S_t$ is a subset of the symbols in term $T$ and $S_c$ a subset of the symbols in the condition $A$.
+Lets name the sub-terms of $T_{n_1, n_2, \dots, n_d}$ where $T_1$ for instance is the first child node of the root in that tree.
+$T_{1,1}$ the first child of $T_1$ and so on.
+Then the application of that rule results new terms $T^{(j)}$ where the nodes at $p_j$ get replaced by $B'^{M_j}$ which is $B$ with symbols mapped by $M_j$. 
+
+\begin{exmp}
+Application of the derivative rule for polynomials
 
 Consider the derivative rule
 \begin{align}
@@ -54,22 +72,24 @@ applied to the term
 \begin{align}
 	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^4 
 \end{align}.
-Using the mapping ${\color{red}x \coloneqq z}$ and ${\color{blue}n \coloneqq {\color{blue}4}}$ leads to the new term
+Using the symbolic mapping ${\color{red}x \coloneqq z}$ and ${\color{blue}n \coloneqq {\color{blue}4}}$ leads to the new term
 \begin{align}
 	{\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} 
-\end{align}
+\end{align}.
 
-\subsection{Policy and Value Networks}
+\end{exmp}
 
-Based on two different architecture multi-head networks for value and policy estimation \cite{44806}.
+\subsection{Policy and Value Heads}
+
+Based on two different architecture multi-head heads for value and policy estimation \cite{44806}.
 
 The policy head suggests useful locations and rules to apply on the given term. This outcome is used to shrink the width of the search beam.
-It turned out that is very important to suppress non-sense rule application as they can blow up the beam. (Negative training samples.)
+It turned out that it is very important to suppress non-sense rule application as they can blow up the beam. (Negative training samples.)
 
-The value head estimates how likely the given term might lead to success. If the value is below a specified threshold the track gets cancelled.
+The value head estimates how likely the given term might lead to success. If the value is below a specified threshold the calculation-track gets cancelled.
 
 \subsubsection{Challenges for Tree Structured Data}
-As each term is represented as directed async graph standard neuronal operation can not be performed on this input.
+As each term is represented as directed acyclic graph standard neuronal operation can not be applied on this input.
 The CNN based network uses an adapted operation for tree structured data.
 Special positional encoding for transformer based architecture.
 
