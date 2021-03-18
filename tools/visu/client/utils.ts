@@ -49,7 +49,7 @@ export function createLatexTableFiltered(props: { sample: Sample, ruleMap: { [or
     \\foreach \\r/\\p/\\v in {
     ${cells}
         } {
-        \\node[fill=yellow!\\v!purple, minimum size=6mm, text=white] at (\\p+1, -1-\\r) {};
+        \\node[fromColorBar=\\v, minimum size=6mm, text=white] at (\\p+1, -1-\\r) {};
     }
     \\foreach \\t [count=\\p] in {
     ${rules}
@@ -61,6 +61,23 @@ export function createLatexTableFiltered(props: { sample: Sample, ruleMap: { [or
     } {
         \\node[anchor=west, rotate=-45] at (\\r - 0.2, ${(-0.7 - props.rules.length).toFixed(1)}) {\\t};
     }
+    \\begin{axis}[
+        hide axis,
+        scale only axis,
+        height=0pt,
+        width=0pt,
+        colormap/jet,
+        colorbar horizontal,
+        point meta min=18,
+        point meta max=45,
+        colorbar style={
+            width=8cm,
+            xtick={0,50},
+            rotate=90,
+            at={(-1.5cm,-1cm)},
+            anchor=north west
+        }]
+    \\end{axis}
 \\end{tikzpicture}
 `;
 }

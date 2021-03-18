@@ -9,6 +9,8 @@
 \usepackage{mathtools}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{amssymb}
 
 \usepackage[
 backend=biber,
@@ -24,6 +26,15 @@ sorting=none
 
 \theoremstyle{definition}
 \newtheorem{exmp}{Example}[section]
+
+\pgfplotsset{colormap/jet}
+
+\tikzset{
+    fromColorBar/.style={
+        color of colormap={1000-#1*10},
+        fill=.,
+    },
+}
 
 \begin{document}
 \maketitle
@@ -49,20 +60,21 @@ The correctness of the result only depends on the correctness of the given rules
 
 Given a problem, e.g. solve a equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$ the beam search could try to apply various rules at different nodes at the syntax tree of the equation.
 The policy head proposes the most promising combination of rules and positions in the current equation.
-The accumulated outcome of the value head can cancel the attempt solution path as it "seems" unlikely the this attempt may succeed.
+The accumulated outcome of the value head can cancel the attempt solution path as it "seems" unlikely the this attempt may succeed \cite{44806}.
 
 \subsection{Apply a Rule}
 
 Every rule has the shape of $A \Longrightarrow B$ or $A \equiv B$ which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
 Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper. Given the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
-We try to match condition $A$ with any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$ where $s$ is the maximal number of children per node the syntax tree.
+We try to match condition $A$ with any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$,
+where $s$ is the maximal number of children per node in the syntax tree.
 Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_c \to S_t$ where $S_t$ is a subset of the symbols in term $T$ and $S_c$ a subset of the symbols in the condition $A$.
-Lets name the sub-terms of $T_{n_1, n_2, \dots, n_d}$ where $T_1$ for instance is the first child node of the root in that tree.
+Let the sub-terms of $T$ be $T_{n_1, n_2, \dots, n_d}$ where $T_1$ for instance is the first child node of the root in that tree.
 $T_{1,1}$ the first child of $T_1$ and so on.
-Then the application of that rule results new terms $T^{(j)}$ where the nodes at $p_j$ get replaced by $B'^{M_j}$ which is $B$ with symbols mapped by $M_j$. 
+Then the application of that rule results in the new terms $T^{(j)}$ where each the node at $p_j$ gets replaced by $B'^{M_j} \coloneqq M_J\left( B \right)$ which is $B$ with symbols mapped by $M_j$. 
 
 \begin{exmp}
-Application of the derivative rule for polynomials
+To illustrate the above let us take a look on the application of the derivative rule for polynomials.
 
 Consider the derivative rule
 \begin{align}
@@ -72,32 +84,67 @@ applied to the term
 \begin{align}
 	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^4 
 \end{align}.
-Using the symbolic mapping ${\color{red}x \coloneqq z}$ and ${\color{blue}n \coloneqq {\color{blue}4}}$ leads to the new term
+Using the symbolic mapping ${M\left(\color{red}{x}\right) = \color{red}z}$ and ${M\left(\color{blue}{n} \right) = {\color{blue}4}}$ leads to the new term
 \begin{align}
 	{\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} 
 \end{align}.
 
 \end{exmp}
 
-\subsection{Policy and Value Heads}
+\subsection{Network architecture for Tree Structured Data}
 
-Based on two different architecture multi-head heads for value and policy estimation \cite{44806}.
+An obvious approach to feed the tree $T$ into a network would be to roll them out to a linear sequence and apply standard NLP network architectures. \cite{Lample2020Deep}
+The approach discussed here keeps the tree structure. It turned out that Tree-LSTM perform poorly on that data \cite{tai2015improved}.
 
-The policy head suggests useful locations and rules to apply on the given term. This outcome is used to shrink the width of the search beam.
-It turned out that it is very important to suppress non-sense rule application as they can blow up the beam. (Negative training samples.)
+This paper will discuss the adoption of two different architectures: Indexed convolution and transformer with special positional encoding.
 
-The value head estimates how likely the given term might lead to success. If the value is below a specified threshold the calculation-track gets cancelled.
+\subsubsection{Indexed Convolution}
 
-\subsubsection{Challenges for Tree Structured Data}
-As each term is represented as directed acyclic graph standard neuronal operation can not be applied on this input.
-The CNN based network uses an adapted operation for tree structured data.
-Special positional encoding for transformer based architecture.
+The indexed CNN operation performs a convolution of each node with it's neighbor nodes and itself.
+In order to increase the compute efficiency each term is rolled out.
+Let $t_{n_1, n_2, \dots, n_d}$ be the symbol at the root of sub-term $T_{n_1, n_2, \dots, n_d}$,
+then the breadth-first unrolled tern with $s=2$ looks like $t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots$ with length $L$.
+An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carry the index of the neighbors in a fixed order.
+
+With the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$ tensors with the input channel size $i$ and output channel size $j$,
+the indexed convolution $C$ is defined as
+
+\begin{align}
+	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
+\end{align}
+
+where $1 \leq \ell \leq L$ is the index along the unrolled term.
+
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/network_output.tex}
-	\caption{Policy Network output: Each row is a possible rule. Each column a position in the initial term. Impossible rule applications are filtered out here.} \label{fig:M1}
+	\caption{Policy Network output: Each row is a possible rule. Each column a position in the initial term (highlighted in blue).
+	Impossible rule applications are filtered out here.
+	The upper rules are more preferred by the policy head as the lower ones.}
 \end{figure}
+
+\subsubsection{Transformer and Positional Encoding}
+
+Position encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
+The desired properties for sub-terms $T_a$ and $T_b$ should be:
+\begin{enumerate}
+	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is metric for the relative.
+	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is independent of the absolute location the sub-terms.
+\end{enumerate}
+
+A naive approach is to draw the tree on a two dimensional plane count the sub-terms from left to right.
+This approach does not fullfil any of the desired properties.
+
+But when dividing these numbers iteratively by $s$.
+
+\begin{align}
+	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
+\end{align}
+
+and collecting them, these properties are nearly fulfilled. 
+This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
+
 
 \subsection{Data loop}
 
@@ -115,8 +162,17 @@ We have defined all basic rules to perform the given problems as scenario config
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/beam_search.tex}
-	\caption{Search beam: Green trace is the correct solution. The red branches are leading not leading to a solution. The light nodes are skipped in later searches when the model is trained.} \label{fig:M1}
+	\caption{Search beam: Green trace is the correct solution. The red branches are leading not leading to a solution. The light nodes are skipped in later searches when the model is trained.}
 \end{figure}
+
+\begin{figure}[!htbp]
+	\centering
+	Todo
+	\caption{The number of solved problems is increasing as often the T3 loop is iterated.}
+\end{figure}
+
+It turned out that it is very important to suppress non-sense rule applications as they can blow up the beam.
+To overcome this issue adding negative training samples is quite important.
 
 \section{Conclusion}
 

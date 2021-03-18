@@ -4,7 +4,7 @@
     \foreach \r/\p/\v in {
     0/2/0, 1/0/19, 2/0/11, 3/0/31, 4/0/26, 5/1/18, 5/3/66, 5/4/61, 5/2/46, 5/5/59, 5/6/48, 6/2/37, 7/1/46, 7/3/78, 7/4/100, 7/2/48, 7/5/70, 7/6/60
         } {
-        \node[fill=yellow!\v!purple, minimum size=6mm, text=white] at (\p+1, -1-\r) {};
+        \node[fromColorBar=\v, minimum size=6mm, text=white] at (\p+1, -1-\r) {};
     }
     \foreach \t [count=\p] in {
         $a\cdot b \Rightarrow b\cdot a $,
@@ -29,4 +29,20 @@
     } {
         \node[anchor=west, rotate=-45] at (\r - 0.2, -8.7) {\t};
     }
+    \begin{axis}[
+        hide axis,
+        scale only axis,
+        height=0pt,
+        width=0pt,
+        colorbar horizontal,
+        point meta min=18,
+        point meta max=45,
+        colorbar style={
+            width=8cm,
+            xtick={0,50},
+            rotate=90,
+            at={(-1.5cm,-1cm)},
+            anchor=north west
+        }]
+    \end{axis}
 \end{tikzpicture}
