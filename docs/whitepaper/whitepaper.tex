@@ -11,6 +11,7 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage{amssymb}
+\usepackage{enumitem}
 
 \usepackage[
 backend=biber,
@@ -43,97 +44,101 @@ sorting=none
 \end{center}
 \begin{abstract}
 	The combination of a rule based beam search and with deep learning is a promising approach to solve mathematical problems.
-	One obstacle to overcome is the amount of possible branches in that search when the number of rules and depth of the calculation increases.
-	This paper proposes this issue by constantly shrinking the beam size a multi-head neuronal network:
-	A policy head to select rules and positions in the current term. A value head to evaluate the probability that this trace might lead to desired solution.
-	Both heads help to reduce the beam size such that solving advanced mathematical problems is feasible.
+	One obstacle to overcome is the amount of possible branches in that search when the number of applicable rules and length of the calculation increases.
+	This paper proposes to address this issue by constantly shrinking the beam size with a multi-head neuronal network:
+	A policy head selects rules and positions in the current term. A value head evaluates the probability that this calculation might lead to desired solution.
+	Both heads help to reduce the beam size such that solving advanced mathematical problems becomes feasible.
 \end{abstract}
 
 \section{Motivation}
 
-As current approaches to solve mathematical problems are using a complex but fixed rule set, it takes manual effort to increase their capabilities. [Citation needed]
-The here described generic approach could be capable to absorb additional formal described rules without the need of manual work.
-Furthermore it is not limited to mathematical calculus as long as the domain can be described by a well defined human readable rules.
-The correctness of the result only depends on the correctness of the given rules.
+As current approaches to solve mathematical problems are using a complex but fixed rule set, it takes manual effort to increase their capabilities \cite{wolfram}.
+The here described generic approach could be capable to absorb additional rules without the need of manual work.
+Furthermore it is not limited to mathematical calculus as long as the domain can be described by a well defined human readable rule set.
+The correctness of the result only depends on the correctness of the given rule set.
 
 \section{Method}
 
-Given a problem, e.g. solve a equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$ the beam search could try to apply various rules at different nodes at the syntax tree of the equation.
+Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$ the beam search could try to apply various rules at different nodes at the syntax tree of the equation.
 The policy head proposes the most promising combination of rules and positions in the current equation.
-The accumulated outcome of the value head can cancel the attempt solution path as it "seems" unlikely the this attempt may succeed \cite{44806}.
+The accumulated outcome of the value head can cancel the solution path of the attempt as it "seems" unlikely the this attempt may succeed \cite{44806}.
 
-\subsection{Apply a Rule}
+\subsection{Rule Application}
 
 Every rule has the shape of $A \Longrightarrow B$ or $A \equiv B$ which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
 Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper. Given the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
-We try to match condition $A$ with any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$,
+We try to match condition $A$ at any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$,
 where $s$ is the maximal number of children per node in the syntax tree.
-Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_c \to S_t$ where $S_t$ is a subset of the symbols in term $T$ and $S_c$ a subset of the symbols in the condition $A$.
-Let the sub-terms of $T$ be $T_{n_1, n_2, \dots, n_d}$ where $T_1$ for instance is the first child node of the root in that tree.
+Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_c \to S_t$,
+where $S_{T_p}$ is a set of the symbols in term $T_p$ and $S_A$ the set of the symbols in the condition $A$.
+Let the sub-terms of $T$ be $T_p$ with $p \in \big\{\left( n_1, n_2, \dots, n_d \right) , n_i \in \mathbb{N} \big\}$ where $T_1$ for instance is the first child node of the root in that tree.
 $T_{1,1}$ the first child of $T_1$ and so on.
-Then the application of that rule results in the new terms $T^{(j)}$ where each the node at $p_j$ gets replaced by $B'^{M_j} \coloneqq M_J\left( B \right)$ which is $B$ with symbols mapped by $M_j$. 
+Then the application of that rule results in the new terms $T^{(j)}$ where each the node at $p_j$ gets replaced by $B'^{(j)} \coloneqq M_j\left( B \right)$ which is $B$ with symbols mapped by $M_j$. 
 
 \begin{exmp}
 To illustrate the above let us take a look on the application of the derivative rule for polynomials.
 
 Consider the derivative rule
 \begin{align}
-	\frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n} \Longrightarrow n\cdot {\color{red}x}^{{\color{blue}n}-1} 
+	\frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n} \Longrightarrow {\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1} 
 \end{align}
 applied to the term
 \begin{align}
-	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^4 
+	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}
 \end{align}.
-Using the symbolic mapping ${M\left(\color{red}{x}\right) = \color{red}z}$ and ${M\left(\color{blue}{n} \right) = {\color{blue}4}}$ leads to the new term
+Using the symbolic mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\left({\color{blue}n} \right) = {\color{blue}4}$ leads to the new term
 \begin{align}
 	{\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} 
 \end{align}.
 
 \end{exmp}
 
-\subsection{Network architecture for Tree Structured Data}
+\subsection{Network Architecture for Tree Structured Data}
 
-An obvious approach to feed the tree $T$ into a network would be to roll them out to a linear sequence and apply standard NLP network architectures. \cite{Lample2020Deep}
+An obvious approach to feed the term $T$ into a network would be to roll them out the syntax tree to a linear sequence and apply standard NLP network architectures. \cite{Lample2020Deep}
 The approach discussed here keeps the tree structure. It turned out that Tree-LSTM perform poorly on that data \cite{tai2015improved}.
 
-This paper will discuss the adoption of two different architectures: Indexed convolution and transformer with special positional encoding.
+This paper will discuss the adoption of two different architectures: Indexed convolution and attention networks with special positional encoding.
 
 \subsubsection{Indexed Convolution}
 
-The indexed CNN operation performs a convolution of each node with it's neighbor nodes and itself.
+The indexed CNN operation performs a convolution of each node on it's neighbor nodes and itself.
 In order to increase the compute efficiency each term is rolled out.
-Let $t_{n_1, n_2, \dots, n_d}$ be the symbol at the root of sub-term $T_{n_1, n_2, \dots, n_d}$,
-then the breadth-first unrolled tern with $s=2$ looks like $t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots$ with length $L$.
-An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carry the index of the neighbors in a fixed order.
+Let $t_p$ be the symbol at the root of sub-term $T_p$,
+then the breadth-first unrolled tern with $s=2$ is a vector $t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots$ with length $L$.
+An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carries the index of the neighbors in a constant order.
 
-With the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$ tensors with the input channel size $i$ and output channel size $j$,
+With the input channel size $i$ and output channel size $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
 the indexed convolution $C$ is defined as
 
 \begin{align}
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
-where $1 \leq \ell \leq L$ is the index along the unrolled term.
+where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
 
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/network_output.tex}
-	\caption{Policy Network output: Each row is a possible rule. Each column a position in the initial term (highlighted in blue).
-	Impossible rule applications are filtered out here.
-	The upper rules are more preferred by the policy head as the lower ones.}
+	\caption{Policy Network output: Each row is a possible rule. Each column a sub-term $T_{p_j}$ of the initial term $T$ (highlighted in blue).
+	Rules which are not applicable for the any $T_{p_j}$ are not shown here.
+	This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in in the in the at the bottom of the map.}
+	\label{fig:network_output}
 \end{figure}
+
+Figure \ref{fig:network_output} demonstrates the output of the policy head applied on the term $\frac{b}{x}=1\cdot a$ .
 
 \subsubsection{Transformer and Positional Encoding}
 
 Position encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
 The desired properties for sub-terms $T_a$ and $T_b$ should be:
-\begin{enumerate}
-	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is metric for the relative.
-	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is independent of the absolute location the sub-terms.
+\begin{enumerate}[label=(\roman*)]
+	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is metric for the relative position of sub-terms $T_A$ and $T_B$.
+	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is independent of the absolute position of the sub-terms.
 \end{enumerate}
 
-A naive approach is to draw the tree on a two dimensional plane count the sub-terms from left to right.
+A naive approach is to draw the tree on a two dimensional plane and count the sub-terms from left to right.
 This approach does not fullfil any of the desired properties.
 
 But when dividing these numbers iteratively by $s$.
@@ -142,56 +147,116 @@ But when dividing these numbers iteratively by $s$.
 	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
 \end{align}
 
-and collecting them, these properties are nearly fulfilled. 
+and collecting them at least on of that vectors nearly fullfil these properties. 
 This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
 
 
-\subsection{Data loop}
+\subsection{Three-T-Loop}
 
-From given (training) problems the algorithm trains itself by the three-T-loop: 
+The training set consists of generated problems solved by sympy \cite{10.7717/peerj-cs.103}.
+A training sample is also of the shape as a rule $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the initial term and $T^{(\text T)}$ the target term of the solution.
+The goal is not to find the shortest chain of rule application such that lead to the target term:
 
-\begin{itemize}
+\begin{align}
+	T^{(\text I)} \Longrightarrow T^{(j)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
+	\label{eq:calculation_chain}
+\end{align}
+
+In order to get trainable data out of the given problem set we use an initial beam search without the help of a network.
+A few simple problems can still be solved and learnable data can be extracted from these solution paths.
+Let's call this procedure \textit{three-T-loop} which consists of these three steps:
+
+\begin{enumerate}[label=(\roman*)]
 	\item \textbf{Try} to solve some of the training problems.
 	\item \textbf{Trace} the calculation steps of the solved problems and create training samples out of them.
 	\item \textbf{Train} the model with these useful and useless trainings steps created.
-\end{itemize}
+\end{enumerate}
 
-\section{Results}
-We have defined all basic rules to perform the given problems as scenario configuration.
+In each iteration of that \textit{three-T-loop} the number of trainable data increases. 
+As the performance of the network increases it can solve more and more problems.
+The trained network also reduces the amount used rule applications as they are cancelled depending on the outcome of the value head (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
+
+
+This loop can be extended by a forth step discussed in the outlook section, which optimizes the step (i) with an additional approach.
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/beam_search.tex}
-	\caption{Search beam: Green trace is the correct solution. The red branches are leading not leading to a solution. The light nodes are skipped in later searches when the model is trained.}
+	\caption{Search beam: The green trace is the correct solution.
+	The red branches do not lead to a solution.
+	The light nodes are skipped in later searches when the model is trained.}
+	\label{fig:beam_search}
 \end{figure}
+
+
+\section{Results}
+
+We have defined a basic rule set to perform the given problems via a scenario configuration.
 
 \begin{figure}[!htbp]
 	\centering
 	Todo
 	\caption{The number of solved problems is increasing as often the T3 loop is iterated.}
+	\label{fig:t3loop_performance}
 \end{figure}
+
+Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems increase with each iteration. 
 
 It turned out that it is very important to suppress non-sense rule applications as they can blow up the beam.
 To overcome this issue adding negative training samples is quite important.
 
 \section{Conclusion}
 
+Although the here described approach for solving mathematical problems is hardly optimized yet,
+it showed that it is capable of solving problems in the domain of calculus.
+Many extension of that approach are possible  as mentioned the outlook section.
+
 \section{Outlook}
+
+Let us group some ideas of extension to that approach in two categories:
+Due to the limited time budget many of them could not be tried out yet.
+But as the basics are set and proven to work it might be reasonable that they might work in the near future.
+The second group would require an extension of the core algorithm which would only be feasible in the far future.
+
 \subsection{Near Future}
-\begin{itemize}
-	\item Insert found corollaries into the existing network. (Growable tree structured network architecture). \cite{graves2016hybrid}
-	\item Enhance rules with variable conditions.
-\end{itemize}
+
+\subsubsection{Append Corollaries to Rule Set}
+
+The basic rule set contains just definitions which leads to atomic step in the calculation.
+These tine steps result in long calculation chains of formula (\ref{eq:calculation_chain}).
+But it turned out that some parts repeat over and over again.
+Exactly these corollaries could be inserted into the original rule set.
+To do this, you need to address three challenges:
+
+\begin{enumerate}[label=(\roman*)]
+	\item You have to evaluate which corollary is worth to store.
+	\item You have to insert the new rule into the already trained network.
+	\item As there might be a huge amount of interesting corollaries the training and inference time should increase less than linear with the number of rules.
+\end{enumerate}
+
+One can overcome these challenges with a new network architecture, which will be presented in a future paper.
+
+\subsubsection{Optimizing the Network}
+
+As mentioned above the limited time budged lead to a far from perfect network architecture.
+The same also applies the time-performance of the indexed CNN operation and which would allow to perform a hyper-parameter tuning in a feasible duration. 
+
 
 \subsection{Far Future}
-\begin{itemize}
-	\item Support propositional logic to increase the set of mathematical problem.
-\end{itemize}
+
+In university level mathematics many rules depend on multiple conditions.
+E.g. the simple commutative property has three: $\forall a \in \mathbb{R}$ and $\forall b \in \mathbb{R}$ applies $a\cdot b \equiv a\cdot b$.
+This could be represented by the concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
+Then you are almost at propositional logic which the challenge of multiple concurrency calculation chains needed in for the final result.
+
+Furthermore some conditions use first-order logic, which introduces very new kinds of rules.
+
 
 \section{Related work}
 
 \begin{itemize}
 	\item Using state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}. Differences: 1D data instead of Tree structured data. Not based on rules. 
+	\item Todo: Find more related work.
 \end{itemize}
 
 \printbibliography

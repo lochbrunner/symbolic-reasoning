@@ -13,7 +13,12 @@
         "runs": true,
         "snapshots": true,
         "target": true,
-        "yarn.lock": true
+        "yarn.lock": true,
+        "**/*.aux": true,
+        "**/*.bbl": true,
+        "**/*.bcf": true,
+        "**/*.blg": true,
+        "**/*.run.xml": true,
     },
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}/ml"
