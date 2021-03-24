@@ -1,0 +1,56 @@
+\def\ConvColor{rgb:yellow,5;red,2.5;white,5}
+\def\ConvReluColor{rgb:yellow,5;red,5;white,5}
+
+\begin{tikzpicture}
+\tikzstyle{connection}=[ultra thick,every node/.style={sloped,allow upside down},draw=\edgecolor,opacity=0.7]
+
+\pic[shift={(0,0,0)}] at (0,0,0) {RightBandedBox={name=ix,caption=input,%
+        xlabel={{"t", "f"}},ylabel=L,zlabel=b,fill=\ConvColor,bandfill=\ConvColor,%
+        height=8,width={2, 3},depth=8}};
+
+\pic[shift={(0,3,0)}] at (0,0,0) {Box={name=i1,caption=indices,%
+        xlabel={{"g"}},ylabel=L,zlabel=b,fill=\ConvColor,%
+        height=8,width={2},depth=8}};
+
+\pic[shift={(2,0,0)}] at (ix-east) {RightBandedBox={name=ic1,caption=iconv,%
+        xlabel={{"e"}},ylabel=L,zlabel=b,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=10,width={3},depth=10}};
+
+\pic[shift={(4,0,0)}] at (ix-east) {RightBandedBox={name=ic2,caption=iconv,%
+        xlabel={{"e"}},ylabel=L,zlabel=b,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=10,width={3},depth=10}};
+
+% heads
+
+\pic[shift={(8,0,-4)}] at (ix-east) {RightBandedBox={name=icv,caption=iconv,%
+xlabel={{"e"}},ylabel=L,zlabel=b,fill=\ConvColor,bandfill=\ConvReluColor,%
+height=10,width={3},depth=10}};
+
+\pic[shift={(10,0,-4)}] at (ix-east) {Box={name=ov,caption=value,%
+xlabel={{"1"}},zlabel=b,ylabel=1,fill=\ConvColor,%
+height=1,width={1},depth=10}};
+
+\pic[shift={(8,0,4)}] at (ix-east) {RightBandedBox={name=icp,caption=iconv,%
+        xlabel={{"e", "dummy"}},ylabel=L,zlabel=b,fill=\ConvColor,bandfill=\ConvReluColor,%
+        height=10,width={3},depth=10}};
+
+\pic[shift={(10,0,4)}] at (ix-east) {Box={name=op,caption=policy,%
+        xlabel={{"r", "dummy"}},ylabel=L,zlabel=b,fill=\ConvColor,%
+        height=10,width={8},depth=10}};
+
+
+\path (ix-east) -- (ix-west) coordinate[pos=0.4] (after4) ;
+
+\draw [connection] (ix-east) -- node {\midarrow} (ic1-west);
+\draw [connection]  (ic1-east) -- node {\midarrow} (ic2-west);
+\draw [connection]  (ic2-east) -- node {\midarrow} (icv-west);
+\draw [connection]  (icv-east) -- node {\midarrow} (ov-west);
+\draw [connection]  (ic2-east) -- node {\midarrow} (icp-west);
+\draw [connection]  (icp-east) -- node {\midarrow} (op-west);
+
+\draw [connection] (i1-east) -- ++ (2.5,0,0) -- node {\midarrow} (ic1-west);
+\draw [connection] (i1-east) -- ++ (4.5,0,0) -- node {\midarrow} (ic2-west);
+\draw [connection] (i1-east) -- ++ (5,0,0) -- ++ (3.5, 0, -4) -- node {\midarrow} (icv-west);
+\draw [connection] (i1-east) -- ++ (5,0,0) -- ++ (3.5, 0, +4) -- node {\midarrow} (icp-west);
+
+\end{tikzpicture}

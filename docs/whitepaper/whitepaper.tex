@@ -12,6 +12,12 @@
 \usepackage{pgfplots}
 \usepackage{amssymb}
 \usepackage{enumitem}
+\usepackage{import}
+
+\subimport{docs/libs/}{init}
+
+\usetikzlibrary{positioning}
+
 
 \usepackage[
 backend=biber,
@@ -43,40 +49,57 @@ sorting=none
 	\textbf{Abstract}
 \end{center}
 \begin{abstract}
-	The combination of a rule based beam search and with deep learning is a promising approach to solve mathematical problems.
-	One obstacle to overcome is the amount of possible branches in that search when the number of applicable rules and length of the calculation increases.
+	The combination of a rule based beam search and deep learning is a promising approach to solve mathematical problems.
+	One obstacle to overcome is the amount of possible branches in this search as the number of applicable rules and length of the calculation increases.
 	This paper proposes to address this issue by constantly shrinking the beam size with a multi-head neuronal network:
-	A policy head selects rules and positions in the current term. A value head evaluates the probability that this calculation might lead to desired solution.
+	A policy head selects rules and positions in the current term.
+	A value head evaluates the probability that this calculation could lead to the desired solution.
 	Both heads help to reduce the beam size such that solving advanced mathematical problems becomes feasible.
 \end{abstract}
 
 \section{Motivation}
 
-As current approaches to solve mathematical problems are using a complex but fixed rule set, it takes manual effort to increase their capabilities \cite{wolfram}.
-The here described generic approach could be capable to absorb additional rules without the need of manual work.
-Furthermore it is not limited to mathematical calculus as long as the domain can be described by a well defined human readable rule set.
-The correctness of the result only depends on the correctness of the given rule set.
+Since current approaches to solve mathematical problems use a complex but fixed set of rules, it takes manual effort to extend their capabilities \cite{wolfram}.
+The generic approach described here might be able to incorporate additional rules without requiring manual work.
+Moreover, it is not limited to mathematical calculus as long as the domain can be described by a well-defined, human-readable rule set.
+The correctness of the result depends only on the correctness of the given rule set.
+
+\section{Related work}
+
+\begin{itemize}
+	\item Lampe et. al. use state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}.
+	This approach sees solving of a mathematical problem as a translation problem on 1d data.
+	They don't use the concept of rules and tree structured data in the network.
+	\item Todo: Find more related work.
+\end{itemize}
 
 \section{Method}
 
-Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$ the beam search could try to apply various rules at different nodes at the syntax tree of the equation.
+Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$,
+the beam search could try to apply various rules at different nodes in the syntax tree of the equation.
 The policy head proposes the most promising combination of rules and positions in the current equation.
-The accumulated outcome of the value head can cancel the solution path of the attempt as it "seems" unlikely the this attempt may succeed \cite{44806}.
+The value head evaluates the probability of success of the current calculation step.
+The cumulative result of the value head can abort the solution path of the attempt, as it "seems" unlikely that the this attempt could succeed \cite{44806}.
 
 \subsection{Rule Application}
 
-Every rule has the shape of $A \Longrightarrow B$ or $A \equiv B$ which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
-Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper. Given the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
-We try to match condition $A$ at any position $p \in \big\{ n_1, n_2, \dots, n_k \forall k \leq d, \forall n_i \leq s^i \big\}$ of term $T\left(x\right)$,
-where $s$ is the maximal number of children per node in the syntax tree.
-Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_c \to S_t$,
-where $S_{T_p}$ is a set of the symbols in term $T_p$ and $S_A$ the set of the symbols in the condition $A$.
-Let the sub-terms of $T$ be $T_p$ with $p \in \big\{\left( n_1, n_2, \dots, n_d \right) , n_i \in \mathbb{N} \big\}$ where $T_1$ for instance is the first child node of the root in that tree.
-$T_{1,1}$ the first child of $T_1$ and so on.
-Then the application of that rule results in the new terms $T^{(j)}$ where each the node at $p_j$ gets replaced by $B'^{(j)} \coloneqq M_j\left( B \right)$ which is $B$ with symbols mapped by $M_j$. 
+Every rule is of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
+Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper.
+Let's name the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
+As the term can be represented by a tree we will name it's child terms $T_p$ with the position $p \in \big\{\left( n_1, n_2, \dots, n_d \right) : n_i \in \mathbb{N}, n_i \leq s \big\}$.
+The root symbol of $T_p$ should be $t_p$.
+Hence the sub-terms of $T$ be $T_p$ where $T_1$ for instance is the first child node of the root in that tree and $T_{1,1}$ the first child of $T_1$ and so on.
+Let $s$ be the maximal number of children per node in the syntax tree.
+
+We try to match condition $A$ of a rule at any position $p$ of term $T\left(x\right)$.
+Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_A \to S_{T_p}$,
+where $S_{T_p} \equiv \big\{ t_q : \forall q \text{ below } p\big\}$ is the set of the symbols in term $T_p$ and $S_A$ the set of symbols in the condition $A$.
+Then the application of that rule results in the new terms $T^{(j)}$ where each node at $p_j$ gets replaced by the modified conclusion $B'^{(j)} \coloneqq M_j\left( B \right)$.
+Where $B'^{(j)}$ is $B$ with symbols mapped back by by $M_j$. 
 
 \begin{exmp}
-To illustrate the above let us take a look on the application of the derivative rule for polynomials.
+To illustrate the above, let's look at the application of the derivative rule for polynomials.
+% TODO: Add connection example <-> theoretcih
 
 Consider the derivative rule
 \begin{align}
@@ -95,19 +118,36 @@ Using the symbolic mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\
 
 \subsection{Network Architecture for Tree Structured Data}
 
-An obvious approach to feed the term $T$ into a network would be to roll them out the syntax tree to a linear sequence and apply standard NLP network architectures. \cite{Lample2020Deep}
+Lampe et. al. showed an approach where they unroll the term $T$ using the polish notation.
+Then they apply contemporary NLP translation methods on the that sequence where the resulting "translated sentence" is the next step in the calculation. \cite{Lample2020Deep}
 The approach discussed here keeps the tree structure. It turned out that Tree-LSTM perform poorly on that data \cite{tai2015improved}.
 
-This paper will discuss the adoption of two different architectures: Indexed convolution and attention networks with special positional encoding.
+% network picture
+
+This paper will discuss the adoption of two different architectures:
+Indexed convolution and attention networks with special positional encoding.
 
 \subsubsection{Indexed Convolution}
 
 The indexed CNN operation performs a convolution of each node on it's neighbor nodes and itself.
 In order to increase the compute efficiency each term is rolled out.
 Let $t_p$ be the symbol at the root of sub-term $T_p$,
-then the breadth-first unrolled tern with $s=2$ is a vector $t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots$ with length $L$.
+then the breadth-first unrolled tern with $s=2$ is the vector $\left( t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right)$ with length $L$.
 An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carries the index of the neighbors in a constant order.
 
+
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/iconv.tex}
+	\caption{The index tensor is an additional input of this network architecture.
+		Each indexed convolution operations reads from that index tensor.
+		The policy head returns for each sample a matrix of with the axis rule id and path id. 
+		The output of the value head is one scalar per sample in the mini-batch. 
+	}
+	\label{fig:iconv_network}
+\end{figure}
+
+% Was geht rein und was geht raus
 With the input channel size $i$ and output channel size $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
 the indexed convolution $C$ is defined as
 
@@ -115,7 +155,7 @@ the indexed convolution $C$ is defined as
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
-where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
+where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term. Figure \ref{fig:iconv_network}
 
 
 \begin{figure}[!htbp]
@@ -252,13 +292,10 @@ Then you are almost at propositional logic which the challenge of multiple concu
 Furthermore some conditions use first-order logic, which introduces very new kinds of rules.
 
 
-\section{Related work}
-
-\begin{itemize}
-	\item Using state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}. Differences: 1D data instead of Tree structured data. Not based on rules. 
-	\item Todo: Find more related work.
-\end{itemize}
-
 \printbibliography
 \end{document}
 
+
+% Geh von Groß zu Klein
+% Sehr detailiert.
+% 	Was geht in die Heads rein und was kommt raus.
