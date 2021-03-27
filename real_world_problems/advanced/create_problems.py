@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import solving_problems
+from common.creator_utils import collect, Replacer
 from pathlib import Path
 import logging
 import argparse
-from common.solving_problems import create_solving_problems
-from common.creator_utils import collect
+
+from pycore import Symbol
 
 
 logger = logging.getLogger(__name__)
@@ -18,9 +20,11 @@ def main(args):
     collect(
         args,
         config_path=config_path,
-        factories=create_solving_problems(
-            operations_reservoir=('-', '+', '*', '/', '^'), **vars(args)
-        ),
+        factories=[
+            solving_problems.create_quadratic_equations,
+            solving_problems.create_exponential,
+        ],
+        replacer=Replacer("sqrt", "root", Symbol.number(2))
     )
 
 

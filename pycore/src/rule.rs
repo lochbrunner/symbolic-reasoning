@@ -57,6 +57,38 @@ impl PyRule {
         }
     }
 
+    #[text_signature = "($self, pattern, target, pad_size, pad_symbol /)"]
+    fn replace_and_pad(
+        &self,
+        pattern: String,
+        target: String,
+        pad_size: u32,
+        pad_symbol: PySymbol,
+    ) -> PyResult<Self> {
+        let pad_symbol = (*pad_symbol.inner).clone();
+        let replacer = |orig: &core::Symbol| {
+            if orig.ident == pattern {
+                let mut new = orig.clone();
+                new.ident = target.clone();
+                while new.childs.len() < pad_size as usize {
+                    new.childs.push(pad_symbol.clone())
+                }
+                Ok(Some(new))
+            } else {
+                Ok(None)
+            }
+        };
+        let condition = self.inner.condition.replace::<_, PyErr>(&replacer)?;
+        let conclusion = self.inner.conclusion.replace::<_, PyErr>(&replacer)?;
+        Ok(PyRule {
+            inner: Arc::new(Rule {
+                condition,
+                conclusion,
+                name: self.inner.name.clone(),
+            }),
+        })
+    }
+
     #[getter]
     fn get_condition(&self) -> PyResult<PySymbol> {
         let inner = self.inner.condition.clone();

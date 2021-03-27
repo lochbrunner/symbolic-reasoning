@@ -158,7 +158,22 @@ impl Scenario {
             .map(|s| Symbol::parse(&declarations, s))
             .collect::<Result<Vec<_>, _>>()?;
 
-        // TODO: Load files from include list and merge
+        for include in ss.include.iter() {
+            let file = File::open(include).map_err(|msg| msg.to_string())?;
+            let import = Scenario::load_from_yaml_reader(file, no_dependencies)?;
+            let Scenario {
+                rules: import_rules,
+                declarations:
+                    Context {
+                        declarations: import_decls,
+                    },
+                ..
+            } = import;
+            rules.extend(import_rules);
+            for (decl_name, declaration) in import_decls.into_iter() {
+                declarations.declarations.insert(decl_name, declaration);
+            }
+        }
 
         Ok(Scenario {
             declarations,

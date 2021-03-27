@@ -21,7 +21,7 @@
         "**/*.run.xml": true,
     },
     "terminal.integrated.env.linux": {
-        "PYTHONPATH": "${workspaceFolder}/ml"
+        "PYTHONPATH": "${workspaceFolder}/ml:${workspaceFolder}/real_world_problems"
     },
     "python.envFile": "${workspaceFolder}/.env",
     "cSpell.words": [

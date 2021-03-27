@@ -1,0 +1,73 @@
+name: advanced
+files:
+  evaluation-results: experiments/evaluation-results.yaml
+  model: &model experiments/advanced/advanced.mdl
+  new-rules: &new-rules experiments/advanced/new-rules.yaml
+  scenario: real_world_problems/advanced/dataset.yaml
+  solver-trainings-data: &solver-data experiments/advanced/solver-trainings-data.samples
+  training-statistics: &training-statistics experiments/training-statistics.yaml
+  trainings-data-traces: experiments/bag-advanced_*.tr
+  trainings-data: &bag experiments/bag-advanced.samples
+  working-folder: experiments
+  t3-loop-traces: experiments/advanced/t3-loop-results.trc
+  solver-traces: experiments/advanced/solver-results.trc
+generation:
+  stages: []
+  max-depth: 10
+  max-size: 127
+  min-working-density: 0.1
+  min-result-density: 0.05
+  distribution-suppression-exponent: 1.8
+  augmentation:
+    enabled: true # Permuting free variables
+    factor: 10
+  blacklist-pattern: []
+training:
+  save-model: *model
+  device: cpu
+  # Learning
+  num-epochs: 200 #2500
+  report-rate: 2
+  batch-size: 32
+  learning-rate:
+    initial: 0.01
+    step-size: 10
+    gamma: 0.99
+  optimizer: adadelta
+  weight-decay: 0.0
+  gradient-clipping: 0.1
+  value-loss-weight: 0.25
+  model-name: TreeCnnSegmenter
+  # Scenario
+  scenario: bag
+  filename: *bag
+  solver-filename: *solver-data
+  statistics: *training-statistics
+  data-size-limit: -1
+  model-parameter:
+    embedding_size: 24
+    hidden_layers: 2
+    dropout: 0
+    use_props: False
+    use_batch_normalization: false
+    residual: True
+    value_accumulator: mean
+fine-tuning:
+  learning-rate: 0.01
+evaluation:
+  num-epochs: 10
+  problems:
+    beam-size: 10
+    num_epochs: 30
+    max_track_loss: 3
+    max_fit_results: 10000
+    iterations: 1
+  training-data:
+    beam-size: "1:15"
+    max-steps: -1
+  solver-trainings-data: *solver-data
+  max-size: 13
+  max-grow: 4
+  new-rules-filename: *new-rules
+
+  black-list-rules: []
