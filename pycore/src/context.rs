@@ -98,6 +98,13 @@ impl PyContext {
         }
     }
 
+    fn add_function(&mut self, name: String, fixed: Option<bool>) -> PyResult<()> {
+        self.inner
+            .declarations
+            .insert(name, Declaration::function(fixed.unwrap_or(false)));
+        Ok(())
+    }
+
     #[getter]
     fn declarations(&self) -> PyResult<HashMap<String, PyDeclaration>> {
         Ok(self

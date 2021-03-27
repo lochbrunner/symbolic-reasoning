@@ -312,6 +312,13 @@ impl PySymbol {
         Ok(PySymbol::new(Symbol::new_variable(ident, fixed)))
     }
 
+    #[staticmethod]
+    #[text_signature = "(ident, fixed, /)"]
+    #[args(fixed = false)]
+    fn number(value: i64) -> PyResult<PySymbol> {
+        Ok(PySymbol::new(Symbol::new_number(value)))
+    }
+
     #[getter]
     fn ident(&self) -> PyResult<String> {
         Ok(self.inner.ident.clone())
@@ -480,6 +487,47 @@ impl PySymbol {
             policy,
             value,
         ))
+    }
+
+    // Error: the trait `ToPyObject` is not implemented for `PySymbol`
+    // /// Creates a new symbol with the replaced sub terms
+    // fn replace(&self, py: Python, variable_creator: PyObject) -> PyResult<Self> {
+    //     Ok(PySymbol::new(self.inner.replace::<_, PyErr>(&|orig| {
+    //         let obj = variable_creator.call(
+    //             py,
+    //             PyTuple::new(py, vec![PySymbol::new(orig.clone())]),
+    //             None,
+    //         )?;
+    //         // let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
+    //         let symbol: Option<PySymbol> = obj.extract(py)?;
+    //         if let Some(symbol) = symbol {
+    //             Ok(Some((*symbol.inner).clone()))
+    //         } else {
+    //             Ok(None)
+    //         }
+    //     })?))
+    // }
+    #[text_signature = "($self, pattern, target, pad_size, pad_symbol /)"]
+    fn replace_and_pad(
+        &self,
+        pattern: String,
+        target: String,
+        pad_size: u32,
+        pad_symbol: PySymbol,
+    ) -> PyResult<Self> {
+        let pad_symbol = (*pad_symbol.inner).clone();
+        Ok(PySymbol::new(self.inner.replace::<_, PyErr>(&|orig| {
+            if orig.ident == pattern {
+                let mut new = orig.clone();
+                new.ident = target.clone();
+                while new.childs.len() < pad_size as usize {
+                    new.childs.push(pad_symbol.clone())
+                }
+                Ok(Some(new))
+            } else {
+                Ok(None)
+            }
+        })?))
     }
 
     #[classattr]

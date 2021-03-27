@@ -17,6 +17,16 @@ pub struct Declaration {
     pub only_root: bool,
 }
 
+impl Declaration {
+    pub fn function(is_fixed: bool) -> Self {
+        Self {
+            is_fixed,
+            is_function: true,
+            only_root: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Context {
     pub declarations: HashMap<String, Declaration>,

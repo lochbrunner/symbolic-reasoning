@@ -166,6 +166,14 @@ class TestSymbol(unittest.TestCase):
         symbol = Symbol.parse(context, 'a+b=c*d')
         self.assertLess(symbol.memory_usage, 1000)
 
+    def test_replace_and_pad(self):
+        context = Context.standard()
+        context.add_function('sqrt', True)
+        context.add_function('root', True)
+        symbol = Symbol.parse(context, 'sqrt(a+b)=c')
+        actual = symbol.replace_and_pad('sqrt', 'root', 2, Symbol.number(2))
+        self.assertEqual(str(actual), 'root(a+b, 2)=c')
+
 
 if __name__ == '__main__':
     unittest.main()

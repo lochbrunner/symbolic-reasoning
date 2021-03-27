@@ -547,6 +547,20 @@ impl Symbol {
         })
     }
 
+    /// Replace all occurrences with predicate
+    pub fn replace<F, E>(&self, replacer: &F) -> Result<Self, E>
+    where
+        F: Fn(&Symbol) -> Result<Option<Symbol>, E>,
+    {
+        let mut root = replacer(&self)?.unwrap_or_else(|| self.clone());
+        root.childs = root
+            .childs
+            .into_iter()
+            .map(|child| child.replace(replacer))
+            .collect::<Result<_, E>>()?;
+        Ok(root)
+    }
+
     /// Returns the item at the specified path
     pub fn at<'a>(&'a self, path: &[usize]) -> Option<&'a Symbol> {
         let mut current = self;
@@ -657,7 +671,7 @@ impl Symbol {
 #[cfg(test)]
 mod specs {
     use super::*;
-    use crate::context::Context;
+    use crate::context::{Context, Declaration};
     use crate::io::bag::Policy;
 
     #[test]
@@ -984,5 +998,46 @@ mod specs {
         let symbol = Symbol::parse(&context, "a+b=c").unwrap();
 
         assert_eq!(symbol.size(), 5);
+    }
+
+    #[test]
+    fn replace_term() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
+        fn replacer(part: &Symbol) -> Result<Option<Symbol>, ()> {
+            if part.ident == "a" {
+                Ok(Some(Symbol::new_variable("d", false)))
+            } else {
+                Ok(None)
+            }
+        }
+        let actual = symbol.replace(&replacer).unwrap();
+        let expected = Symbol::parse(&context, "d+b=c").unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn replace_function() {
+        let mut context = Context::standard();
+        context
+            .declarations
+            .insert("sqrt".to_string(), Declaration::function(true));
+        context
+            .declarations
+            .insert("root".to_string(), Declaration::function(true));
+
+        let symbol = Symbol::parse(&context, "sqrt(a+b)=c").unwrap();
+        fn replacer(part: &Symbol) -> Result<Option<Symbol>, ()> {
+            if part.ident == "sqrt" {
+                let mut childs = part.childs.clone();
+                childs.push(Symbol::new_number(2));
+                Ok(Some(Symbol::new_operator("root", true, false, childs)))
+            } else {
+                Ok(None)
+            }
+        }
+        let actual = symbol.replace(&replacer).unwrap();
+        let expected = Symbol::parse(&context, "root(a+b, 2)=c").unwrap();
+        assert_eq!(actual, expected);
     }
 }
