@@ -9,9 +9,9 @@ use std::slice::Iter;
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     PLowest,
-    PSeparator,
     PCall,
     POpening,
+    PSeparator,
     PClosing,
     PEquals,
     PLessGreater,
@@ -432,6 +432,7 @@ pub fn parse(context: &Context, tokens: &[Token], no_unary_minus: bool) -> Resul
                     }),
                 },
                 Classification::Separator => {
+                    astify(context, &mut stack, Precedence::PClosing, no_unary_minus)?;
                     stack.infix.push(Operation {
                         precedence: Precedence::PSeparator,
                         ident: String::from(","),
@@ -492,6 +493,7 @@ mod specs {
 
     #[test]
     fn classifier_single_ident_no_args() {
+        // a
         let context = Context {
             declarations: HashMap::new(),
         };
@@ -512,6 +514,7 @@ mod specs {
 
     #[test]
     fn single_ident_no_args() {
+        // a
         let context = Context {
             declarations: HashMap::new(),
         };
@@ -522,6 +525,7 @@ mod specs {
 
     #[test]
     fn classifier_function_with_single_arg() {
+        // f(a)
         let context = create_context(vec!["f"]);
 
         let raw_tokens = vec![
@@ -557,6 +561,7 @@ mod specs {
 
     #[test]
     fn function_with_single_arg() {
+        // f(a)
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
@@ -574,6 +579,7 @@ mod specs {
 
     #[test]
     fn classifier_function_with_multiple_args() {
+        // f(a,b,c)
         let context = create_context(vec!["f"]);
         let raw_tokens = vec![
             Token::Ident(String::from("f")),
@@ -617,6 +623,7 @@ mod specs {
 
     #[test]
     fn function_with_multiple_args() {
+        // f(a,b,c)
         let context = create_context(vec!["f"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
@@ -644,6 +651,7 @@ mod specs {
 
     #[test]
     fn function_nested_simple() {
+        // f(f(a))
         let context = create_context(vec!["f", "g"]);
         let tokens = vec![
             Token::Ident(String::from("f")),
@@ -746,6 +754,7 @@ mod specs {
 
     #[test]
     fn classify_bin_operator_simple() {
+        // a + b
         let context = create_context(vec![]);
         let raw_tokens = vec![
             Token::Ident(String::from("a")),
@@ -1435,6 +1444,49 @@ mod specs {
             vec![Symbol::new_operator("-", true, false, vec![a, b]), c],
         );
 
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn but_function_two_args() {
+        // root(a+b, 2)=c
+        let mut context = create_context(vec!["root"]);
+        context.register_standard_operators();
+        let tokens = vec![
+            Token::Ident(String::from("root")),
+            Token::BracketL,
+            Token::Ident(String::from("a")),
+            Token::Plus,
+            Token::Ident(String::from("b")),
+            Token::Comma,
+            Token::Number(2),
+            Token::BracketR,
+            Token::Equal,
+            Token::Ident(String::from("c")),
+            Token::EOF,
+        ];
+        let actual = parse(&context, &tokens, true).expect("parse");
+
+        let a = new_variable("a");
+        let b = new_variable("b");
+        let c = new_variable("c");
+        let expected = Symbol::new_operator(
+            "=",
+            true,
+            true,
+            vec![
+                Symbol::new_operator(
+                    "root",
+                    false,
+                    false,
+                    vec![
+                        Symbol::new_operator("+", true, false, vec![a, b]),
+                        Symbol::new_number(2),
+                    ],
+                ),
+                c,
+            ],
+        );
         assert_eq!(actual, expected);
     }
 }

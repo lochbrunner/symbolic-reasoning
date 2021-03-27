@@ -22,7 +22,7 @@
             },
             "args": [
                 "--test",
-                "double_brackets",
+                "function_with_multiple_args",
                 "--nocapture"
             ],
             "sourceLanguages": [
