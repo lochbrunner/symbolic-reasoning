@@ -171,8 +171,8 @@ Figure \ref{fig:network_output} demonstrates the output of the policy head appli
 
 \subsubsection{Transformer and Positional Encoding}
 
-Position encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
-The desired properties for sub-terms $T_a$ and $T_b$ should be:
+Positional encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
+The desired properties for the positional encoding sub-terms $T_a$ and $T_b$ should be:
 \begin{enumerate}[label=(\roman*)]
 	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is metric for the relative position of sub-terms $T_A$ and $T_B$.
 	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is independent of the absolute position of the sub-terms.
@@ -181,43 +181,43 @@ The desired properties for sub-terms $T_a$ and $T_b$ should be:
 A naive approach is to draw the tree on a two dimensional plane and count the sub-terms from left to right.
 This approach does not fullfil any of the desired properties.
 
-But when dividing these numbers iteratively by $s$.
+But dividing these numbers iteratively by the spread $s$.
 
 \begin{align}
 	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
 \end{align}
 
-and collecting them at least on of that vectors nearly fullfil these properties. 
+the collection of $PE^{(n+1)}\left( T \right)$ partly fulfills these properties.
 This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
 
 
 \subsection{Three-T-Loop}
 
-The training set consists of generated problems solved by sympy \cite{10.7717/peerj-cs.103}.
-A training sample is also of the shape as a rule $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the initial term and $T^{(\text T)}$ the target term of the solution.
-The goal is not to find the shortest chain of rule application such that lead to the target term:
+The training set consists of problems generated with sympy. \cite{10.7717/peerj-cs.103}.
+A training sample also has the shape of a rule $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the starting point and $T^{(\text T)}$ the solution term.
+The goal is to find the shortest chain of rule application that lead to the target term:
 
 \begin{align}
-	T^{(\text I)} \Longrightarrow T^{(j)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
+	T^{(\text I)} \Longrightarrow T^{(j_1)} \Longrightarrow T^{(j_1j_2)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
 	\label{eq:calculation_chain}
 \end{align}
 
-In order to get trainable data out of the given problem set we use an initial beam search without the help of a network.
-A few simple problems can still be solved and learnable data can be extracted from these solution paths.
+To obtain trainable data from the given problem set, we use an initial beam search without the assistance of a network.
+A few simple problems can already be solved and learnable data can be extracted from these solution paths.
 Let's call this procedure \textit{three-T-loop} which consists of these three steps:
 
 \begin{enumerate}[label=(\roman*)]
 	\item \textbf{Try} to solve some of the training problems.
-	\item \textbf{Trace} the calculation steps of the solved problems and create training samples out of them.
-	\item \textbf{Train} the model with these useful and useless trainings steps created.
+	\item \textbf{Trace} the calculation steps of the solved problems and create training data out of them.
+	\item \textbf{Train} the model with the trainings data from the previous step.
 \end{enumerate}
 
 In each iteration of that \textit{three-T-loop} the number of trainable data increases. 
-As the performance of the network increases it can solve more and more problems.
-The trained network also reduces the amount used rule applications as they are cancelled depending on the outcome of the value head (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
+As the network's performance increases, it can solve more and more problems.
+The trained network also reduces the amount of used rule applications as they are cancelled depending on the outcome of the value head (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
 
 
-This loop can be extended by a forth step discussed in the outlook section, which optimizes the step (i) with an additional approach.
+This loop can be extended by a forth step discussed in the outlook section, which allows to incorporate useful sub chains of formula (\ref{eq:calculation_chain}) into the rule set.
 
 \begin{figure}[!htbp]
 	\centering
@@ -231,7 +231,8 @@ This loop can be extended by a forth step discussed in the outlook section, whic
 
 \section{Results}
 
-We have defined a basic rule set to perform the given problems via a scenario configuration.
+Todo.
+% We have defined a basic rule set to perform the given problems via a scenario configuration.
 
 \begin{figure}[!htbp]
 	\centering
@@ -241,45 +242,45 @@ We have defined a basic rule set to perform the given problems via a scenario co
 \end{figure}
 
 Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems increase with each iteration. 
+It turned out that it is very important to suppress nonsensical rule applications, as they can blow up the beam.
+To overcome this issue, adding negative training samples is very important.
 
-It turned out that it is very important to suppress non-sense rule applications as they can blow up the beam.
-To overcome this issue adding negative training samples is quite important.
+% \section{Conclusion}
 
-\section{Conclusion}
+Although the approach described here for solving mathematical problems is hardly optimized yet,
+it has shown that it is capable of solving problems from the field of mathematics.
+Many extension of that approach are possible, as mentioned the "Outlook" section.
 
-Although the here described approach for solving mathematical problems is hardly optimized yet,
-it showed that it is capable of solving problems in the domain of calculus.
-Many extension of that approach are possible  as mentioned the outlook section.
 
 \section{Outlook}
 
-Let us group some ideas of extension to that approach in two categories:
-Due to the limited time budget many of them could not be tried out yet.
-But as the basics are set and proven to work it might be reasonable that they might work in the near future.
-The second group would require an extension of the core algorithm which would only be feasible in the far future.
+Let us group some ideas for extending this approach into two categories:
+Due to the limited time budget, many of them could not be tried out yet.
+But as the basic algorithm is set up and proven to work, applications based on it's features may be feasible to accomplish in the near future.
+The second group would require an extension of this core algorithm, which would take some time to implement.
 
 \subsection{Near Future}
 
 \subsubsection{Append Corollaries to Rule Set}
 
-The basic rule set contains just definitions which leads to atomic step in the calculation.
-These tine steps result in long calculation chains of formula (\ref{eq:calculation_chain}).
-But it turned out that some parts repeat over and over again.
-Exactly these corollaries could be inserted into the original rule set.
+The basic rule set contains only fundamental definitions that lead to very small steps in the calculation.
+These atomic steps result in long calculation chains seen in formula (\ref{eq:calculation_chain}).
+However, it turned out that some parts are repeated over and over again.
+These are exactly the corollaries that could be inserted into the original rule set.
 To do this, you need to address three challenges:
 
 \begin{enumerate}[label=(\roman*)]
 	\item You have to evaluate which corollary is worth to store.
 	\item You have to insert the new rule into the already trained network.
-	\item As there might be a huge amount of interesting corollaries the training and inference time should increase less than linear with the number of rules.
+	\item Since there can be a large number of interesting corollaries, the training and inference time should increase less than linearly with the number of rules.
 \end{enumerate}
 
-One can overcome these challenges with a new network architecture, which will be presented in a future paper.
+One can overcome these challenges with a new network architecture architecture, which will be presented in a future paper.
 
 \subsubsection{Optimizing the Network}
 
-As mentioned above the limited time budged lead to a far from perfect network architecture.
-The same also applies the time-performance of the indexed CNN operation and which would allow to perform a hyper-parameter tuning in a feasible duration. 
+As mentioned earlier, the limited time budget resulted in a far from perfect network architecture.
+The same is true for the time-performance of the indexed CNN operation and which would allow hyper-parameter tuning to be performed in a feasible duration.
 
 
 \subsection{Far Future}
@@ -287,9 +288,10 @@ The same also applies the time-performance of the indexed CNN operation and whic
 In university level mathematics many rules depend on multiple conditions.
 E.g. the simple commutative property has three: $\forall a \in \mathbb{R}$ and $\forall b \in \mathbb{R}$ applies $a\cdot b \equiv a\cdot b$.
 This could be represented by the concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
-Then you are almost at propositional logic which the challenge of multiple concurrency calculation chains needed in for the final result.
+Then you are almost at propositional logic with the challenge of multiple concurrent chains of computation required for the final result.
+This requires an extension to the current core algorithm. For example meta rules as \textit{reductio ad absurdum}.
 
-Furthermore some conditions use first-order logic, which introduces very new kinds of rules.
+Moreover, some conditions use first-order logic, which introduces the handling of complex mathematical sets.
 
 
 \printbibliography
