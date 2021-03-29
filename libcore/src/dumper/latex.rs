@@ -12,7 +12,7 @@ pub trait LaTeX {
         W: std::io::Write;
 }
 
-pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>, verbose: bool) -> String {
+pub fn dump_latex(symbol: &Symbol, decoration: &[Decoration], verbose: bool) -> String {
     let context = FormatContext {
         operators: Operators {
             infix: hashmap! {
@@ -38,17 +38,35 @@ pub fn dump_latex(symbol: &Symbol, decoration: Vec<Decoration>, verbose: bool) -
             functions: hashmap! {
                 "^" => vec![
                     FormatItem::Tag("{"),
-                    FormatItem::Child(0),
+                    FormatItem::Child(0, false),
                     FormatItem::Tag("}^{"),
-                    FormatItem::Child(1),
+                    FormatItem::Child(1, true),
                     FormatItem::Tag("}"),
                 ],
                 "/" => vec![
                     FormatItem::Tag("\\frac{"),
-                    FormatItem::Child(0),
+                    FormatItem::Child(0, true),
                     FormatItem::Tag("}{"),
-                    FormatItem::Child(1),
+                    FormatItem::Child(1, true),
                     FormatItem::Tag("}"),
+                ],
+                "root" => vec![
+                    FormatItem::Tag("\\sqrt["),
+                    FormatItem::Child(0, true),
+                    FormatItem::Tag("]{"),
+                    FormatItem::Child(1, true),
+                    FormatItem::Tag("}"),
+                ],
+                "sqrt" => vec![
+                    FormatItem::Tag("\\sqrt{"),
+                    FormatItem::Child(0, true),
+                    FormatItem::Tag("}"),
+                ],
+                "D" => vec![
+                    FormatItem::Tag("\\frac{\\partial}{\\partial "),
+                    FormatItem::Child(1, true),
+                    FormatItem::Tag("}"),
+                    FormatItem::Child(0, true),
                 ]
             },
         },
@@ -79,7 +97,7 @@ impl Symbol {
             "{}",
             dump_latex(
                 self,
-                vec![Decoration {
+                &[Decoration {
                     path,
                     pre: "\\mathbin{\\textcolor{red}{",
                     post: "}}",
@@ -95,14 +113,14 @@ impl LaTeX for Symbol {
     where
         W: std::io::Write,
     {
-        write!(writer, "{}", dump_latex(self, vec![], false))
+        write!(writer, "{}", dump_latex(self, &[], false))
     }
 
     fn writeln_latex<W>(&self, writer: &mut W) -> Result<(), std::io::Error>
     where
         W: std::io::Write,
     {
-        writeln!(writer, "{}", dump_latex(self, vec![], false))
+        writeln!(writer, "{}", dump_latex(self, &[], false))
     }
 }
 
@@ -114,8 +132,8 @@ impl LaTeX for Rule {
         write!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, vec![], false),
-            dump_latex(&self.conclusion, vec![], false)
+            dump_latex(&self.condition, &[], false),
+            dump_latex(&self.conclusion, &[], false)
         )
     }
 
@@ -126,8 +144,8 @@ impl LaTeX for Rule {
         writeln!(
             writer,
             "{} \\Rightarrow {}",
-            dump_latex(&self.condition, vec![], false),
-            dump_latex(&self.conclusion, vec![], false)
+            dump_latex(&self.condition, &[], false),
+            dump_latex(&self.conclusion, &[], false)
         )
     }
 }
@@ -138,7 +156,7 @@ mod e2e {
     use crate::context::*;
     use std::collections::HashMap;
 
-    fn create_context(function_names: Vec<&str>) -> Context {
+    fn create_context(function_names: &[&str]) -> Context {
         let mut declarations: HashMap<String, Declaration> = HashMap::new();
         for function_name in function_names.iter() {
             declarations.insert(
@@ -155,107 +173,123 @@ mod e2e {
 
     #[test]
     fn fraction_simple() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a/b").unwrap();
-        assert_eq!(
-            dump_latex(&term, vec![], false),
-            String::from("\\frac{a}{b}")
-        );
+        assert_eq!(dump_latex(&term, &[], false), String::from("\\frac{a}{b}"));
     }
-
     #[test]
     fn inequality() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a!=b").unwrap();
-        assert_eq!(dump_latex(&term, vec![], false), String::from("a\\neq b"));
+        assert_eq!(dump_latex(&term, &[], false), String::from("a\\neq b"));
     }
-
     #[test]
     fn fraction_double() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a/(b/c)").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![], false),
+            dump_latex(&term, &[], false),
             String::from("\\frac{a}{\\frac{b}{c}}")
         );
     }
 
     #[test]
+    fn sqrt_simple() {
+        let context = create_context(&["sqrt"]);
+        let term = Symbol::parse(&context, "sqrt(a)").unwrap();
+        assert_eq!(dump_latex(&term, &[], false), String::from("\\sqrt{a}"));
+    }
+
+    #[test]
+    fn root_simple() {
+        let context = create_context(&["root"]);
+        let term = Symbol::parse(&context, "root(a+b,3+1)").unwrap();
+        assert_eq!(
+            dump_latex(&term, &[], false),
+            String::from("\\sqrt[a+b]{3+1}")
+        );
+    }
+
+    #[test]
+    fn derivative_simple() {
+        let context = create_context(&["D", "f"]);
+        let term = Symbol::parse(&context, "D(f(x),x)").unwrap();
+        assert_eq!(
+            dump_latex(&term, &[], false),
+            String::from("\\frac{\\partial}{\\partial x}f\\left( x\\right) ")
+        );
+    }
+
+    #[test]
     fn brackets() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a*(b+c)").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![], false),
+            dump_latex(&term, &[], false),
             String::from("a\\cdot \\left( b+c\\right) ")
         );
     }
 
     #[test]
     fn double_super_script_outer() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a^b^c").unwrap();
-        assert_eq!(
-            dump_latex(&term, vec![], false),
-            String::from("{{a}^{b}}^{c}")
-        );
+        assert_eq!(dump_latex(&term, &[], false), String::from("{{a}^{b}}^{c}"));
     }
 
     #[test]
     fn double_super_script_inner() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "(a^b)^c").unwrap();
-        assert_eq!(
-            dump_latex(&term, vec![], false),
-            String::from("{{a}^{b}}^{c}")
-        );
+        assert_eq!(dump_latex(&term, &[], false), String::from("{{a}^{b}}^{c}"));
     }
 
     #[test]
     fn bug_16() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "(a+b)^c").unwrap();
         assert_eq!(
-            dump_latex(&term, vec![], false),
+            dump_latex(&term, &[], false),
             String::from("{\\left( a+b\\right) }^{c}")
         );
     }
 
     #[test]
     fn decoration_variable() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a").unwrap();
         let path = vec![];
-        let deco = vec![Decoration {
+        let deco = [Decoration {
             path: &path,
             pre: "<",
             post: ">",
         }];
 
-        assert_eq!(dump_latex(&term, deco, false), String::from("<a>"));
+        assert_eq!(dump_latex(&term, &deco, false), String::from("<a>"));
     }
 
     #[test]
     fn decoration_operator() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a+b").unwrap();
         let path = vec![0];
-        let deco = vec![Decoration {
+        let deco = [Decoration {
             path: &path,
             pre: "<",
             post: ">",
         }];
 
-        assert_eq!(dump_latex(&term, deco, false), String::from("<a>+b"));
+        assert_eq!(dump_latex(&term, &deco, false), String::from("<a>+b"));
     }
 
     #[test]
     fn decoration_all() {
-        let context = create_context(vec![]);
+        let context = create_context(&[]);
         let term = Symbol::parse(&context, "a+b").unwrap();
         let path_0 = vec![0];
         let path_r = vec![];
         let path_1 = vec![1];
-        let deco = vec![
+        let deco = [
             Decoration {
                 path: &path_0,
                 pre: "<A>",
@@ -274,7 +308,7 @@ mod e2e {
         ];
 
         assert_eq!(
-            dump_latex(&term, deco, false),
+            dump_latex(&term, &deco, false),
             String::from("<C><A>a</A>+<B>b</B></C>")
         );
     }

@@ -57,6 +57,7 @@ impl PyRule {
         }
     }
 
+    /// Replace each occurrence of `pattern` with `target` and pads the node with `pad_symbol`
     #[text_signature = "($self, pattern, target, pad_size, pad_symbol /)"]
     fn replace_and_pad(
         &self,
@@ -126,8 +127,8 @@ impl PyRule {
     fn latex(&self) -> PyResult<String> {
         Ok(format!(
             "{} \\Rightarrow {} ",
-            dump_latex(&self.inner.condition, vec![], false),
-            dump_latex(&self.inner.conclusion, vec![], false)
+            dump_latex(&self.inner.condition, &[], false),
+            dump_latex(&self.inner.conclusion, &[], false)
         ))
     }
 
@@ -135,8 +136,8 @@ impl PyRule {
     fn latex_verbose(&self) -> PyResult<String> {
         Ok(format!(
             "{} \\Rightarrow {} ",
-            dump_latex(&self.inner.condition, vec![], true),
-            dump_latex(&self.inner.conclusion, vec![], true)
+            dump_latex(&self.inner.condition, &[], true),
+            dump_latex(&self.inner.conclusion, &[], true)
         ))
     }
 

@@ -367,13 +367,13 @@ impl PySymbol {
     /// LaTeX representation of that node
     #[getter]
     fn latex(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, vec![], false))
+        Ok(dump_latex(&self.inner, &[], false))
     }
 
     /// LaTeX representation of that node with brackets everywhere
     #[getter]
     fn latex_verbose(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, vec![], true))
+        Ok(dump_latex(&self.inner, &[], true))
     }
 
     /// The node as a tree
@@ -626,7 +626,7 @@ impl PySymbol {
                 post: &deco.post,
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations, false))
+        Ok(dump_latex(&self.inner, &decorations, false))
     }
 
     #[text_signature = "($self, decorations, /)"]
@@ -645,7 +645,7 @@ impl PySymbol {
                 post: "}",
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations, false))
+        Ok(dump_latex(&self.inner, &decorations, false))
     }
 }
 

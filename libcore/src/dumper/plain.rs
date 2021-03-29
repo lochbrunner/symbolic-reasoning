@@ -28,7 +28,7 @@ pub fn dump_symbol_plain(symbol: &Symbol, verbose: bool) -> String {
             symbols: hashmap! {},
             functions: hashmap! {},
         },
-        decoration: vec![],
+        decoration: &[],
     };
     let mut string = String::new();
     dump_base(

@@ -30,13 +30,14 @@ impl FormattingLocation {
 
 pub enum FormatItem {
     Tag(&'static str),
-    Child(usize),
+    /// position, discard brackets
+    Child(usize, bool),
 }
 
 pub struct FormatContext<'a> {
     pub operators: Operators<'a>,
     pub formats: SpecialFormatRules,
-    pub decoration: Vec<Decoration<'a>>,
+    pub decoration: &'a [Decoration<'a>],
 }
 
 impl<'a> FormatContext<'a> {}
@@ -79,9 +80,10 @@ impl<'a> FormatContext<'a> {
                 for rule in rules.iter() {
                     match rule {
                         FormatItem::Tag(tag) => code.push_str(tag),
-                        FormatItem::Child(index) => {
+                        FormatItem::Child(index, no_brackets) => {
                             let child = symbol.childs.get(*index).expect("");
-                            let bracket = child.depth > 1
+                            let bracket = !*no_brackets
+                                && child.depth > 1
                                 && !self.formats.functions.contains_key(&child.ident[..]);
                             dump_atomic(
                                 self,
@@ -135,26 +137,26 @@ pub fn dump_base(
         string.push_str(decoration.pre);
     }
 
-    match symbol.childs.len() {
-        0 => string.push_str(context.get(&symbol.ident)),
-        1 if context.operators.postfix.contains(&symbol.ident[..]) => {
-            let child = &symbol.childs[0];
-            let pre_child = context.get_precedence_or_default(&child);
-            dump_atomic(
-                context,
-                child,
-                pre_child < &P_HIGHEST,
-                location,
-                make_unary_minus,
-                string,
-            );
-            string.push_str(context.get(&symbol.ident));
-        }
-        1 if context.operators.prefix.contains(&symbol.ident[..]) => {
-            if context
-                .format_function(&symbol, &location, make_unary_minus, &mut string)
-                .is_none()
-            {
+    if context
+        .format_function(&symbol, &location, make_unary_minus, &mut string)
+        .is_none()
+    {
+        match symbol.childs.len() {
+            0 => string.push_str(context.get(&symbol.ident)),
+            1 if context.operators.postfix.contains(&symbol.ident[..]) => {
+                let child = &symbol.childs[0];
+                let pre_child = context.get_precedence_or_default(&child);
+                dump_atomic(
+                    context,
+                    child,
+                    pre_child < &P_HIGHEST,
+                    location,
+                    make_unary_minus,
+                    string,
+                );
+                string.push_str(context.get(&symbol.ident));
+            }
+            1 if context.operators.prefix.contains(&symbol.ident[..]) => {
                 let child = &symbol.childs[0];
                 let pre_child = context.get_precedence_or_default(&child);
 
@@ -168,12 +170,7 @@ pub fn dump_base(
                     string,
                 );
             }
-        }
-        2 if context.operators.infix.contains_key(&symbol.ident[..]) => {
-            if context
-                .format_function(&symbol, &location, make_unary_minus, &mut string)
-                .is_none()
-            {
+            2 if context.operators.infix.contains_key(&symbol.ident[..]) => {
                 let pre_root = context.get_precedence_or_default(&symbol);
                 let left = &symbol.childs[0];
                 let right = &symbol.childs[1];
@@ -213,21 +210,21 @@ pub fn dump_base(
                     );
                 }
             }
-        }
-        _ => {
-            string.push_str(context.get(&symbol.ident));
-            let mut first = true;
-            string.push_str(context.get("("));
-            for (i, child) in symbol.childs.iter().enumerate() {
-                if !first {
-                    string.push_str(", ");
+            _ => {
+                string.push_str(context.get(&symbol.ident));
+                let mut first = true;
+                string.push_str(context.get("("));
+                for (i, child) in symbol.childs.iter().enumerate() {
+                    if !first {
+                        string.push_str(", ");
+                    }
+                    dump_base(context, child, location.deeper(i), make_unary_minus, string);
+                    first = false;
                 }
-                dump_base(context, child, location.deeper(i), make_unary_minus, string);
-                first = false;
+                string.push_str(context.get(")"));
             }
-            string.push_str(context.get(")"));
-        }
-    };
+        };
+    }
 
     if let Some(decoration) = actual_decoration {
         string.push_str(decoration.post);
