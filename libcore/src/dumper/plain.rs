@@ -139,12 +139,12 @@ mod e2e {
     }
 
     #[test]
-    fn bug_15_substraction() {
+    fn bug_15_subtraction() {
         test("a-(b+c)");
     }
 
     #[test]
-    fn bug_15_substraction_false_positive() {
+    fn bug_15_subtraction_false_positive() {
         test("a-b");
     }
 

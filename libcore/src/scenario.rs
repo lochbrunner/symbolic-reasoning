@@ -100,6 +100,8 @@ struct ScenarioStringAsRule {
     pub include: Vec<String>,
     #[serde(default)]
     pub premises: Vec<String>,
+    #[serde(default)]
+    pub short: String,
 }
 
 #[derive(Debug)]
@@ -122,7 +124,12 @@ impl Scenario {
             declarations: ss.declarations,
         };
         declarations.register_standard_operators();
-
+        // Prefix for rules
+        let prefix = if !ss.short.is_empty() {
+            format!("{}.", ss.short)
+        } else {
+            "".to_owned()
+        };
         let parse_rule = |(name, code): (&String, &String)| -> Vec<Result<Rule, String>> {
             let postfix = vec!["", " (i)", " (ii)"];
             match Rule::parse(&declarations, code) {
@@ -133,7 +140,7 @@ impl Scenario {
                         .into_iter()
                         .enumerate()
                         .map(|(i, mut r)| {
-                            r.name = format!("{}{}", name, postfix[offset + i]);
+                            r.name = format!("{}{}{}", prefix, name, postfix[offset + i]);
                             Ok(r)
                         })
                         .collect::<Vec<_>>()

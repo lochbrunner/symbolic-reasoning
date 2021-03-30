@@ -183,7 +183,7 @@ pub fn dump_base(
                     && pre_right == &P_HIGHEST
                     && left.value.unwrap_or_default() == -1
                 {
-                    string.push_str("-");
+                    string.push('-');
                     string.push_str(context.get(&right.ident));
                 } else {
                     dump_atomic(

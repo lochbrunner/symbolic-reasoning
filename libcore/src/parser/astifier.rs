@@ -333,8 +333,7 @@ fn astify(
 fn apply_function(context: &Context, stack: &mut ParseStack) -> Result<(), String> {
     // Create function
     // TODO: Merge this with astify later
-    let mut childs = vec![];
-    childs.push(pop_as_symbol(context, &mut stack.symbol)?);
+    let mut childs = vec![pop_as_symbol(context, &mut stack.symbol)?];
     while stack.infix.pop().expect("Something").precedence == Precedence::PSeparator {
         childs.push(pop_as_symbol(context, &mut stack.symbol)?);
     }

@@ -4,6 +4,8 @@ include:
 declarations:
   I:
     is_function: false
+  e:
+    is_function: false
   sqrt:
     is_function: true
 rules: {}

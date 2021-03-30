@@ -15,6 +15,6 @@ impl<'a, T> std::hash::Hash for RefEquality<'a, T> {
 
 impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
     fn eq(&self, other: &RefEquality<'b, T>) -> bool {
-        self.0 as *const T == other.0 as *const T
+        std::ptr::eq(self.0, other.0)
     }
 }

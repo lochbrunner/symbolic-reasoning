@@ -122,7 +122,7 @@ pub struct ProblemStatisticsCombined {
 impl From<&ProblemStatistics> for ProblemStatisticsCombined {
     fn from(source: &ProblemStatistics) -> Self {
         assert!(
-            source.iterations.len() > 0,
+            !source.iterations.is_empty(),
             "Expects at least one iteration!"
         );
         // let first = &source.iterations[0].trace;
@@ -367,25 +367,25 @@ impl SolverStatistics {
             SortingKey::Name => self
                 .name_index
                 .as_ref()
-                .ok_or(format!("Fit index not available!"))?
+                .ok_or("Fit index not available!".to_string())?
                 .get(index)
                 .ok_or(format!("Could not find item #{} in name index", index))?,
             SortingKey::Success => self
                 .success_index
                 .as_ref()
-                .ok_or(format!("Fit index not available!"))?
+                .ok_or("Fit index not available!".to_string())?
                 .get(index)
                 .ok_or(format!("Could not find item #{} in success index", index))?,
             SortingKey::Fits => self
                 .fits_index
                 .as_ref()
-                .ok_or(format!("Fit index not available!"))?
+                .ok_or("Fit index not available!".to_string())?
                 .get(index)
                 .ok_or(format!("Could not find item #{} in fitting index", index))?,
             SortingKey::SolutionDepth => self
                 .solution_depth_index
                 .as_ref()
-                .ok_or(format!("Fit index not available!"))?
+                .ok_or("Fit index not available!".to_string())?
                 .get(index)
                 .ok_or(format!(
                     "Could not find item #{} in solution depth index",
@@ -394,7 +394,7 @@ impl SolverStatistics {
             SortingKey::TotalDepth => self
                 .total_depth_index
                 .as_ref()
-                .ok_or(format!("Fit index not available!"))?
+                .ok_or("Fit index not available!".to_string())?
                 .get(index)
                 .ok_or(format!(
                     "Could not find item #{} in total depth index",
@@ -453,15 +453,13 @@ impl SolverStatistics {
     }
 
     pub fn dump(&self, filename: &str) -> Result<(), String> {
-        let file =
-            File::create(filename.clone()).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
+        let file = File::create(filename).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
         let writer = BufWriter::new(file);
         self.write_bincode(writer)
     }
 
     pub fn load(filename: &str) -> Result<Self, String> {
-        let file =
-            File::open(filename.clone()).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
+        let file = File::open(filename).map_err(|msg| format!("{}: \"{}\"", msg, filename))?;
         let reader = BufReader::new(file);
         Self::read_bincode(reader)
     }
