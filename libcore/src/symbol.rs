@@ -219,7 +219,10 @@ pub struct Embedding {
     pub embedded: Vec<Vec<i64>>,
     pub index_map: Option<Vec<Vec<i16>>>,
     pub positional_encoding: Option<Vec<Vec<i64>>>,
+    pub target: Vec<Vec<f32>>,
+    /// deprecated use target instead
     pub label: Vec<i64>,
+    /// deprecated use target instead
     pub policy: Vec<f32>,
     pub value: i64,
 }
@@ -488,6 +491,7 @@ impl Symbol {
         padding: i16,
         spread: usize,
         max_depth: u32,
+        target_size: usize,
         fits: &[FitInfo],
         useful: bool,
         index_map: bool,
@@ -525,7 +529,9 @@ impl Symbol {
             None
         };
 
+        let mut target = vec![vec![0.; target_size]; embedded.len()];
         // Compute label
+        // Deprecated
         let mut label = vec![0; embedded.len()];
         let mut policy = vec![0.0; embedded.len()];
         for fit in fits.iter() {
@@ -535,11 +541,16 @@ impl Symbol {
             let index = ref_to_index[&RefEquality(child)] as usize;
             label[index] = fit.rule_id as i64;
             policy[index] = fit.policy.value();
+            // positive policy should survive after collision
+            if target[index][fit.rule_id as usize] < 0.5 {
+                target[index][fit.rule_id as usize] = fit.policy.value() as f32;
+            }
         }
 
         Ok(Embedding {
             embedded,
             index_map,
+            target,
             label,
             policy,
             positional_encoding,
@@ -822,6 +833,7 @@ mod specs {
                 padding,
                 spread,
                 symbol.depth,
+                4,
                 &vec![],
                 true,
                 true,
@@ -872,6 +884,7 @@ mod specs {
                 padding,
                 spread,
                 symbol.depth,
+                4,
                 &vec![],
                 true,
                 true,
@@ -908,12 +921,13 @@ mod specs {
         };
         let dict = fix_dict(dict);
         let spread = 2;
-        let Embedding { label, .. } = symbol
+        let Embedding { label, target, .. } = symbol
             .embed(
                 &dict,
                 padding,
                 spread,
                 symbol.depth,
+                3,
                 &vec![
                     FitInfo {
                         rule_id: 1,
@@ -923,7 +937,7 @@ mod specs {
                     FitInfo {
                         rule_id: 2,
                         path: vec![0, 1],
-                        policy: Policy::Positive,
+                        policy: Policy::Negative,
                     },
                 ],
                 true,
@@ -933,6 +947,19 @@ mod specs {
             .unwrap();
 
         assert_eq!(label, vec![0, 0, 0, 1, 2, 0, 0, 0,]);
+        assert_eq!(
+            target,
+            vec![
+                vec![0.0, 0.0, 0.0,],
+                vec![0.0, 0.0, 0.0,],
+                vec![0.0, 0.0, 0.0,],
+                vec![0.0, 1.0, 0.0,],
+                vec![0.0, 0.0, -1.0,],
+                vec![0.0, 0.0, 0.0,],
+                vec![0.0, 0.0, 0.0,],
+                vec![0.0, 0.0, 0.0,],
+            ]
+        )
     }
 
     #[test]

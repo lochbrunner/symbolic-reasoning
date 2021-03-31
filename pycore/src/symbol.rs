@@ -294,6 +294,11 @@ impl PyEmbedding {
     fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
         Ok([self.inner.value].to_pyarray(py).to_owned())
     }
+
+    #[getter]
+    fn target(&self, py: Python) -> PyResult<Py<PyArray2<f32>>> {
+        make_2darray(py, self.inner.target.clone())
+    }
 }
 
 #[pymethods]
@@ -398,6 +403,7 @@ impl PySymbol {
         padding: i16,
         spread: usize,
         max_depth: u32,
+        target_size: usize,
         fits: Vec<PyFitInfo>,
         useful: bool,
         index_map: bool,
@@ -414,6 +420,7 @@ impl PySymbol {
                 padding,
                 spread,
                 max_depth,
+                target_size,
                 &fits,
                 useful,
                 index_map,
@@ -434,6 +441,7 @@ impl PySymbol {
         padding: i16,
         spread: usize,
         max_depth: u32,
+        target_size: usize,
         fits: Vec<PyFitInfo>,
         useful: bool,
         index_map: bool,
@@ -445,6 +453,7 @@ impl PySymbol {
         Py<PyArray1<i64>>,
         Py<PyArray1<f32>>,
         Py<PyArray1<i64>>,
+        Py<PyArray2<f32>>,
     )> {
         let fits = fits
             .into_iter()
@@ -457,6 +466,7 @@ impl PySymbol {
             label,
             policy,
             value,
+            target,
         } = self
             .inner
             .embed(
@@ -464,6 +474,7 @@ impl PySymbol {
                 padding,
                 spread,
                 max_depth,
+                target_size,
                 &fits,
                 useful,
                 index_map,
@@ -479,6 +490,7 @@ impl PySymbol {
         let policy = policy.into_pyarray(py).to_owned();
         let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
+        let target = make_2darray(py, target)?;
         Ok((
             embedded,
             index_map,
@@ -486,6 +498,7 @@ impl PySymbol {
             label,
             policy,
             value,
+            target,
         ))
     }
 

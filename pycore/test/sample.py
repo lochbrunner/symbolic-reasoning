@@ -13,13 +13,25 @@ class TestSample(unittest.TestCase):
         sample = Sample(initial, fits, useful=True)
 
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
+        target_size = 3
         padding = 20
-        _, _, _, label, policy, value = sample.embed(
-            ident2index, padding, 2, initial.depth, index_map=True, positional_encoding=False)
+        _, _, _, label, policy, value, target = sample.embed(
+            ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
 
         self.assertEqual(value.tolist(), [1])
         self.assertEqual(policy.tolist(), [0, 0, 0, 1, -1, 0, 0, 0, 0, 0])
         self.assertEqual(label.tolist(), [0, 0, 0, 1, 2, 0, 0, 0, 0, 0])
+
+        self.assertEqual(target.tolist(), [[0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 1.0, 0.0],
+                                           [0.0, 0.0, -1.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0],
+                                           [0.0, 0.0, 0.0]])
 
     def test_from_merged(self):
         context = Context.standard()
@@ -36,14 +48,26 @@ class TestSample(unittest.TestCase):
             useful=True
         )
 
+        target_size = 3
+
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
         padding = 20
-        _, _, _, label, policy, value = sample.embed(
-            ident2index, padding, 2, initial.depth, index_map=True, positional_encoding=False)
+        _, _, _, label, policy, value, target = sample.embed(
+            ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
 
         self.assertEqual(value.tolist(), [1])
         self.assertEqual(policy.tolist(), [0, 0, 0, 1, -1, -1, 1, 0, 0, 0])
         self.assertEqual(label.tolist(), [0, 0, 0, 1, 2, 1, 2, 0, 0, 0])
+        self.assertEqual(target.tolist(), [[0.,  0.,  0.],
+                                           [0.,  0.,  0.],
+                                           [0.,  0.,  0.],
+                                           [0.,  1.,  0.],
+                                           [0.,  0., -1.],
+                                           [0., -1.,  0.],
+                                           [0.,  0.,  1.],
+                                           [0.,  0.,  0.],
+                                           [0.,  0.,  0.],
+                                           [0.,  0., 0.]])
 
 
 class TestSampleSet(unittest.TestCase):

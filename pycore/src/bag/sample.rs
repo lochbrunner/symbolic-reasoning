@@ -79,6 +79,7 @@ impl PySample {
         padding: i16,
         spread: usize,
         max_depth: u32,
+        target_size: usize,
         index_map: bool,
         positional_encoding: bool,
     ) -> PyResult<PyEmbedding> {
@@ -97,6 +98,7 @@ impl PySample {
                 padding,
                 spread,
                 max_depth,
+                target_size,
                 &fits,
                 self.data.useful,
                 index_map,
@@ -117,6 +119,7 @@ impl PySample {
         padding,
         spread,
         max_depth,
+        target_size,
         index_map,
         positional_encoding
     )]
@@ -127,6 +130,7 @@ impl PySample {
         padding: i16,
         spread: usize,
         max_depth: u32,
+        target_size: usize,
         index_map: bool,
         positional_encoding: bool,
     ) -> PyResult<(
@@ -136,6 +140,7 @@ impl PySample {
         Py<PyArray1<i64>>,
         Py<PyArray1<f32>>,
         Py<PyArray1<i64>>,
+        Py<PyArray2<f32>>,
     )> {
         let fits = self
             .data
@@ -150,6 +155,7 @@ impl PySample {
             label,
             policy,
             value,
+            target,
         } = self
             .data
             .initial
@@ -159,6 +165,7 @@ impl PySample {
                 padding,
                 spread,
                 max_depth,
+                target_size,
                 &fits,
                 self.data.useful,
                 index_map,
@@ -177,6 +184,7 @@ impl PySample {
         let policy = policy.into_pyarray(py).to_owned();
         let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
         let embedded = make_2darray(py, embedded)?;
+        let target = make_2darray(py, target)?;
         Ok((
             embedded,
             index_map,
@@ -184,6 +192,7 @@ impl PySample {
             label,
             policy,
             value,
+            target,
         ))
     }
 }
