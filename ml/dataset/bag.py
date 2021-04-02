@@ -44,12 +44,13 @@ def stack(samples, width=None):
 
 
 def dynamic_width_collate(batch):
-    # x, s?, o?, y, p, v
+    # x, s?, o?, y, p, v, t
     max_width = max(sample[0].shape[0] for sample in batch)
     # Transpose them
     transposed = list(zip(*batch))
     # Don't pad value
-    return [stack(channel, max_width) for channel in transposed[:-1]] + [stack(channel) for channel in transposed[-1:]]
+    widths = [max_width, max_width, max_width, max_width, None, max_width]
+    return [stack(channel, width) for channel, width in zip(transposed, widths)]
 
 
 class BagDataset(Dataset):
@@ -135,7 +136,8 @@ class BagDataset(Dataset):
     def _process_sample(self, sample):
         try:
             channels = sample.embed(self.ident_dict, self.pad_token, self.spread,
-                                    self._max_depth, index_map=self.index_map, positional_encoding=self.positional_encoding)
+                                    self._max_depth, target_size=self.tag_size,
+                                    index_map=self.index_map, positional_encoding=self.positional_encoding)
         # if self.positional_encoding:
         #     channels[2] = self._positional_encoding_waves(channels[2])
             return [c for c in channels if c is not None]
@@ -143,7 +145,7 @@ class BagDataset(Dataset):
             raise RuntimeError(f'{e} Available idents are {self.ident_dict.keys()}')
 
     def embed_custom(self, initial, fits=None, useful=True):
-        return initial.embed(self.ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, index_map=True, positional_encoding=self.positional_encoding)
+        return initial.embed(self.ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, target_size=self.tag_size, index_map=True, positional_encoding=self.positional_encoding)
 
     @property
     def max_depth(self):

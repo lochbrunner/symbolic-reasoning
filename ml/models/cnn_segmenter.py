@@ -54,7 +54,7 @@ class ValueHead(nn.Module):
         x = self.cnn(x, s)
         x = F.dropout(x, p=self.config['dropout'])
         b, l, j = x.shape
-        assert(self.hidden_size == j)
+        # assert(self.hidden_size == j)
         # x: blj
         # blj -> (bl)j
         x = x.view([-1, j])
@@ -80,14 +80,9 @@ class PolicyHead(nn.Module):
         super(PolicyHead, self).__init__()
         self.cnn = IConv(in_size=embedding_size, out_size=tagset_size, kernel_size=kernel_size)
 
-    def forward(self, x, s, p):
+    def forward(self, x, s, *args):
         x = self.cnn(x, s)
-        # negative policy indicates that the rule at that possition should not be applied
-        # x_blj * p_bl = y_blj
-        x *= p.unsqueeze(2).expand(x.shape)
-        # j must be second index: b,j,...
-        y = F.log_softmax(x, dim=2)
-        return torch.transpose(y, 1, 2)
+        return F.log_softmax(x, dim=2)  # should we softmax over dim 1+2?
 
 
 class TreeCnnSegmenter(nn.Module):
@@ -149,7 +144,7 @@ class TreeCnnSegmenter(nn.Module):
         self.value = ValueHead(embedding_size=embedding_size, kernel_size=kernel_size,
                                config=self.config)
 
-    def forward(self, x, s, p, *args):  # pylint: disable=arguments-differ
+    def forward(self, x, s, *args):  # pylint: disable=arguments-differ
         # p: b,l
         # x: b,l,(e,props)
         e = x[:, :, 0]  # .squeeze()
@@ -163,7 +158,7 @@ class TreeCnnSegmenter(nn.Module):
             x = e
         x = self.cnn_hidden(x, s)
 
-        return self.policy(x, s, p), self.value(x, s)
+        return self.policy(x, s), self.value(x, s)
 
     @ staticmethod
     def activation_names():

@@ -141,14 +141,19 @@ class LocalTrace:
         return {'apply_info': node.apply_info.as_dict(),
                 'childs': [LocalTrace.as_dict_recursive(c) for c in node.childs]}
 
-    def iter(self):
+    def iter(self, just_neighborhood=False):
         '''Traverses breath first through all nodes in the tree.'''
+
+        if just_neighborhood and not self.root.apply_info.contributed:
+            yield from ()
+
         queue = Queue()
         queue.put(self.root)
         while not queue.empty():
             node = queue.get()
-            for child in node.childs:
-                queue.put(child)
+            if not just_neighborhood or not node.apply_info or node.apply_info.contributed:
+                for child in node.childs:
+                    queue.put(child)
             yield node.apply_info
 
     def as_dict(self):
@@ -318,9 +323,11 @@ class TrainingsDataDumper:
 
     def __add__(self, statistics: Statistics):
         if statistics.success:
-            for apply_info in statistics.trace.iter():
+            for apply_info in statistics.trace.iter(just_neighborhood=True):
                 if apply_info.rule_id is not None:
-                    sample = Sample(apply_info.previous.current, [apply_info.fit_info], apply_info.contributed)
+                    # Just store fits of contributed steps
+                    fits = [apply_info.fit_info] if apply_info.contributed else []
+                    sample = Sample(apply_info.previous.current, fits, apply_info.contributed)
                     self.sample_set.add(sample)
         return self
 

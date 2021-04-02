@@ -138,11 +138,12 @@ class Ratio:
 
 
 class Error:
-    def __init__(self, with_padding=None, when_rule=None, exact=None, exact_no_padding=None):
+    def __init__(self, with_padding=None, when_rule=None, exact=None, exact_no_padding=None, in_possibilities=None):
         self.with_padding = with_padding or Ratio()
         self.when_rule = when_rule or Ratio()
         self.exact = exact or Ratio()
         self.exact_no_padding = exact_no_padding or Ratio()
+        self.in_possibilities = in_possibilities or Ratio()
         self.value_all = Mean()
         self.value_positive = Mean()
         self.value_negative = Mean()
@@ -191,29 +192,28 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
     value_loss = 0
     predicted_rule_distribution = None
 
-    for x, s, y, p, v in tqdm(dataloader, desc='validate', disable=not show_progress or not sys.stdin.isatty()):
+    for x, s, y, _, v, target in tqdm(dataloader, desc='validate', disable=not show_progress or not sys.stdin.isatty()):
         x = x.to(model.device)
         s = s.to(model.device)
-        y = y.to(model.device)
-        p = p.to(model.device)
         v = v.to(model.device)
+        target = target.to(model.device)
         v = v.squeeze(dim=1)
         # Dimensions
         # x: batch * label * length
-        # y: batch * length
-        py, pv = model(x, s, p)
+        # target: batch * length*rules
+        py, pv = model(x, s)
         # py: batch x rule x path
         if value_loss_function is not None:
             value_loss += value_loss_function(pv, v).item()
         if policy_loss_function is not None:
-            policy_loss += policy_loss_function(py, y).item()
+            policy_loss += policy_loss_function(py, target).item()
+        py = torch.transpose(py, 1, 2)
         if predicted_rule_distribution is None:
             predicted_rule_distribution = np.zeros(py.shape[1], dtype=int)
-        assert py.size(0) == y.size(0), f'{py.size(0)} == {y.size(0)}'
+        assert py.size(0) == target.size(0), f'{py.size(0)} == {target.size(0)}'
         batch_size = py.size(0)
         py = np.exp(py.cpu().numpy())
         y = y.cpu().numpy()
-        p = p.cpu().numpy()
         pv = pv.cpu().numpy()
         gt_v = v.cpu().numpy()
 
@@ -221,8 +221,8 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
         bins = np.bincount(ry, minlength=py.shape[1])
         predicted_rule_distribution += bins
 
-        if no_negative:
-            y = y*(p+1)/2
+        # if no_negative:
+        #     y = y*(p+1)/2
 
         for i in range(batch_size):
             # policy

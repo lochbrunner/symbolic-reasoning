@@ -184,7 +184,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                     logger.warning(f'Could not start tensorboard: {e}')
                 writer = SummaryWriter(log_dir=str(log_dir))
             writer = SummaryWriter(tensorboard_dir and str(tensorboard_dir))
-            x, s, _, p, _ = next(iter(validation_dataloader))
+            x, s, _, p, _, _ = next(iter(validation_dataloader))
             device = model.device
             x = x.to(device)
             s = s.to(device)
