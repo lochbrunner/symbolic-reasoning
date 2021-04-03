@@ -31,13 +31,15 @@ export interface Sample {
     isOperator: boolean[];
     isFixed: boolean[];
     isNumber: boolean[];
-    policy: Policy[];
+    policy: Policy[]; // Deprecated
     indexMap: number[][];
     predictedValue: number;
     groundTruthValue: number;
     parts: string[];
     rules: string[];
     predictedPolicy: number[][];
-    possibleFits: Position[];
+    gtPolicy: number[][];
+    fitMask: boolean[][];
+    possibleFits: Position[];   // Deprecated
     validationMetrics: ValidationMetrics;
 }

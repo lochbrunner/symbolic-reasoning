@@ -101,6 +101,30 @@ class Ratio:
             p = predict[i]
             self.tops[i] += np.sum(p == truth)
 
+    def update_global_positive(self, mask, predict, target):
+        if mask is not None:
+            predict = predict[mask]
+            target = target[mask]
+
+        predict = (-predict).flatten().argsort()
+        for i, index in enumerate(predict[:self.size]):
+            if target[index] > 0.5:
+                self.tops[i] += 1
+                break
+        self.sum += 1
+
+    def update_global_negative(self, mask, predict, target):
+        if mask is not None:
+            predict = predict[mask]
+            target = target[mask]
+
+        predict = predict.flatten().argsort()
+        for i, index in enumerate(predict[:self.size]):
+            if target[index] < -0.5:
+                self.tops[i] += 1
+                break
+        self.sum += 1
+
     def update_global(self, mask, predict, truth):
         '''
         n: node
@@ -109,7 +133,11 @@ class Ratio:
         truth: n
         predict: r, n
         '''
+
         if mask is not None:
+            # if mask.ndim == 2:
+            # print(f'predict: {predict.shape}')
+            # print(f'mask: {mask.shape}')
             predict = predict[:, mask]
             truth = truth[mask]
         # Find
@@ -138,12 +166,14 @@ class Ratio:
 
 
 class Error:
-    def __init__(self, with_padding=None, when_rule=None, exact=None, exact_no_padding=None, in_possibilities=None):
+    def __init__(self, with_padding=None, when_rule=None, exact=None, exact_no_padding=None,
+                 in_possibilities_positive=None, in_possibilities_negative=None):
         self.with_padding = with_padding or Ratio()
         self.when_rule = when_rule or Ratio()
         self.exact = exact or Ratio()
         self.exact_no_padding = exact_no_padding or Ratio()
-        self.in_possibilities = in_possibilities or Ratio()
+        self.in_possibilities_positive = in_possibilities_positive or Ratio()
+        self.in_possibilities_negative = in_possibilities_negative or Ratio()
         self.value_all = Mean()
         self.value_positive = Mean()
         self.value_negative = Mean()
@@ -153,6 +183,8 @@ class Error:
                 'exact-no-padding': self.exact_no_padding.as_dict(),
                 'when-rule': self.when_rule.as_dict(),
                 'with-padding': self.with_padding.as_dict(),
+                'in-possibilities-positive': float(self.in_possibilities_positive),
+                'in-possibilities-negative': float(self.in_possibilities_negative),
                 'value-all': float(self.value_all),
                 'value-positive': float(self.value_positive),
                 'value-negative': float(self.value_negative),
@@ -164,6 +196,8 @@ class Error:
         summary += f'when rule: {self.when_rule}\n'
         summary += f'exact: {self.exact}\n'
         summary += f'exact no padding: {self.exact_no_padding}\n'
+        summary += f'in possibilities positive: {self.in_possibilities_positive}\n'
+        summary += f'in possibilities negative: {self.in_possibilities_negative}\n'
         summary += f'value all: {self.value_all}\n'
         summary += f'value positive: {self.value_positive}\n'
         summary += f'value negative: {self.value_negative}\n'
@@ -192,11 +226,10 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
     value_loss = 0
     predicted_rule_distribution = None
 
-    for x, s, y, _, v, target in tqdm(dataloader, desc='validate', disable=not show_progress or not sys.stdin.isatty()):
+    for x, s, y, _, v, target, fit_mask in tqdm(dataloader, desc='validate', disable=not show_progress or not sys.stdin.isatty()):
         x = x.to(model.device)
         s = s.to(model.device)
         v = v.to(model.device)
-        target = target.to(model.device)
         v = v.squeeze(dim=1)
         # Dimensions
         # x: batch * label * length
@@ -216,16 +249,20 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
         y = y.cpu().numpy()
         pv = pv.cpu().numpy()
         gt_v = v.cpu().numpy()
+        fit_mask = fit_mask.cpu().numpy()
 
         ry = py.max(axis=2).argmax(axis=1)
         bins = np.bincount(ry, minlength=py.shape[1])
         predicted_rule_distribution += bins
+        target = np.transpose(target, (0, 2, 1))
 
         # if no_negative:
         #     y = y*(p+1)/2
 
         for i in range(batch_size):
             # policy
+            mask = fit_mask[i, :, :]
+            mask = np.transpose(mask, (1, 0))
             truth = y[i, :]
             predict = py[i, :, :]
             predicted_padding = np.copy(predict)
@@ -234,6 +271,8 @@ def validate(model: torch.nn.Module, dataloader: DataLoader,
             error.when_rule.update((truth > 0), predict, truth)
             error.exact.update_global(None, predict, truth)
             error.exact_no_padding.update_global(None, predicted_padding, truth)
+            error.in_possibilities_positive.update_global_positive(mask, predict, target[i, :, :])
+            error.in_possibilities_negative.update_global_negative(mask, predict, target[i, :, :])
 
             # value
             # as the value head is using the log softmax we have to "un-log" it

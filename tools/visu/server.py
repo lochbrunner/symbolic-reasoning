@@ -8,7 +8,7 @@ import numpy as np
 from common.config_and_arg_parser import ArgumentParser
 from common.utils import (get_rule_mapping, get_rule_mapping_by_config,
                           setup_logging, split_dataset)
-from common.validation import Error, Ratio
+from training.validation import Error, Ratio
 from dataset.bag import BagDataset
 from flask import Flask, jsonify, request, send_from_directory, g
 from solver.inferencer import Inferencer
@@ -26,11 +26,10 @@ def get_db():
     return db
 
 
-def validate(truth, p, predict, no_negative=False) -> Error:
+def validate(truth, predict, no_negative=False) -> Error:
     error = Error(exact=Ratio(20), exact_no_padding=Ratio(20))
-    if no_negative:
-        truth = truth*(p+1)/2
-
+    # if no_negative:
+    #     truth = truth*(p+1)/2
     predicted_padding = np.copy(predict)
     predicted_padding[0, :] = np.finfo('f').min
 
@@ -130,11 +129,12 @@ def create_index(inferencer: Inferencer, dataset):
 
     evaluation_results = []
 
-    for i, (_, _, y, p, v) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
+    for i, (_, _, y, p, v, target, mask) in tqdm(enumerate(dataset), total=len(dataset.container), desc='indexing', leave=False):
         raw_sample = dataset.container[i]
         initial = raw_sample.initial
         py, pv = inferencer.inference(initial, keep_padding=True)
-        validation = validate(truth=y, predict=py, p=p)
+        py = np.transpose(py, (1, 0))
+        validation = validate(truth=y, predict=py)
 
         gt_policy = [policy for ruleId, policy in zip(y.tolist(), p.tolist()) if ruleId != 0]
         gt_policy_positive = sum(1 for p in gt_policy if p > 0)
@@ -193,7 +193,7 @@ def main(config, options):
 
     app = Flask(__name__, static_url_path=str(dist_folder))
 
-    dataset = BagDataset.load(config.files.solver_trainings_data)
+    dataset = BagDataset.load(config.files.solver_trainings_data, data_size_limit=10 if options.smoke else None)
     scenario = Scenario.load(config.files.scenario)
     rule_mapping = get_rule_mapping(scenario)
     rule_id2verbose = {i: rule.verbose for i, rule in rule_mapping.items()}
@@ -218,8 +218,12 @@ def main(config, options):
         index = int(index)
         raw_sample = dataset.container[index]
         initial = raw_sample.initial
-        x, s, y, p, v = dataset[index]
+        x, s, y, p, v, target, mask = dataset[index]
         py, pv = inferencer.inference(initial, keep_padding=True)
+        py = np.transpose(py, (1, 0))
+        target = np.transpose(target, (1, 0))
+        mask = np.transpose(mask, (1, 0))
+
         parts_path = [p for p, _ in initial.parts_bfs_with_path]
         highlight_color = '#000077'
         off_focus = ('#aaaaaa', [])
@@ -243,14 +247,16 @@ def main(config, options):
             'isNumber': [iv == 1 for iv in x[:, 3].tolist()],
             'indexMap': s.tolist(),
             'policy': [{'ruleId': ruleId, 'policy': policy, 'path': i} for i, (ruleId, policy) in enumerate(zip(y.tolist(), p.tolist())) if ruleId != 0],
+            'fitMask': mask.tolist(),
             'groundTruthValue': v.tolist()[0],
             'predictedValue': pv.tolist(),
             'predictedPolicy': py.tolist(),
+            'gtPolicy': target.tolist(),
             'parts': [initial.latex_with_colors([(highlight_color, [])])] +
             [initial.latex_with_colors([off_focus, (highlight_color, path)]) for path in parts_path[1:]],
             'rules': [rule.latex_verbose for rule in dataset.get_rules_raw()],
             'possibleFits': possibleFits,
-            'validationMetrics': validate(truth=y, predict=py, p=p).as_dict()
+            'validationMetrics': validate(truth=y, predict=py).as_dict()
         })
 
     @app.route('/api/length')
@@ -286,4 +292,5 @@ if __name__ == "__main__":
                             prog='deep training')
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('--smoke', action='store_true', default=False)
     main(*parser.parse_args())

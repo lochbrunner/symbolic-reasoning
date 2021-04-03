@@ -61,12 +61,88 @@ impl Clone for PySymbol {
     }
 }
 
+pub type UnrolledEmbedding = (
+    Py<PyArray2<i64>>, // features
+    Option<Py<PyArray2<i16>>>,
+    Option<Py<PyArray2<i64>>>,
+    Py<PyArray1<i64>>,  // label
+    Py<PyArray1<f32>>,  // policy
+    Py<PyArray1<i64>>,  // value
+    Py<PyArray2<f32>>,  // target
+    Py<PyArray2<bool>>, // mask
+);
+
 impl PySymbol {
     pub fn new(symbol: Symbol) -> PySymbol {
         PySymbol {
             inner: Arc::new(symbol),
             attributes: HashMap::new(),
         }
+    }
+
+    /// Unrolls the symbol tree using breath first traversing
+    /// u16 is not supported by pytorch
+    pub fn embed_impl(
+        &self,
+        py: Python,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        target_size: usize,
+        fits: &[PyFitInfo],
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+    ) -> PyResult<UnrolledEmbedding> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let Embedding {
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+            target,
+            possibility_mask,
+        } = self
+            .inner
+            .embed(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                target_size,
+                &fits,
+                useful,
+                index_map,
+                positional_encoding,
+            )
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
+
+        let index_map = make_optional_2darray(py, index_map)?;
+        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
+        let label = label.into_pyarray(py).to_owned();
+        let policy = policy.into_pyarray(py).to_owned();
+        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
+        let embedded = make_2darray(py, embedded)?;
+        let target = make_2darray(py, target)?;
+        let possibility_mask = make_2darray(py, possibility_mask)?;
+        Ok((
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+            target,
+            possibility_mask,
+        ))
     }
 }
 
@@ -434,10 +510,22 @@ impl PySymbol {
 
     /// Unrolls the symbol tree using breath first traversing
     /// u16 is not supported by pytorch
+    #[args(
+        self,
+        ident2index,
+        padding,
+        spread,
+        max_depth,
+        target_size,
+        fits,
+        useful,
+        index_map,
+        positional_encoding
+    )]
     fn embed(
         &self,
         py: Python,
-        dict: HashMap<String, i16>,
+        ident2index: HashMap<String, i16>,
         padding: i16,
         spread: usize,
         max_depth: u32,
@@ -446,60 +534,19 @@ impl PySymbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
-    ) -> PyResult<(
-        Py<PyArray2<i64>>,
-        Option<Py<PyArray2<i16>>>,
-        Option<Py<PyArray2<i64>>>,
-        Py<PyArray1<i64>>,
-        Py<PyArray1<f32>>,
-        Py<PyArray1<i64>>,
-        Py<PyArray2<f32>>,
-    )> {
-        let fits = fits
-            .into_iter()
-            .map(|fit| (*fit.data).clone())
-            .collect::<Vec<_>>();
-        let Embedding {
-            embedded,
+    ) -> PyResult<UnrolledEmbedding> {
+        self.embed_impl(
+            py,
+            ident2index,
+            padding,
+            spread,
+            max_depth,
+            target_size,
+            &fits,
+            useful,
             index_map,
             positional_encoding,
-            label,
-            policy,
-            value,
-            target,
-        } = self
-            .inner
-            .embed(
-                &dict,
-                padding,
-                spread,
-                max_depth,
-                target_size,
-                &fits,
-                useful,
-                index_map,
-                positional_encoding,
-            )
-            .map_err(|msg| {
-                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
-            })?;
-
-        let index_map = make_optional_2darray(py, index_map)?;
-        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
-        let label = label.into_pyarray(py).to_owned();
-        let policy = policy.into_pyarray(py).to_owned();
-        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
-        let embedded = make_2darray(py, embedded)?;
-        let target = make_2darray(py, target)?;
-        Ok((
-            embedded,
-            index_map,
-            positional_encoding,
-            label,
-            policy,
-            value,
-            target,
-        ))
+        )
     }
 
     // Error: the trait `ToPyObject` is not implemented for `PySymbol`

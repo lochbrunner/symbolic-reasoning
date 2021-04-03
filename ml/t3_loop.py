@@ -13,12 +13,13 @@ from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.reports import report_tops
 from common.timer import Timer
-from common.validation import Mean
 from dataset.bag import BagDataset
 from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
-from solver.trace import TrainingsDataDumper, SolutionSummarieser
+from solver.trace import TrainingsDataDumper
+from solver.metrics import SolutionSummarieser
+from training.validation import Mean
 from training import train
 
 logger = logging.getLogger(__name__)
@@ -130,7 +131,7 @@ def main(options, config, early_abort_hook=None):
         intro.create_index(lambda progress: progress_bar.update(min(100*progress, 100)))
     intro.dump(config.files.t3_loop_traces)
 
-    trainings_data_dumper.dump()
+    trainings_data_dumper.dump(rule_mapping)
 
 
 def create_parser():

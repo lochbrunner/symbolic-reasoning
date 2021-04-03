@@ -35,7 +35,7 @@ from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.timer import Timer
 from common.utils import setup_logging, get_rule_mapping_by_config, split_dataset
-from common.validation import validate
+from training.validation import validate
 from training import train
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                     logger.warning(f'Could not start tensorboard: {e}')
                 writer = SummaryWriter(log_dir=str(log_dir))
             writer = SummaryWriter(tensorboard_dir and str(tensorboard_dir))
-            x, s, _, p, _, _ = next(iter(validation_dataloader))
+            x, s, _, p, _, _, _ = next(iter(validation_dataloader))
             device = model.device
             x = x.to(device)
             s = s.to(device)
@@ -214,6 +214,8 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
             if azure_run is not None:
                 error.exact.log(azure_run.log, 'exact')
                 error.exact_no_padding.log(azure_run.log, 'exact (np)')
+                error.in_possibilities_positive.log(azure_run.log, 'just possibilities')
+                error.in_possibilities_negative.log(azure_run.log, 'just possibilities (negative)')
                 error.with_padding.log(azure_run.log, 'class')
                 error.when_rule.log(azure_run.log, 'class (np)')
                 if loss is not None:
@@ -226,10 +228,12 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 azure_run.log('optimizer/learning rate', optimizer.param_groups[0]['lr'])
 
             if writer:
-                error.exact.log_bundled(writer, 'policy/exact', epoch)
-                error.exact_no_padding.log_bundled(writer, 'policy/exact (no padding)', epoch)
-                error.with_padding.log_bundled(writer, 'policy/class', epoch)
-                error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
+                error.exact.log_bundled(writer, 'policy/exact with padding', epoch)
+                error.exact_no_padding.log_bundled(writer, 'policy/exact', epoch)
+                error.in_possibilities_positive.log_bundled(writer, 'policy/just possibilities', epoch)
+                error.in_possibilities_negative.log_bundled(writer, 'policy/just possibilities (negative)', epoch)
+                # error.with_padding.log_bundled(writer, 'policy/class', epoch)
+                # error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
                 if loss is not None:
                     writer.add_scalar('loss/training', loss, epoch)
                 writer.add_scalar('loss/validation/policy', validation.policy_loss, epoch)

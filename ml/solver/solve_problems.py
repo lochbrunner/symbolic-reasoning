@@ -16,8 +16,6 @@ module_logger = logging.getLogger(__name__)
 
 def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Inferencer,
                    rule_mapping: Dict, logger: logging.Logger = module_logger, use_network: bool = True, **kwargs):
-    problem_statistics = []
-    problem_solutions = []
 
     show_progress = not logger.isEnabledFor(logging.DEBUG) and sys.stdin.isatty()
 

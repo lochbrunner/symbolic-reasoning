@@ -49,7 +49,7 @@ def dynamic_width_collate(batch):
     # Transpose them
     transposed = list(zip(*batch))
     # Don't pad value
-    widths = [max_width, max_width, max_width, max_width, None, max_width]
+    widths = [max_width, max_width, max_width, max_width, None, max_width, max_width]
     return [stack(channel, width) for channel, width in zip(transposed, widths)]
 
 

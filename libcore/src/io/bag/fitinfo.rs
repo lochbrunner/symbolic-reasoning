@@ -2,13 +2,19 @@
 pub enum Policy {
     Positive,
     Negative,
+    NotTried,
 }
 
 impl Policy {
+    pub const POSITIVE_VALUE: f32 = 1.;
+    pub const NEGATIVE_VALUE: f32 = -1.;
+    pub const NOT_TRIED_VALUE: f32 = 0.;
+
     pub fn value(&self) -> f32 {
         match self {
-            Self::Positive => 1.,
-            Self::Negative => -1.,
+            Self::Positive => Self::POSITIVE_VALUE,
+            Self::Negative => Self::NEGATIVE_VALUE,
+            Self::NotTried => Self::NOT_TRIED_VALUE,
         }
     }
 

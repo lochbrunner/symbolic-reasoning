@@ -133,7 +133,7 @@ class TestSymbol(unittest.TestCase):
         index_encoding = True
         positional_encoding = False
         target_size = 3
-        embedding, indices, positional_encoding, label, policy, value, target = symbol.embed(
+        embedding, indices, positional_encoding, label, policy, value, target, mask = symbol.embed(
             embed_dict, 0, spread, symbol.depth, target_size, fits, useful, index_encoding, positional_encoding)
 
         self.assertIsNone(positional_encoding)
@@ -161,6 +161,14 @@ class TestSymbol(unittest.TestCase):
                                            [0.0, 0.0, 0.0],
                                            [0.0, 0.0, 0.0],
                                            [0.0, 0.0, 0.0]])
+        self.assertEqual(mask.tolist(), [[False, False, False],
+                                         [False, False, True],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False]])
 
     def test_size(self):
         context = Context.standard()

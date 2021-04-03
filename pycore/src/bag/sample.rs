@@ -1,11 +1,10 @@
 use crate::bag::{PyContainer, PyFitInfo};
-use crate::symbol::PySymbol;
-use crate::symbol::{make_2darray, make_optional_2darray, PyEmbedding};
+use crate::rule::PyRule;
+use crate::symbol::{PyEmbedding, PySymbol, UnrolledEmbedding};
 use core::dumper::dump_symbol_plain;
+use core::fit;
 use core::io::bag;
-use core::symbol::Embedding;
 use core::symbol::Symbol;
-use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::PyMappingProtocol;
 use pyo3::exceptions;
@@ -126,74 +125,26 @@ impl PySample {
     fn embed(
         &self,
         py: Python,
-        dict: HashMap<String, i16>,
+        ident2index: HashMap<String, i16>,
         padding: i16,
         spread: usize,
         max_depth: u32,
         target_size: usize,
         index_map: bool,
         positional_encoding: bool,
-    ) -> PyResult<(
-        Py<PyArray2<i64>>,
-        Option<Py<PyArray2<i16>>>,
-        Option<Py<PyArray2<i64>>>,
-        Py<PyArray1<i64>>,
-        Py<PyArray1<f32>>,
-        Py<PyArray1<i64>>,
-        Py<PyArray2<f32>>,
-    )> {
-        let fits = self
-            .data
-            .fits
-            .iter()
-            .map(|fit| (*fit.data).clone())
-            .collect::<Vec<_>>();
-        let Embedding {
-            embedded,
+    ) -> PyResult<UnrolledEmbedding> {
+        self.data.initial.embed_impl(
+            py,
+            ident2index,
+            padding,
+            spread,
+            max_depth,
+            target_size,
+            &self.data.fits,
+            self.data.useful,
             index_map,
             positional_encoding,
-            label,
-            policy,
-            value,
-            target,
-        } = self
-            .data
-            .initial
-            .inner
-            .embed(
-                &dict,
-                padding,
-                spread,
-                max_depth,
-                target_size,
-                &fits,
-                self.data.useful,
-                index_map,
-                positional_encoding,
-            )
-            .map_err(|msg| {
-                PyErr::new::<exceptions::KeyError, _>(format!(
-                    "Could not embed {}: \"{}\"",
-                    self.data.initial.inner, msg
-                ))
-            })?;
-
-        let index_map = make_optional_2darray(py, index_map)?;
-        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
-        let label = label.into_pyarray(py).to_owned();
-        let policy = policy.into_pyarray(py).to_owned();
-        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
-        let embedded = make_2darray(py, embedded)?;
-        let target = make_2darray(py, target)?;
-        Ok((
-            embedded,
-            index_map,
-            positional_encoding,
-            label,
-            policy,
-            value,
-            target,
-        ))
+        )
     }
 }
 impl From<core::io::bag::Sample> for PySample {
@@ -338,6 +289,33 @@ impl PySampleSet {
             max_size,
             samples,
         })
+    }
+
+    /// Adds all possible fits to samples
+    /// Should we move this to the `to_container` with optional argument?
+    fn fill_possibilities(&mut self, rule_mapping: HashMap<u32, PyRule>) -> PyResult<()> {
+        for (_, sample) in self.samples.iter_mut() {
+            for (rule_id, rule) in rule_mapping.iter() {
+                let fits = fit(&(*sample.initial.inner), &rule.inner.condition);
+                let old_paths = sample
+                    .fits
+                    .iter()
+                    .map(|prev| prev.data.path.clone())
+                    .collect::<Vec<_>>();
+                sample.fits.extend(
+                    fits.into_iter()
+                        .filter(|fit| old_paths.iter().any(|prev| *prev != fit.path))
+                        .map(|fit| {
+                            PyFitInfo::new(bag::FitInfo {
+                                rule_id: *rule_id,
+                                path: fit.path,
+                                policy: bag::Policy::NotTried,
+                            })
+                        }),
+                );
+            }
+        }
+        Ok(())
     }
 
     #[staticmethod]

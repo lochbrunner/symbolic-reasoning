@@ -55,11 +55,12 @@ class Inferencer:
 
         self.model.eval()
         # Copy of BagDataset
+        self.target_size = scenario.tagset_size
         self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(idents)}
 
     def inference(self, initial: Symbol, keep_padding=False):
-        x, s, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
-                                         initial.depth, [], True, index_map=True, positional_encoding=False)
+        x, s, _, _, _, _, _, _ = initial.embed(self.ident_dict, self.pad_token, self.spread,
+                                               initial.depth, self.target_size, [], True, index_map=True, positional_encoding=False)
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)
         p = torch.ones(x.shape[:-1])

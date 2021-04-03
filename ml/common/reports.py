@@ -4,7 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import pickle
 
-from solver.trace import Tops
+from solver.metrics import Tops
 
 from torch.utils.tensorboard import SummaryWriter
 

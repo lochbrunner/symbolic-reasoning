@@ -11,6 +11,9 @@ class TableColumn:
         self.content = content
         self.tooltip = tooltip
 
+    def __len__(self):
+        return len(self.content)
+
     @property
     def html(self):
         if self.tooltip is not None:

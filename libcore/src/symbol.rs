@@ -1,5 +1,6 @@
 use crate::common::RefEquality;
 use crate::io::bag::FitInfo;
+use crate::io::bag::Policy;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -220,6 +221,7 @@ pub struct Embedding {
     pub index_map: Option<Vec<Vec<i16>>>,
     pub positional_encoding: Option<Vec<Vec<i64>>>,
     pub target: Vec<Vec<f32>>,
+    pub possibility_mask: Vec<Vec<bool>>,
     /// deprecated use target instead
     pub label: Vec<i64>,
     /// deprecated use target instead
@@ -530,6 +532,7 @@ impl Symbol {
         };
 
         let mut target = vec![vec![0.; target_size]; embedded.len()];
+        let mut possibility_mask = vec![vec![false; target_size]; embedded.len()];
         // Compute label
         // Deprecated
         let mut label = vec![0; embedded.len()];
@@ -542,9 +545,12 @@ impl Symbol {
             label[index] = fit.rule_id as i64;
             policy[index] = fit.policy.value();
             // positive policy should survive after collision
-            if target[index][fit.rule_id as usize] < 0.5 {
-                target[index][fit.rule_id as usize] = fit.policy.value() as f32;
+            if fit.policy != Policy::NotTried
+                && target[index][fit.rule_id as usize] < Policy::POSITIVE_VALUE
+            {
+                target[index][fit.rule_id as usize] = fit.policy.value();
             }
+            possibility_mask[index][fit.rule_id as usize] = true;
         }
 
         Ok(Embedding {
@@ -554,6 +560,7 @@ impl Symbol {
             label,
             policy,
             positional_encoding,
+            possibility_mask,
             value: if useful { 1 } else { 0 },
         })
     }
@@ -683,7 +690,6 @@ impl Symbol {
 mod specs {
     use super::*;
     use crate::context::{Context, Declaration};
-    use crate::io::bag::Policy;
 
     #[test]
     fn calc_depth_unary_op() {

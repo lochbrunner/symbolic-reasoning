@@ -15,7 +15,7 @@ class TestSample(unittest.TestCase):
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
         target_size = 3
         padding = 20
-        _, _, _, label, policy, value, target = sample.embed(
+        _, _, _, label, policy, value, target, mask = sample.embed(
             ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
 
         self.assertEqual(value.tolist(), [1])
@@ -32,6 +32,17 @@ class TestSample(unittest.TestCase):
                                            [0.0, 0.0, 0.0],
                                            [0.0, 0.0, 0.0],
                                            [0.0, 0.0, 0.0]])
+
+        self.assertEqual(mask.tolist(), [[False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, True, False],
+                                         [False, False, True],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False]])
 
     def test_from_merged(self):
         context = Context.standard()
@@ -52,7 +63,7 @@ class TestSample(unittest.TestCase):
 
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
         padding = 20
-        _, _, _, label, policy, value, target = sample.embed(
+        _, _, _, label, policy, value, target, mask = sample.embed(
             ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
 
         self.assertEqual(value.tolist(), [1])
@@ -68,6 +79,17 @@ class TestSample(unittest.TestCase):
                                            [0.,  0.,  0.],
                                            [0.,  0.,  0.],
                                            [0.,  0., 0.]])
+
+        self.assertEqual(mask.tolist(), [[False, False, False],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, True, False],
+                                         [False, False, True],
+                                         [False, True, False],
+                                         [False, False, True],
+                                         [False, False, False],
+                                         [False, False, False],
+                                         [False, False, False]])
 
 
 class TestSampleSet(unittest.TestCase):
