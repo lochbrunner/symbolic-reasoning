@@ -43,35 +43,6 @@
             "justMyCode": false
         },
         {
-            "name": "generator test",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/generator-0a1dbfa4861c0e9e",
-            "args": [
-                "--test",
-                "augmentation",
-                "--nocapture"
-            ],
-            "sourceLanguages": [
-                "rust"
-            ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "generator",
-            "type": "lldb",
-            "request": "launch",
-            "program": "target/debug/generator",
-            "args": [
-                "-c",
-                "real_world_problems/basics/dataset.yaml"
-            ],
-            "sourceLanguages": [
-                "rust"
-            ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
             "name": "train",
             "type": "python",
             "request": "launch",
@@ -170,6 +141,35 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/azure",
             "justMyCode": false
+        },
+        {
+            "name": "generator test",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/generator-0a1dbfa4861c0e9e",
+            "args": [
+                "--test",
+                "augmentation",
+                "--nocapture"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "generator",
+            "type": "lldb",
+            "request": "launch",
+            "program": "target/debug/generator",
+            "args": [
+                "-c",
+                "real_world_problems/basics/dataset.yaml"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
         },
     ]
 }

@@ -15,12 +15,31 @@
     table {
         border-spacing: 20px 0;
 
+        th {
+            div.sort-button {
+                height: 20px;
+                width: 12px;
+                cursor: pointer;
+                float: right;
+                margin: 0 1px;
+                &.positive {
+                    background-color: #dfd;
+                }
+                &.negative {
+                    background-color: #fdd;
+                }
+                &.na {
+                    background-color: #ddd;
+                }
+            }
+        }
+
         .row {
             cursor: pointer;
-            .positive{
+            .positive {
                 color: #070;
             }
-            .negative{
+            .negative {
                 color: #700;
             }
 

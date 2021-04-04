@@ -19,6 +19,8 @@
         "**/*.bcf": true,
         "**/*.blg": true,
         "**/*.run.xml": true,
+        "**/*.fls": true,
+        "**/*.fdb_latexmk": true,
     },
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}/ml:${workspaceFolder}/real_world_problems"
@@ -46,9 +48,12 @@
         "pyclass",
         "pymethods",
         "pyproto",
+        "Rightarrow",
         "repr",
         "serde",
-        "staticmethod"
+        "staticmethod",
+        "sympy",
+        "tolist"
     ],
     "vscode-generic-binary-preview.command": "/home/matthias/workspace/github/lochbrunner/symbolic-reasoning/tools/baginfo.py --format html"
 }

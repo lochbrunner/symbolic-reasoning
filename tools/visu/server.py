@@ -53,9 +53,12 @@ def query(begin: int, end: int, up: bool, sorting_key: str, rule_filter: str, ru
         'exact': 'summary__exact',
         'when-rule': 'summary__when_rule',
         'with-padding': 'summary__with_padding',
-        'value-gt': 'value__predicted',
+        'value-gt': 'value__gt',
         'value-error': 'value__error',
         'name': 'initial',
+        'positive': 'policy_gt__positive',
+        'negative': 'policy_gt__negative',
+        'na': 'possibilities',
     }
 
     sorting_key = key_map.get(sorting_key, 'initial')
@@ -84,12 +87,13 @@ def query(begin: int, end: int, up: bool, sorting_key: str, rule_filter: str, ru
                 'positive': row[4],
                 'negative': row[5]
             },
-            'index': row[6],
+            'possibilities': row[6],
+            'index': row[7],
             'summary': {
-                'exact': row[7],
-                'exact-no-padding': row[8],
-                'when-rule': row[9],
-                'with-padding': row[10]
+                'exact': row[8],
+                'exact-no-padding': row[9],
+                'when-rule': row[10],
+                'with-padding': row[11]
             }
         }
         for row in cur.fetchall()]
@@ -109,6 +113,7 @@ def create_index(inferencer: Inferencer, dataset):
                 'value__error real, '
                 'policy_gt__positive integer, '
                 'policy_gt__negative integer, '
+                'possibilities integer, '
                 'id integer primary key, '
                 'summary__exact integer, '
                 'summary__exact_no_padding integer, '
@@ -136,9 +141,9 @@ def create_index(inferencer: Inferencer, dataset):
         py = np.transpose(py, (1, 0))
         validation = validate(truth=y, predict=py)
 
-        gt_policy = [policy for ruleId, policy in zip(y.tolist(), p.tolist()) if ruleId != 0]
-        gt_policy_positive = sum(1 for p in gt_policy if p > 0)
-        gt_policy_negative = sum(1 for p in gt_policy if p < 0)
+        gt_policy_positive = np.count_nonzero(target > 0.5)
+        gt_policy_negative = np.count_nonzero(target < -0.5)
+        possibilities = np.count_nonzero(mask)
 
         cur.execute(
             "INSERT INTO samples VALUES("
@@ -148,6 +153,7 @@ def create_index(inferencer: Inferencer, dataset):
             f"{abs(pv.tolist() - v[0].tolist())}, "
             f"{gt_policy_positive}, "
             f"{gt_policy_negative}, "
+            f"{possibilities}, "
             f"{i}, "                                            # index
             f"{findFirst(validation.exact.tops)}, "             # summary
             f"{findFirst(validation.exact_no_padding.tops)}, "  # summary
@@ -268,10 +274,11 @@ def main(config, options):
         begin = int(request.args['begin'])
         end = int(request.args['end'])
         sorting_key = request.args.get('key', 'none').lower()
+        sorting_filter = request.args.get('filter', '')
         sorting_up = request.args.get('up', 'true')
         return jsonify(query(begin=begin, end=end,
                              up=sorting_up == 'true', sorting_key=sorting_key,
-                             rule_filter=request.args['filter'],
+                             rule_filter=sorting_filter,
                              rule_id2verbose=rule_id2verbose))
 
     @app.route('/api/histogram')

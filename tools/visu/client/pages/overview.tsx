@@ -6,6 +6,8 @@ import { ValidationMetricNames } from '../interfaces';
 import { useHistory, useParams } from 'react-router-dom';
 import { TextField } from '@material-ui/core';
 
+import Bar from '../components/bar';
+
 function encodeQueryData(data: any) {
     const ret = [];
     for (let d in data)
@@ -26,6 +28,7 @@ interface Sample {
         positive: number;
         negative: number;
     };
+    possibilities: number;
 
     summary: {
         'exact': number;
@@ -36,7 +39,7 @@ interface Sample {
 }
 
 interface Sorting {
-    key: 'none' | 'name' | ValidationMetricNames | 'value-gt' | 'value-predicted' | 'value-error';
+    key: 'none' | 'name' | ValidationMetricNames | 'value-gt' | 'value-predicted' | 'value-error' | 'positive' | 'negative' | 'na';
     up: boolean;
     filter: string;
 }
@@ -56,19 +59,17 @@ export default function overview(): JSX.Element {
             .catch(console.error);
     }
 
-    console.log(sorting);
-
     const changeSorting = (newSorting: Sorting) => {
         const { filter, key, up } = newSorting;
         history.push(`/overview/${key}/${up ? 'up' : 'down'}/${encodeURIComponent(filter) ?? ''}`);
     };
 
-    const updateSorting = (key: Sorting['key']) => {
+    const updateSorting = (key: Sorting['key'], initial?: boolean) => {
         return () => {
             if (sorting_key === key)
                 changeSorting({ ...sorting, up: !sorting.up });
             else
-                changeSorting({ ...sorting, key, up: true });
+                changeSorting({ ...sorting, key, up: initial ?? true });
         };
     };
 
@@ -108,6 +109,8 @@ export default function overview(): JSX.Element {
 
         const rows: JSX.Element[] = samples.map((sample, i) => {
             const { positive, negative } = sample.policy_gt;
+            const notTried = sample.possibilities - positive - negative;
+
             return (
                 <tr key={i} className="row" onClick={() => history.push(`/detail/${sample.index}`)}>
                     <td><TeX>{sample.initial}</TeX></td>
@@ -120,8 +123,8 @@ export default function overview(): JSX.Element {
                         <span>{sample.value.error.toFixed(2)}</span>
                         <span>({sample.value.predicted.toFixed(2)})</span>
                     </td>
-                    <td>{positive > 0 ? <span className="positive">{`${positive} ✓`}</span> : ''}
-                        {negative > 0 ? <span className="negative">{`${negative} ✗`}</span> : ''}
+                    <td>
+                        <Bar positive={positive} negative={negative} na={notTried} />
                     </td>
                 </tr>);
         });
@@ -144,7 +147,11 @@ export default function overview(): JSX.Element {
                                 <th className="clickable" onClick={updateSorting('with-padding')}>with padding</th>
                                 <th className="clickable" onClick={updateSorting('value-gt')}>contributed</th>
                                 <th className="clickable" onClick={updateSorting('value-error')}>value error (predicted)</th>
-                                <th >gt rules</th>
+                                <th >gt rules
+                                    <div className="sort-button na" onClick={updateSorting('na', false)} />
+                                    <div className="sort-button negative" onClick={updateSorting('negative', false)} />
+                                    <div className="sort-button positive" onClick={updateSorting('positive', false)} />
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
