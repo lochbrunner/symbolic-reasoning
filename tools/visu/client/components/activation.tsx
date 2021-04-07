@@ -144,10 +144,11 @@ function createSortedMap(predictions: number[][], dx: number, dy: number, filter
     const width = `${dx}px`;
     const height = `${dy}px`;
     return possibilities.map((possibility, i) => <g key={`pred-${i}`}>
-        <rect y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[i] }} ><title>{possibility.confidence}</title></rect>
-        <text textAnchor="middle" dominantBaseline="middle" y={`${(ruleMap[possibility.position.ruleId] + 0.5) * dy}px`} x={`${(possibility.position.path + 0.5) * dx}px`}>{filter.length - i}</text>
+        <rect y={`${ruleMap[possibility.position.ruleId] * dy}px`} x={`${possibility.position.path * dx}px`} width={width} height={height} style={{ fill: colors[filter.length - 1 - i] }} ><title>{possibility.confidence}</title></rect>
+        <text textAnchor="middle" dominantBaseline="middle" y={`${(ruleMap[possibility.position.ruleId] + 0.5) * dy}px`} x={`${(possibility.position.path + 0.5) * dx}px`}>{(i + 1)}</text>
     </g>);
 }
+
 
 function possibilitiesMap(possibilities: Position[], dx: number, dy: number): JSX.Element[] {
     const width = `${dx}px`;
@@ -155,10 +156,12 @@ function possibilitiesMap(possibilities: Position[], dx: number, dy: number): JS
     return possibilities.map((possibility, i) => <rect key={`possibility-${i}`} className="possibility" y={`${(possibility.ruleId + 0) * dy}px`} x={`${possibility.path * dx}px`} height={height} width={width}></rect>);
 }
 
+type IntermediatePos<T> = { rule_id: number, path_id: number, value: T };
+
 export function render(props: Props) {
     const [size, changeSize] = useState<Size>({ width: 100, height: 100 });
     const [showGroundTruth, changeShowGroundTruth] = useState<boolean>(true);
-    const [showIdents, changeShowIdents] = useState<boolean>(true);
+    const [showIdents, changeShowIdents] = useState<boolean>(false);
     const [showOperator, changeShowOperator] = useState<boolean>(false);
     const [showNumber, changeShowNumber] = useState<boolean>(false);
     const [showFixed, changeShowFixed] = useState<boolean>(false);
@@ -167,6 +170,7 @@ export function render(props: Props) {
     const [showPredictions, changeShowPredictions] = useState<boolean>(true);
     const [filterPossibilities, changeFilterPossibilities] = useState<boolean>(true);
     const [sortPossibilities, changeSortPossibilities] = useState<boolean>(true);
+    const [useNewFormat, changeUseNewFormat] = useState<boolean>(true);
 
     const { sample } = props;
 
@@ -193,12 +197,26 @@ export function render(props: Props) {
 
     if (showPredictions) {
         if (filterPossibilities) {
-            const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId));
-            ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
-            if (sortPossibilities) {
-                layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
+            if (useNewFormat) {
+                // [rule][path]
+                const usedRuleIds = sample.fitMask.map((paths, rule_id) => ({ rule_id, paths })).filter(rule => rule.paths.some(p => p)).map(rule => rule.rule_id);
+                ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
+                if (sortPossibilities) {
+                    const initial: IntermediatePos<boolean>[] = [];
+                    const possibleFits: Position[] = sample.fitMask.reduce((total, rule, rule_id) => [...total, ...rule.map((value, path_id) => ({ rule_id, path_id, value }))], initial).filter(cell => cell.value).map(cell => ({ ruleId: cell.rule_id, path: cell.path_id }))
+                    layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, possibleFits, ruleMap)];
+                }
+                else {
+
+                }
             } else {
-                layers = [...layers, ...createMapFiltered(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
+                const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId));
+                ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
+                if (sortPossibilities) {
+                    layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
+                } else {
+                    layers = [...layers, ...createMapFiltered(sample.predictedPolicy, dx, dy, sample.possibleFits, ruleMap)];
+                }
             }
         } else {
             layers = [...layers, ...createMap(sample.predictedPolicy, dx, dy)];
@@ -223,8 +241,19 @@ export function render(props: Props) {
         const groundTruthValues = sample.policy.filter(gt => gt.ruleId > 0);
         let groundTruth;
         if (ruleMap !== null) {
-            groundTruth = groundTruthValues.map((v, i) =>
-                <rect key={`gt - ${i} `} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'} `} x={v.path * dx} width={dx} y={(ruleMap as any)[v.ruleId] * dy} height={dy} />)
+            if (useNewFormat) {
+                const initial: IntermediatePos<number>[] = [];
+                const mappedRuleId = (orig: number) => {
+                    return (ruleMap as any)[orig];
+                }
+                groundTruth = sample.gtPolicy
+                    .reduce((total, current, rule_id) => [...total, ...current.map((cell, path_id) => ({ rule_id, path_id, value: cell }))], initial)
+                    .filter(data => data.value != 0.)
+                    .map((data, i) => <rect key={`gt - ${i} `} className={`gt cell ${data.value !== 1. ? 'negative' : 'positive'} `} x={data.path_id * dx} width={dx} y={mappedRuleId(data.rule_id) * dy} height={dy} />);
+            } else {
+                groundTruth = groundTruthValues.map((v, i) =>
+                    <rect key={`gt - ${i} `} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'} `} x={v.path * dx} width={dx} y={(ruleMap as any)[v.ruleId] * dy} height={dy} />)
+            }
         } else {
             groundTruth = groundTruthValues.map((v, i) =>
                 <rect key={`gt - ${i} `} className={`gt cell ${v.policy !== 1. ? 'negative' : 'positive'} `} x={v.path * dx} width={dx} y={v.ruleId * dy} height={dy} />)
@@ -314,6 +343,9 @@ export function render(props: Props) {
                     } />
                     <FormControlLabel label="Number" control={
                         <Switch checked={showNumber} onChange={changeShowX(changeShowNumber)} color="primary" />
+                    } />
+                    <FormControlLabel label="New format" control={
+                        <Switch checked={useNewFormat} onChange={changeShowX(changeUseNewFormat)} color="primary" />
                     } />
                     <div className="copy-table" onClick={e => download()}><Copy /></div>
                 </FormGroup>

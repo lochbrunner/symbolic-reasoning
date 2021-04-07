@@ -206,7 +206,7 @@ def main(config, options):
     # rule_verbose2id = {rule.verbose: i for i, rule in rule_mapping.items()}
     inferencer = Inferencer(config, scenario, fresh_model=False)
     embed2ident = dataset.embed2ident
-    assert dataset.ident_dict == inferencer.ident_dict, 'Inconsistent idents in model and dataset'
+    assert dataset.ident_dict == inferencer.ident_dict, f'Inconsistent idents in model and dataset (dataset: {dataset.ident_dict} model: {inferencer.ident_dict})'
 
     histogram_data = create_index(inferencer, dataset)
 
