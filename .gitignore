@@ -15,6 +15,9 @@ perf.*
 flame*.svg
 runs
 logs
+__latexindent_temp.tex
+*.fls
+*.fdb_latexmk
 *.log
 *.aux
 *.toc

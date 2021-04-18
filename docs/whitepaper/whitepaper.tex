@@ -102,9 +102,12 @@ The cumulative result of the value head can abort the solution path of the attem
 
 \subsection{Rule Application}
 
-Every rule $R$ is of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
+A rule $R$ consists of one or multiple premises and one conclusion $B$.
+In this paper we assume each rule to have only one premise $A$.
+The outlook section discusses approaches rule of multiple premisses. 
+Every rule is then of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
 Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper.
-Let's name the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
+Let's name the term $T$ with the depth $d$ of the corresponding syntax tree representation.
 
 \begin{figure}[!htbp]
 	\centering
@@ -113,16 +116,18 @@ Let's name the term $T\left(x\right)$ with the depth $d$ of the corresponding sy
 \end{figure}
 
 As the term $T$ can be represented by a tree we will name it's child terms $T_p$ with the position $p \in \big\{\left( n_1, n_2, \dots, n_d \right) | n_i \in \mathbb{N}, n_i \leq s \big\}$.
+Hence the sub-terms of $T$ are $T_p$.
+For instance $T_1$ is the sub-term at the first child node of the root node in that tree and $T_{1,1}$ is the first child term of $T_1$ and so on.
 The root symbol of $T_p$ should be $t_p$.
-Hence the sub-terms of $T$ be $T_p$ where $T_1$ for instance is the first child node of the root in that tree and $T_{1,1}$ the first child of $T_1$ and so on.
 Figure \ref{fig:sxntax_tree} demonstrates this notation by an example term.
 Let $s$ be the maximal number of children per node in the syntax tree.
 
-We try to match the premise term $A_j$ of rule $R_j$ at any position $p$ of term $T$.
+We try to match the premise term $A_j$ of rule $R_j$ at any position $p$ in term $T$.
 Doing so results in a set of possible positions $p_\ell$ with the required substitution table ${M_{j,\ell}: S_{A_j} \to S_{T_{p_\ell}}}$,
-where $S_{T_{p}}$ is the set of the symbols in term $T_p$ and $S_A$ the set of symbols in the premise $A$.
-Then the application of that rule results in the new terms $T^{(j,\ell)}$ where each node at $p_\ell$ gets replaced by the modified conclusion ${B'^{(j,\ell)} \coloneqq M_{j,\ell}\left( B \right)}$.
-Where $B'^{(R,j)}$ is $B$ with symbols mapped back by $M_{j,\ell}$. 
+where $S_{T_{p_\ell}}$ is the set of the sub-terms in term $T_{p_\ell}$ and $S_{A_j}$ the set of free symbols in the premise $A$.
+Free symbols are symbols not defined elsewhere such as standard operators or the number $\pi$.
+Then the application of that rule results in the new terms $T^{(j,\ell)}$ where each sub-term at $p_\ell$ gets replaced by the substituted conclusion ${B_j'^{(\ell)} \coloneqq M_{j,\ell}\left( B_j \right)}$.
+Where $B_j'^{(\ell)}$ is $B_j$ with symbols mapped back by $M_{j,\ell}$. 
 
 \begin{exmp}
 To illustrate the above, let's look at the application of the derivative rule for polynomials.
@@ -131,12 +136,16 @@ Consider the derivative rule
 \begin{align}
 	\frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n} \Longrightarrow {\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1} 
 \end{align}
-applied to the term
+with the premise $A\equiv \frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n}$ and the conclusion $B\equiv {\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1}$.
+This rule can be applied to a sub-term of
 \begin{align}
 	a = \frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4} + b
+	\label{example:problem}
 \end{align}
-at position $p=\left(2,1\right)$ of the derivative $\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}$.
-Using the symbolic mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\left({\color{blue}n} \right) = {\color{blue}4}$ leads to the new term
+at position $p=\left(2,1\right)$ where the derivative $\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}$ is located.
+Using the symbol mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\left({\color{blue}n} \right) = {\color{blue}4}$ leads to the substituted conclusion
+$B' = M(B) = M({\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1}) = {M(\color{blue}n})\cdot M({\color{red}x})^{M({\color{blue}n})-1} = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1}$.
+Now you can replace the sub-term of equation (\ref{example:problem}) at position $p$ with with that $B'$ and obtain the resulting new term
 \begin{align}
 	a = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} + b
 \end{align}.
@@ -146,13 +155,12 @@ Using the symbolic mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\
 \subsection{Indexed Convolution for Tree Structured Data}
 
 Lampe et. al. showed an approach where they unroll the term $T$ using the polish notation.
-Then they apply contemporary NLP translation methods on that sequence where the resulting "translated sentence" is the next step in the calculation. \cite{Lample2020Deep}
+Then they apply contemporary NLP translation methods on that sequence where the resulting "translated sentence" is the next step in the calculation \cite{Lample2020Deep}.
 The approach discussed here keeps the tree structure.
 It turned out that a Tree-LSTM network performs poorly on that data \cite{tai2015improved}.
 
 This paper will discuss the adoption of a network architectures using indexed convolution.
 An attention based network with special positional encoding is discussed in the outlook. 
-
 
 The indexed CNN operation performs a convolution of each node, with their it's neighbor nodes and itself.
 Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
@@ -163,40 +171,52 @@ Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 	\label{fig:index_tensor}
 \end{figure}
 
-In order to increase the compute efficiency, each term is rolled out.
+In order to increase the compute efficiency, each term is unrolled.
 Let $t_p$ be the symbol at the root of sub-term $T_p$,
-then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots \right)$ with length $L$.
+then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots \right)$ of length $L$.
 Or in index notation $t_{p_\ell}$ where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
-An index map $g \in \mathbb{N}^{L\times \left( s+2 \right)}$ carries the index of the neighbors in a fixed order.
+An index map $g \in \mathbb{N}^{L\times \left( s+2 \right)}$ carries the indices of the neighbors in a fixed order.
+The index map of example \ref{fig:index_tensor} would look like
 
+\begin{align}
+	g_{\ell,k} = 
+	\begin{pmatrix}
+		1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+		2 & 4 & 6 & 0 & 0 & 0 & 0 \\
+		3 & 5 & 7 & 0 & 0 & 0 & 0 \\
+		0 & 1 & 1 & 2 & 2 & 3 & 3 \\
+	\end{pmatrix}
+\end{align}
 
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/iconv.tex}
-	\caption{While $x\in \mathbb{R}^{B\times L\times E}$ is the input tensor tensor with encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
+	\caption{While $x\in \mathbb{R}^{L\times E}$ is the input tensor with $E$ encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
 		Each indexed convolution operations reads from that index tensor.
-		The policy head returns for each sample a matrix of with the axis rule id and path id. 
+		The policy head returns a matrix with the axis rule id $j$ and path id $\ell$. 
 		The output of the value head is one scalar per sample in the mini-batch. 
 	}
 	\label{fig:iconv_network}
 \end{figure}
 
-The indexed convolution $C$ with input channel $i$ and output channel $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
+The indexed convolution $C$ of $x \in \mathbb{R}^{L\times i}$ with input channel $i$ and output channel $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
 is defined as
 
 \begin{align}
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
- Figure \ref{fig:iconv_network} shows a simplified multi-head network architecture, where the index tensor $g$ get distributed to each indexed convolution layer.
- These layers are used in the common backbone and in the heads.
-
+Figure \ref{fig:iconv_network} shows a simplified multi-head network architecture, where the index tensor $g$ gets distributed to each indexed convolution layer.
+These layers are used in the backbone and in the heads.
+As the the indexed convolution reparative the shape of the input tensor, except of the configurable channel size,
+they are suitable for deep networks where the policy head assigns each sub-term a possibility estimation of the most promising rules to apply.
+A deeper network leads to a larger receptive field.
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/network_output.tex}
-	\caption{Policy Network output: Each row is a possible rule $R_j$. Each column a sub-term $T_{p_\ell}$ of the initial term $T$ (highlighted in blue).
+	\caption{Policy Network output: Each row is a possible rule $R_j$. Each column a sub-term $T_{p_\ell}$ of the initial term $T$ (highlighted in blue font).
 	Rules which are not applicable to any $T_{p_\ell}$ are not shown here.
 	}
 	\label{fig:network_output}
@@ -219,6 +239,8 @@ The goal is to find the shortest chain of rule application that leads to the tar
 To obtain trainable data from the given problem set, we use an initial beam search without the assistance of a network.
 A few simple problems can already be solved and learnable data can be extracted from these solution paths.
 Let's call this procedure \textit{three-T-loop} which consists of these three steps:
+
+% how is the network output used
 
 \begin{enumerate}[label=(\roman*)]
 	\item \textbf{Try} to solve some of the training problems.
@@ -259,8 +281,6 @@ Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} sho
 It turned out that it is very important to suppress nonsensical rule applications, as they can blow up the beam.
 To overcome this issue, adding negative training samples is very important.
 
-% \section{Conclusion}
-
 Although the approach described here for solving mathematical problems is hardly optimized yet,
 it has shown that it is capable of solving problems from the field of mathematics.
 Many extension of that approach are possible, as mentioned the "Outlook" section.
@@ -276,7 +296,6 @@ The second group would require an extension of this core algorithm, which would 
 \subsection{Near Future}
 
 \subsubsection{Transformer and Positional Encoding}
-% Move to outlook
 
 Positional encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
 The desired properties for the positional encoding $PE\left( T_a \right) - PE\left( T_b \right)$ sub-terms $T_a$ and $T_b$ should be:
@@ -304,6 +323,10 @@ This could be good enough as input for sine and cosine functions or learnable em
 	\label{fig:positional_encoding}
 \end{figure}
 
+
+\subsubsection{Bellman equation}
+TODO
+% Using Bellman equation?
 
 \subsubsection{Append Corollaries to Rule Set}
 

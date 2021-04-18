@@ -17,7 +17,7 @@
     \draw[] (-) -- (d);
 \end{tikzpicture}
 }
-\subfigure[Abstract symbol $t_p$]  
+\subfigure[Index notation $t_p$]  
 {
 \begin{tikzpicture}
     \node (=) at (0,0){$t$};
@@ -37,5 +37,28 @@
     \draw[] (-) -- (d);
 \end{tikzpicture}
 }
-\caption{Example for of a syntax tree for the term $a+b=c-d$.
-To demonstrate the usage of position variable $p$ side by side the concrete symbols (a) and the here used notation $t_p$.}
+\subfigure[Sub-terms $T_p$]  
+{
+\begin{tikzpicture}
+    \node (=) at (0,0){$a+b=c-d$};
+
+    \node (+) at (-1,-1){$a+b$};
+    \node (-) at (1,-1){$c-d$};
+    \node (a) at (-1.5, -2) {$a$};
+    \node (b) at (-0.5, -2) {$b$};
+    \node (c) at (0.5, -2) {$c$};
+    \node (d) at (1.5, -2) {$d$};
+
+    \draw[] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\caption{
+Example for of a syntax tree for the term $a+b=c-d$ with $s=2$.
+To demonstrate the usage of position variable $p$ side by side the concrete symbols (a) and the here used notation $t_p$.
+The sub term-terms are sub-figure (c)
+}
