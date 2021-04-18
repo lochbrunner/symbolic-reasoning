@@ -1,0 +1,41 @@
+\subfigure[Concrete symbols]  
+{
+\begin{tikzpicture}
+    \node (=) at (0,0){$=$};
+    \node (+) at (-1,-1){$+$};
+    \node (-) at (1,-1){$-$};
+    \node (a) at (-1.5, -2) {$a$};
+    \node (b) at (-0.5, -2) {$b$};
+    \node (c) at (0.5, -2) {$c$};
+    \node (d) at (1.5, -2) {$d$};
+
+    \draw[] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\subfigure[Abstract symbol $t_p$]  
+{
+\begin{tikzpicture}
+    \node (=) at (0,0){$t$};
+
+    \node (+) at (-1,-1){$t_1$};
+    \node (-) at (1,-1){$t_2$};
+    \node (a) at (-1.5, -2) {$t_{1,1}$};
+    \node (b) at (-0.5, -2) {$t_{1,2}$};
+    \node (c) at (0.5, -2) {$t_{2,1}$};
+    \node (d) at (1.5, -2) {$t_{2,2}$};
+
+    \draw[] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\caption{Example for of a syntax tree for the term $a+b=c-d$.
+To demonstrate the usage of position variable $p$ side by side the concrete symbols (a) and the here used notation $t_p$.}

@@ -13,11 +13,12 @@
 \usepackage{amssymb}
 \usepackage{enumitem}
 \usepackage{import}
+\usepackage{subfigure}
 
 \subimport{docs/libs/}{init}
 
+\usetikzlibrary{patterns}
 \usetikzlibrary{positioning}
-
 
 \usepackage[
 backend=biber,
@@ -64,42 +65,67 @@ The generic approach described here might be able to incorporate additional rule
 Moreover, it is not limited to mathematical calculus as long as the domain can be described by a well-defined, human-readable rule set.
 The correctness of the result depends only on the correctness of the given rule set.
 
+Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach, centered around cognitive models,
+that could provide the substrate for a richer, more robust AI than is currently possible. \cite{marcus2020decade}
+This paper demonstrates one possible approach.
+
 \section{Related work}
 
 \begin{itemize}
 	\item Lampe et. al. use state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}.
 	This approach sees solving of a mathematical problem as a translation problem on 1d data.
 	They don't use the concept of rules and tree structured data in the network.
-	\item Todo: Find more related work.
+	Davis reviewed this work and come to the conclusion:
+	"The transformer model outperforms Mathematica and Matlab in computing symbolic indefinite integrals of enormously complex functions of a single variable 'x' whose integral is a much smaller elementary function containing no constant symbols other than the integers -5 to 5."
+	\cite{davis2019use}
+	They submitted a new paper \cite{charton2021learning} they widened the scope of to five advanced mathematical problems.
+	\item Hahn et. al. use transformer based network (Vaswani et al. \cite{vaswani2017attention}) for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
+	As is capable to solve large formulas, some results are semantically and syntactically wrong.
+	\item Lamb et al. presented a review on the relationship between GraphNeural Network (GNN) models and architectures and Neural-Symbolic Computing (NSC). \cite{lamb2020graph}
+	They pointed out that this combination could provide trustful, explainable and robust AI systems.
+	\item Panju et at. build up a novel symbolic function learner to solve differential equations. \cite{panju2020neurosymbolic}.
+	Their modeling approach is to iteratively feed the individual nodes of a syntax tree from the leaves to the root.
+	% This method is able to approximate a symbolic function when the problem has no elementary symbolic solution.
+	This approach is similar to the work of Piepenbrock et al. \cite{piepenbrock2021learning}. 
+	\item Rabe et al. use an unsupervised proxy task to pre-train a sequence to sequence language model \cite{rabe2020mathematical}.
+	In their skip-tree training task the model is trained to predict a subtree in the syntax tree of an expression.
+	It is remarkable that they consider typed inference for variables and propositional logic to some extent.
 \end{itemize}
 
 \section{Method}
 
 Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$,
 the beam search could try to apply various rules at different nodes in the syntax tree of the equation.
-The policy head proposes the most promising combination of rules and positions in the current equation.
+The policy head proposes the most promising combination of rules $R_j$ and positions $p_\ell$ in the current equation.
 The value head evaluates the probability of success of the current calculation step.
 The cumulative result of the value head can abort the solution path of the attempt, as it "seems" unlikely that the this attempt could succeed \cite{44806}.
 
 \subsection{Rule Application}
 
-Every rule is of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
+Every rule $R$ is of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
 Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper.
 Let's name the term $T\left(x\right)$ with the depth $d$ of the corresponding syntax tree representation.
-As the term can be represented by a tree we will name it's child terms $T_p$ with the position $p \in \big\{\left( n_1, n_2, \dots, n_d \right) : n_i \in \mathbb{N}, n_i \leq s \big\}$.
+
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/syntax_tree.tex}
+	\label{fig:sxntax_tree}
+\end{figure}
+
+As the term $T$ can be represented by a tree we will name it's child terms $T_p$ with the position $p \in \big\{\left( n_1, n_2, \dots, n_d \right) | n_i \in \mathbb{N}, n_i \leq s \big\}$.
 The root symbol of $T_p$ should be $t_p$.
 Hence the sub-terms of $T$ be $T_p$ where $T_1$ for instance is the first child node of the root in that tree and $T_{1,1}$ the first child of $T_1$ and so on.
+Figure \ref{fig:sxntax_tree} demonstrates this notation by an example term.
 Let $s$ be the maximal number of children per node in the syntax tree.
 
-We try to match condition $A$ of a rule at any position $p$ of term $T\left(x\right)$.
-Doing so results in a list of possible positions $p_j$ with the required substitution table $M_j: S_A \to S_{T_p}$,
-where $S_{T_p} \equiv \big\{ t_q : \forall q \text{ below } p\big\}$ is the set of the symbols in term $T_p$ and $S_A$ the set of symbols in the condition $A$.
-Then the application of that rule results in the new terms $T^{(j)}$ where each node at $p_j$ gets replaced by the modified conclusion $B'^{(j)} \coloneqq M_j\left( B \right)$.
-Where $B'^{(j)}$ is $B$ with symbols mapped back by by $M_j$. 
+We try to match the premise term $A_j$ of rule $R_j$ at any position $p$ of term $T$.
+Doing so results in a set of possible positions $p_\ell$ with the required substitution table ${M_{j,\ell}: S_{A_j} \to S_{T_{p_\ell}}}$,
+where $S_{T_{p}}$ is the set of the symbols in term $T_p$ and $S_A$ the set of symbols in the premise $A$.
+Then the application of that rule results in the new terms $T^{(j,\ell)}$ where each node at $p_\ell$ gets replaced by the modified conclusion ${B'^{(j,\ell)} \coloneqq M_{j,\ell}\left( B \right)}$.
+Where $B'^{(R,j)}$ is $B$ with symbols mapped back by $M_{j,\ell}$. 
 
 \begin{exmp}
 To illustrate the above, let's look at the application of the derivative rule for polynomials.
-% TODO: Add connection example <-> theoretcih
 
 Consider the derivative rule
 \begin{align}
@@ -107,39 +133,48 @@ Consider the derivative rule
 \end{align}
 applied to the term
 \begin{align}
-	\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}
-\end{align}.
+	a = \frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4} + b
+\end{align}
+at position $p=\left(2,1\right)$ of the derivative $\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}$.
 Using the symbolic mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\left({\color{blue}n} \right) = {\color{blue}4}$ leads to the new term
 \begin{align}
-	{\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} 
+	a = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} + b
 \end{align}.
 
 \end{exmp}
 
-\subsection{Network Architecture for Tree Structured Data}
+\subsection{Indexed Convolution for Tree Structured Data}
 
 Lampe et. al. showed an approach where they unroll the term $T$ using the polish notation.
-Then they apply contemporary NLP translation methods on the that sequence where the resulting "translated sentence" is the next step in the calculation. \cite{Lample2020Deep}
-The approach discussed here keeps the tree structure. It turned out that Tree-LSTM perform poorly on that data \cite{tai2015improved}.
+Then they apply contemporary NLP translation methods on that sequence where the resulting "translated sentence" is the next step in the calculation. \cite{Lample2020Deep}
+The approach discussed here keeps the tree structure.
+It turned out that a Tree-LSTM network performs poorly on that data \cite{tai2015improved}.
 
-% network picture
+This paper will discuss the adoption of a network architectures using indexed convolution.
+An attention based network with special positional encoding is discussed in the outlook. 
 
-This paper will discuss the adoption of two different architectures:
-Indexed convolution and attention networks with special positional encoding.
 
-\subsubsection{Indexed Convolution}
+The indexed CNN operation performs a convolution of each node, with their it's neighbor nodes and itself.
+Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 
-The indexed CNN operation performs a convolution of each node on it's neighbor nodes and itself.
-In order to increase the compute efficiency each term is rolled out.
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/index_tensor.tex}
+	\label{fig:index_tensor}
+\end{figure}
+
+In order to increase the compute efficiency, each term is rolled out.
 Let $t_p$ be the symbol at the root of sub-term $T_p$,
-then the breadth-first unrolled tern with $s=2$ is the vector $\left( t, t_1, t_1, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right)$ with length $L$.
-An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carries the index of the neighbors in a constant order.
+then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots \right)$ with length $L$.
+Or in index notation $t_{p_\ell}$ where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
+An index map $g \in \mathbb{N}^{L\times \left( s+2 \right)}$ carries the index of the neighbors in a fixed order.
+
 
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/iconv.tex}
-	\caption{The index tensor is an additional input of this network architecture.
+	\caption{While $x\in \mathbb{R}^{B\times L\times E}$ is the input tensor tensor with encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
 		Each indexed convolution operations reads from that index tensor.
 		The policy head returns for each sample a matrix of with the axis rule id and path id. 
 		The output of the value head is one scalar per sample in the mini-batch. 
@@ -147,55 +182,34 @@ An index map $g \in \mathbb{N}^{\ell\times \left( s+2 \right)}$ carries the inde
 	\label{fig:iconv_network}
 \end{figure}
 
-% Was geht rein und was geht raus
-With the input channel size $i$ and output channel size $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
-the indexed convolution $C$ is defined as
+The indexed convolution $C$ with input channel $i$ and output channel $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
+is defined as
 
 \begin{align}
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
-where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term. Figure \ref{fig:iconv_network}
+ Figure \ref{fig:iconv_network} shows a simplified multi-head network architecture, where the index tensor $g$ get distributed to each indexed convolution layer.
+ These layers are used in the common backbone and in the heads.
 
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/network_output.tex}
-	\caption{Policy Network output: Each row is a possible rule. Each column a sub-term $T_{p_j}$ of the initial term $T$ (highlighted in blue).
-	Rules which are not applicable for the any $T_{p_j}$ are not shown here.
-	This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in in the in the at the bottom of the map.}
+	\caption{Policy Network output: Each row is a possible rule $R_j$. Each column a sub-term $T_{p_\ell}$ of the initial term $T$ (highlighted in blue).
+	Rules which are not applicable to any $T_{p_\ell}$ are not shown here.
+	}
 	\label{fig:network_output}
 \end{figure}
 
-Figure \ref{fig:network_output} demonstrates the output of the policy head applied on the term $\frac{b}{x}=1\cdot a$ .
-
-\subsubsection{Transformer and Positional Encoding}
-
-Positional encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
-The desired properties for the positional encoding sub-terms $T_a$ and $T_b$ should be:
-\begin{enumerate}[label=(\roman*)]
-	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is metric for the relative position of sub-terms $T_A$ and $T_B$.
-	\item $PE\left( T_a \right) - PE\left( T_a \right)$ is independent of the absolute position of the sub-terms.
-\end{enumerate}
-
-A naive approach is to draw the tree on a two dimensional plane and count the sub-terms from left to right.
-This approach does not fullfil any of the desired properties.
-
-But dividing these numbers iteratively by the spread $s$.
-
-\begin{align}
-	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
-\end{align}
-
-the collection of $PE^{(n+1)}\left( T \right)$ partly fulfills these properties.
-This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
-
+Figure \ref{fig:network_output} demonstrates the output of the policy head applied on the term $\frac{b}{x}=1\cdot a$.
+This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in in the in the at the bottom of the map.
 
 \subsection{Three-T-Loop}
 
 The training set consists of problems generated with sympy. \cite{10.7717/peerj-cs.103}.
 A training sample also has the shape of a rule $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the starting point and $T^{(\text T)}$ the solution term.
-The goal is to find the shortest chain of rule application that lead to the target term:
+The goal is to find the shortest chain of rule application that leads to the target term:
 
 \begin{align}
 	T^{(\text I)} \Longrightarrow T^{(j_1)} \Longrightarrow T^{(j_1j_2)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
@@ -261,6 +275,36 @@ The second group would require an extension of this core algorithm, which would 
 
 \subsection{Near Future}
 
+\subsubsection{Transformer and Positional Encoding}
+% Move to outlook
+
+Positional encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
+The desired properties for the positional encoding $PE\left( T_a \right) - PE\left( T_b \right)$ sub-terms $T_a$ and $T_b$ should be:
+\begin{enumerate}[label=(\roman*)]
+	\item A metric for the relative distance between sub-terms $T_A$ and $T_B$.
+	\item Independent of the absolute position of the sub-terms.
+\end{enumerate}
+
+A naive approach is to draw the tree on a two dimensional plane and count the sub-terms from left to right.
+This approach does not fullfil any of the desired properties.
+
+But dividing these numbers iteratively by the spread $s$.
+
+\begin{align}
+	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
+\end{align}
+
+the collection of $PE^{(n+1)}\left( T \right)$ together with a vertical encoding partly fulfills these properties.
+Figure \ref{fig:positional_encoding} demonstrates this procedure by an example.
+This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
+
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/positional_encoding.tex}
+	\label{fig:positional_encoding}
+\end{figure}
+
+
 \subsubsection{Append Corollaries to Rule Set}
 
 The basic rule set contains only fundamental definitions that lead to very small steps in the calculation.
@@ -275,29 +319,36 @@ To do this, you need to address three challenges:
 	\item Since there can be a large number of interesting corollaries, the training and inference time should increase less than linearly with the number of rules.
 \end{enumerate}
 
-One can overcome these challenges with a new network architecture architecture, which will be presented in a future paper.
+One can overcome these challenges with a new network architecture, which will be presented in a future paper.
 
 \subsubsection{Optimizing the Network}
 
 As mentioned earlier, the limited time budget resulted in a far from perfect network architecture.
 The same is true for the time-performance of the indexed CNN operation and which would allow hyper-parameter tuning to be performed in a feasible duration.
 
+\subsubsection{Benchmarks with current data sets}
+
+Hendrycks et al. claim that accuracy of current transformer based models remains relatively low \cite{hendrycks2021measuring}.
+Fortunately they provide a benchmark dataset (MATH) with 12500 challenging competition mathematics problems.
+
+Additional the log of manual calculation steps from the HOList dataset by Bansel et al. \cite{kaliszyk2017holstep} would be interesting for testing our approach.
+Li et al. built a non-synthetic dataset from the largest repository of proofs written by human experts in a theorem prover \cite{li2021isarstep}.
+
+\subsubsection{Training on proxy tasks}
+
+It might be worth to investigate if a pre-training on a proxy task such as predicting missing node symbols $t_p$ in a term $T$ can help to build a better backbone.
+This paradigm is applied by Rabe et al. \cite{rabe2020mathematical}.
 
 \subsection{Far Future}
 
-In university level mathematics many rules depend on multiple conditions.
-E.g. the simple commutative property has three: $\forall a \in \mathbb{R}$ and $\forall b \in \mathbb{R}$ applies $a\cdot b \equiv a\cdot b$.
+In university level mathematics many rules depend on multiple premises.
+E.g. the simple commutative property has three: $\forall a \in \mathbb{R}$, and $\forall b \in \mathbb{R}$ applies $a\cdot b \Longrightarrow b\cdot a$.
 This could be represented by the concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
 Then you are almost at propositional logic with the challenge of multiple concurrent chains of computation required for the final result.
 This requires an extension to the current core algorithm. For example meta rules as \textit{reductio ad absurdum}.
 
-Moreover, some conditions use first-order logic, which introduces the handling of complex mathematical sets.
+Moreover, some premises use first-order logic, which introduces the handling of complex mathematical sets.
 
 
 \printbibliography
 \end{document}
-
-
-% Geh von Groß zu Klein
-% Sehr detailiert.
-% 	Was geht in die Heads rein und was kommt raus.
