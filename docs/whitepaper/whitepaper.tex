@@ -62,7 +62,7 @@ sorting=none
 
 Since current approaches to solve mathematical problems use a complex but fixed set of rules, it takes manual effort to extend their capabilities \cite{wolfram}.
 The generic approach described here might be able to incorporate additional rules without requiring manual work.
-Moreover, it is not limited to mathematical calculus as long as the domain can be described by a well-defined, human-readable rule set.
+Moreover, it is not limited to mathematical problems as long as the domain can be described by a well-defined rule set.
 The correctness of the result depends only on the correctness of the given rule set.
 
 Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach, centered around cognitive models,
@@ -71,26 +71,27 @@ This paper demonstrates one possible approach.
 
 \section{Related work}
 
-\begin{itemize}
-	\item Lampe et. al. use state of the art sequence to sequence transformers on polish notation formatted equations \cite{Lample2020Deep}.
-	This approach sees solving of a mathematical problem as a translation problem on 1d data.
-	They don't use the concept of rules and tree structured data in the network.
-	Davis reviewed this work and come to the conclusion:
-	"The transformer model outperforms Mathematica and Matlab in computing symbolic indefinite integrals of enormously complex functions of a single variable 'x' whose integral is a much smaller elementary function containing no constant symbols other than the integers -5 to 5."
-	\cite{davis2019use}
-	They submitted a new paper \cite{charton2021learning} they widened the scope of to five advanced mathematical problems.
-	\item Hahn et. al. use transformer based network (Vaswani et al. \cite{vaswani2017attention}) for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
-	As is capable to solve large formulas, some results are semantically and syntactically wrong.
-	\item Lamb et al. presented a review on the relationship between GraphNeural Network (GNN) models and architectures and Neural-Symbolic Computing (NSC). \cite{lamb2020graph}
-	They pointed out that this combination could provide trustful, explainable and robust AI systems.
-	\item Panju et at. build up a novel symbolic function learner to solve differential equations. \cite{panju2020neurosymbolic}.
-	Their modeling approach is to iteratively feed the individual nodes of a syntax tree from the leaves to the root.
-	% This method is able to approximate a symbolic function when the problem has no elementary symbolic solution.
-	This approach is similar to the work of Piepenbrock et al. \cite{piepenbrock2021learning}. 
-	\item Rabe et al. use an unsupervised proxy task to pre-train a sequence to sequence language model \cite{rabe2020mathematical}.
-	In their skip-tree training task the model is trained to predict a subtree in the syntax tree of an expression.
-	It is remarkable that they consider typed inference for variables and propositional logic to some extent.
-\end{itemize}
+Lampe et. al. use state of the art sequence to sequence transformers (Vaswani et al. \cite{vaswani2017attention}) on equations formatted in the polish notation  \cite{Lample2020Deep}.
+This approach views solving a mathematical problem as a translation problem.
+% They don't use the concept of rules and tree structured data in the network.
+Davis reviewed this work and come to the conclusion, that is astonishing that their transformer model outperforms contemporary computer algebra systems.
+But he criticizes the limited vocabulary used in their generated data set \cite{davis2019use}.
+In their latest paper they widened the scope of to five advanced mathematical problems and improved the many of the limitations discussed by the community \cite{charton2021learning}.
+Inspired on that work Hahn et. al. also use a transformer based network for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
+Similar to the result of the work by Lampe their method is capable to solve large formulas, but some results are semantically and syntactically wrong.
+
+Lamb et al. presented a review on the relationship between GraphNeural Network (GNN) models and architectures and Neural-Symbolic Computing (NSC) \cite{lamb2020graph}.
+They pointed out that this combination could provide trustful, explainable and robust AI systems.
+
+Panju et at. build up a novel symbolic function learner to solve differential equations \cite{panju2020neurosymbolic}.
+Their modeling approach is to iteratively feed the individual nodes of a syntax tree from the leaves to the root.
+A very similar approach elaborated by Piepenbrock et al. \cite{piepenbrock2021learning}. 
+% This method is able to approximate a symbolic function when the problem has no elementary symbolic solution.
+
+A significant improvement is worked out by Rabe et al. They use an unsupervised proxy task to pre-train a sequence to sequence language model \cite{rabe2020mathematical}.
+In their skip-tree training task the model is trained to predict a subtree in the syntax tree of an expression.
+It is remarkable that they consider typed inference for variables and propositional logic to some extent.
+
 
 \section{Method}
 
@@ -173,10 +174,11 @@ Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 
 In order to increase the compute efficiency, each term is unrolled.
 Let $t_p$ be the symbol at the root of sub-term $T_p$,
-then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots \right)$ of length $L$.
-Or in index notation $t_{p_\ell}$ where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
-An index map $g \in \mathbb{N}^{L\times \left( s+2 \right)}$ carries the indices of the neighbors in a fixed order.
-The index map of example \ref{fig:index_tensor} would look like
+then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots, t_{p_L} \right)$ of length $L$.
+Hence in index notation $t_{p_\ell}$ where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
+An index map $g \in \mathbb{N}^{L\times \left(K\right)}$ carries the indices of the neighbors in a fixed order.
+The kernel $K= s+2$ depends on the spread.
+The index map of example in figure \ref{fig:index_tensor} would look like
 
 \begin{align}
 	g_{\ell,k} = 
@@ -185,33 +187,38 @@ The index map of example \ref{fig:index_tensor} would look like
 		2 & 4 & 6 & 0 & 0 & 0 & 0 \\
 		3 & 5 & 7 & 0 & 0 & 0 & 0 \\
 		0 & 1 & 1 & 2 & 2 & 3 & 3 \\
-	\end{pmatrix}
+	\end{pmatrix}^\top
 \end{align}
+
+where index $0$ points to the padding.
 
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/iconv.tex}
 	\caption{While $x\in \mathbb{R}^{L\times E}$ is the input tensor with $E$ encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
-		Each indexed convolution operations reads from that index tensor.
+		Each indexed convolution operations (iconv) reads from that index tensor.
 		The policy head returns a matrix with the axis rule id $j$ and path id $\ell$. 
 		The output of the value head is one scalar per sample in the mini-batch. 
 	}
 	\label{fig:iconv_network}
 \end{figure}
 
-The indexed convolution $C$ of $x \in \mathbb{R}^{L\times i}$ with input channel $i$ and output channel $j$, the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times i \times j}$ and bias $b \in \mathbb{R}^j$,
+Convolving over the input $x \in \mathbb{R}^{L\times I}$ with indexed convolution $C$ of with input channel $i \in \left[1,\cdots,I\right]$,
+the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times I \times J}$, output channel $j \in \left[1,\cdots,J\right]$ and bias $b \in \mathbb{R}^J$,
 is defined as
 
 \begin{align}
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
-Figure \ref{fig:iconv_network} shows a simplified multi-head network architecture, where the index tensor $g$ gets distributed to each indexed convolution layer.
+Figure \ref{fig:iconv_network} shows a overview of the multi-head network architecture, where the index tensor $g$ gets distributed to each indexed convolution layer.
 These layers are used in the backbone and in the heads.
-As the the indexed convolution reparative the shape of the input tensor, except of the configurable channel size,
-they are suitable for deep networks where the policy head assigns each sub-term a possibility estimation of the most promising rules to apply.
-A deeper network leads to a larger receptive field.
+Due to the padding and stride of one the indexed convolution retains the shape of the input tensor, except of the configurable channel size.
+This operation therefore is appropriate for stacking it to deep networks.
+A deeper network leads to a larger receptive field and considers more distant symbols.
+
+This is useful for the policy head, which assigns each sub-term a possibility estimation of the most promising rules to apply.
 
 \begin{figure}[!htbp]
 	\centering
@@ -223,13 +230,15 @@ A deeper network leads to a larger receptive field.
 \end{figure}
 
 Figure \ref{fig:network_output} demonstrates the output of the policy head applied on the term $\frac{b}{x}=1\cdot a$.
+% Find better example
 This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in in the in the at the bottom of the map.
+The value head estimates the probability that the input term can lead to a solution.
 
 \subsection{Three-T-Loop}
 
-The training set consists of problems generated with sympy. \cite{10.7717/peerj-cs.103}.
-A training sample also has the shape of a rule $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the starting point and $T^{(\text T)}$ the solution term.
-The goal is to find the shortest chain of rule application that leads to the target term:
+The training set consists of problems generated with computer algebra system Sympy \cite{10.7717/peerj-cs.103}.
+A training sample is of a rule like shape $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the initial problem term and $T^{(\text T)}$ the solution or target term.
+The goal is to find the shortest chain of rule applications from the initial term to the target term:
 
 \begin{align}
 	T^{(\text I)} \Longrightarrow T^{(j_1)} \Longrightarrow T^{(j_1j_2)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
@@ -237,20 +246,26 @@ The goal is to find the shortest chain of rule application that leads to the tar
 \end{align}
 
 To obtain trainable data from the given problem set, we use an initial beam search without the assistance of a network.
-A few simple problems can already be solved and learnable data can be extracted from these solution paths.
-Let's call this procedure \textit{three-T-loop} which consists of these three steps:
+A few simple problems can already be solved by this and learnable data can be extracted from these solution paths.
+% Let's call this procedure \textit{three-T-loop} which consists of these three steps:
+In order to solve more complex problems we choose an iterative approach.
+The data loop consists of three steps:
 
 % how is the network output used
 
 \begin{enumerate}[label=(\roman*)]
 	\item \textbf{Try} to solve some of the training problems.
-	\item \textbf{Trace} the calculation steps of the solved problems and create training data out of them.
+	\item \textbf{Trace} the calculation steps of the solved problems and create training data out of them. 
 	\item \textbf{Train} the model with the trainings data from the previous step.
 \end{enumerate}
-
-In each iteration of that \textit{three-T-loop} the number of trainable data increases. 
+In each iteration of this \textit{three-T-loop}, the number of trainable data increases.
 As the network's performance increases, it can solve more and more problems.
-The trained network also reduces the amount of used rule applications as they are cancelled depending on the outcome of the value head (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
+The trained network also reduces the number of misleading rule applications.
+The value head helps to decide whether the calculation path seems promising to achieve a suitable result.
+If the accumulated values are below a threshold the current path gets aborted to save resources (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
+
+In order to get the model not doing the same mistake over and over again, it is important to train it with samples of paths which did not lead to a solution. 
+These negative samples are present in the training set for value and policy head.
 
 
 This loop can be extended by a forth step discussed in the outlook section, which allows to incorporate useful sub chains of formula (\ref{eq:calculation_chain}) into the rule set.
@@ -277,13 +292,13 @@ Todo.
 	\label{fig:t3loop_performance}
 \end{figure}
 
-Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems increase with each iteration. 
+Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems over iteration in the \textit{three-T-loop}. 
 It turned out that it is very important to suppress nonsensical rule applications, as they can blow up the beam.
 To overcome this issue, adding negative training samples is very important.
 
 Although the approach described here for solving mathematical problems is hardly optimized yet,
 it has shown that it is capable of solving problems from the field of mathematics.
-Many extension of that approach are possible, as mentioned the "Outlook" section.
+% Many extension of that approach are possible, as mentioned the "Outlook" section.
 
 
 \section{Outlook}
@@ -325,20 +340,38 @@ This could be good enough as input for sine and cosine functions or learnable em
 
 
 \subsubsection{Bellman equation}
-TODO
-% Using Bellman equation?
 
-\subsubsection{Append Corollaries to Rule Set}
+%Hint: Using Bellman equation?
+
+\subsubsection{Append Corollaries to the Rule Set}
 
 The basic rule set contains only fundamental definitions that lead to very small steps in the calculation.
-These atomic steps result in long calculation chains seen in formula (\ref{eq:calculation_chain}).
+These atomic steps can result in long calculation chains seen in formula (\ref{eq:calculation_chain}).
+
+\begin{equation}
+	\label{eq:tedios_calculation}
+	\begin{aligned}
+		\cos^2(x)+\sin^2(x) = &\, \Re\left(e^{ix}\right)^2+\Im\left(e^{ix}\right)^2 \\
+		= & \left(\frac{1}{2} \left(e^{ix}+\overline{e^{ix}}\right)\right)^2 + \left(\frac{i}{2} \left(e^{ix}-\overline{e^{ix}}\right)\right)^2 \\
+		= & \left(\frac{1}{2}\right)^2 \left(e^{ix}+e^{-ix}\right)^2 + \left(\frac{i}{2}\right)^2 \left(e^{ix}-e^{-ix}\right)^2 \\
+		= & \frac{1}{4} \left(e^{2ix}+e^{-2ix}+2e^{ix-ix}\right) - \frac{1}{4} \left(e^{2ix}+e^{-2ix}-2e^{ix-ix}\right) \\
+		= & \frac{1}{4} \left( 2e^0+2e^0 \right) \\
+		= & 1
+		% z=z+y+x \Longrightarrow z=y+z+x \Longrightarrow z=y+x+z \Longrightarrow 0=y+x
+	\end{aligned}
+\end{equation}
+
 However, it turned out that some parts are repeated over and over again.
+% {Calculation (\ref{eq:tedios_calculation})} shows simple example where solving the equation $z=z+y+x$ with just the commutative rule $a+b=b+a$ and $a+b=c+b \Longleftarrow a=c$ seems needless long.
+% Eliminating $z$ on both sides of the equation should be learned by the network as it is a recurring pattern in mathematical problems.
+{Calculation (\ref{eq:tedios_calculation})} is an example calculation to simplify the trigonometric sum $\cos^2(x)+\sin^2(x)$, just using a basic rule set.
+As this pattern occurs frequently in some mathematical domains, it might be useful to train such found rules into the network.   
 These are exactly the corollaries that could be inserted into the original rule set.
 To do this, you need to address three challenges:
 
 \begin{enumerate}[label=(\roman*)]
-	\item You have to evaluate which corollary is worth to store.
-	\item You have to insert the new rule into the already trained network.
+	\item It should evaluate which corollary is worth to store.
+	\item It should insert the new rule into the already trained network.
 	\item Since there can be a large number of interesting corollaries, the training and inference time should increase less than linearly with the number of rules.
 \end{enumerate}
 

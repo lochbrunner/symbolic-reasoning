@@ -10,29 +10,32 @@
         height=8,width={2, 3},depth=8}};
 
 \pic[shift={(0,3,0)}] at (0,0,0) {Box={name=i1,caption=g,%
-        xlabel={{"2+s"}},ylabel=L,zlabel=,fill=\ConvColor,%
+        xlabel={{"K"}},ylabel=L,zlabel=,fill=\ConvColor,%
         height=8,width={2},depth=8}};
 
 \pic[shift={(2,0,0)}] at (ix-east) {RightBandedBox={name=ic1,caption=iconv,%
-        xlabel={{"e"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
+        xlabel={{"I"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
         height=10,width={3},depth=10}};
 
 \pic[shift={(4,0,0)}] at (ix-east) {RightBandedBox={name=ic2,caption=iconv,%
-        xlabel={{"e"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
+        xlabel={{"I"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
         height=10,width={3},depth=10}};
 
 % heads
 
 \pic[shift={(8,0,-4)}] at (ix-east) {RightBandedBox={name=icv,caption=iconv,%
-xlabel={{"e"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
+xlabel={{"I"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
 height=10,width={3},depth=10}};
 
-\pic[shift={(10,0,-4)}] at (ix-east) {Box={name=ov,caption=value,%
-xlabel={{"1"}},zlabel=,ylabel=1,fill=\ConvColor,%
-height=1,width={1},depth=1}};
+\coordinate (ov) at (11,0,-4) {};
+\draw [fill=orange] (11 , 0.2 , -3.8) -- (11 ,-0.2 , -3.8) -- (11 ,-0.2 , -4.2) -- (11 , 0.2 , -4.2) -- cycle;
+\node[draw, draw=white] at (11,-1.3,-4) {\bf value};
+% \pic[shift={(10,0,-4)}] at (ix-east) {Box={name=ov,caption=value,%
+% xlabel={{"1"}},zlabel=,ylabel=1,fill=\ConvColor,%
+% height=1,width={1},depth=1}};
 
 \pic[shift={(8,0,4)}] at (ix-east) {RightBandedBox={name=icp,caption=iconv,%
-        xlabel={{"e", "dummy"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
+        xlabel={{"I", "dummy"}},ylabel=L,zlabel=,fill=\ConvColor,bandfill=\ConvReluColor,%
         height=10,width={3},depth=10}};
 
 % \pic[shift={(10,0,4)}] at (ix-east) {Box={name=op,caption=policy,%
@@ -54,7 +57,7 @@ height=1,width={1},depth=1}};
 \draw [connection] (ix-east) -- node {\midarrow} (ic1-west);
 \draw [connection]  (ic1-east) -- node {\midarrow} (ic2-west);
 \draw [connection]  (ic2-east) -- node {\midarrow} (icv-west);
-\draw [connection]  (icv-east) -- node {\midarrow} (ov-west);
+\draw [connection]  (icv-east) -- node {\midarrow} (ov);
 \draw [connection]  (ic2-east) -- node {\midarrow} (icp-west);
 \draw [connection]  (icp-east) -- node {\midarrow} (op);
 
