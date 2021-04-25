@@ -1,23 +1,4 @@
-\subfigure[Concrete symbols]  
-{
-\begin{tikzpicture}
-    \node (=) at (0,0){$=$};
-    \node (+) at (-1,-1){$+$};
-    \node (-) at (1,-1){$-$};
-    \node (a) at (-1.5, -2) {$a$};
-    \node (b) at (-0.5, -2) {$b$};
-    \node (c) at (0.5, -2) {$c$};
-    \node (d) at (1.5, -2) {$d$};
-
-    \draw[] (=) -- (+);
-    \draw[] (=) -- (-);
-    \draw[] (+) -- (a);
-    \draw[] (+) -- (b);
-    \draw[] (-) -- (c);
-    \draw[] (-) -- (d);
-\end{tikzpicture}
-}
-\subfigure[Index notation $t_p$]  
+\subfigure[Index notation $p$]  
 {
 \begin{tikzpicture}
     \node (=) at (0,0){$t$};
@@ -28,6 +9,25 @@
     \node (b) at (-0.5, -2) {$t_{1,2}$};
     \node (c) at (0.5, -2) {$t_{2,1}$};
     \node (d) at (1.5, -2) {$t_{2,2}$};
+
+    \draw[] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\subfigure[Symbols $t_p$]  
+{
+\begin{tikzpicture}
+    \node (=) at (0,0){$=$};
+    \node (+) at (-1,-1){$+$};
+    \node (-) at (1,-1){$-$};
+    \node (a) at (-1.5, -2) {$a$};
+    \node (b) at (-0.5, -2) {$b$};
+    \node (c) at (0.5, -2) {$c$};
+    \node (d) at (1.5, -2) {$d$};
 
     \draw[] (=) -- (+);
     \draw[] (=) -- (-);
@@ -58,7 +58,8 @@
 \end{tikzpicture}
 }
 \caption{
-Example for of a syntax tree for the term $a+b=c-d$ with $s=2$.
-To demonstrate the usage of position variable $p$ side by side the concrete symbols (a) and the here used notation $t_p$.
-The sub term-terms are sub-figure (c)
+Example of the syntax tree for the term $a+b=c-d$ with $s=2$.
+To demonstrate the usage of position variable $p$ consider sub-figure (b) the tree with the concrete symbols and sub-figure (a) the same tree with the abstract $t_p$ notation side by side.
+% the concrete symbols (a) and the here used notation $t_p$.
+For comparison the tree in sub-figure (c) contains the sub-terms $T_p$.
 }

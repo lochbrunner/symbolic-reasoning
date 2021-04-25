@@ -51,34 +51,41 @@ sorting=none
 \end{center}
 \begin{abstract}
 	The combination of a rule based beam search and deep learning is a promising approach to solve mathematical problems.
-	One obstacle to overcome is the amount of possible branches in this search as the number of applicable rules and length of the calculation increases.
+	One obstacle to overcome is the amount of possible branches in this search as the number of applicable rules and the length of the calculation increases.
 	This paper proposes to address this issue by constantly shrinking the beam size with a multi-head neuronal network:
 	A policy head selects rules and positions in the current term.
-	A value head evaluates the probability that this calculation could lead to the desired solution.
+	A value head evaluates the probability that this calculation could lead to a desired solution.
 	Both heads help to reduce the beam size such that solving advanced mathematical problems becomes feasible.
 \end{abstract}
 
 \section{Motivation}
 
-Since current approaches to solve mathematical problems use a complex but fixed set of rules, it takes manual effort to extend their capabilities \cite{wolfram}.
+As current computer algebra systems use a complex but fixed set of rules to solve mathematical problems,
+it takes manual effort to extend their capabilities \cite{wolfram}.
+On the other hand, since 2020, more and more papers have been published describing how to solve mathematical problems using pure deep learning approaches.
+They operate without any knowledge database and their estimated solutions are subject to a certain degree of uncertainty.
+
+Therefore Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach, centered around cognitive models,
+that could provide the substrate for a richer, more robust AI than is currently possible. \cite{marcus2020decade}
+
+This paper demonstrates one possible approach to do so:
+A rule based beam search guided by a reinforcement network setup.
 The generic approach described here might be able to incorporate additional rules without requiring manual work.
 Moreover, it is not limited to mathematical problems as long as the domain can be described by a well-defined rule set.
 The correctness of the result depends only on the correctness of the given rule set.
 
-Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach, centered around cognitive models,
-that could provide the substrate for a richer, more robust AI than is currently possible. \cite{marcus2020decade}
-This paper demonstrates one possible approach.
-
 \section{Related work}
 
-Lampe et. al. use state of the art sequence to sequence transformers (Vaswani et al. \cite{vaswani2017attention}) on equations formatted in the polish notation  \cite{Lample2020Deep}.
-This approach views solving a mathematical problem as a translation problem.
+The first outstanding paper was published by Lampe et. al.
+They use state of the art sequence to sequence transformers (Vaswani et al. \cite{vaswani2017attention}) on equations represented in the polish notation \cite{Lample2020Deep}.
+This approach solves mathematical problems similar to translating a sentence from one language to another. 
+% This approach views solving a mathematical problem as a translation problem.
 % They don't use the concept of rules and tree structured data in the network.
-Davis reviewed this work and come to the conclusion, that is astonishing that their transformer model outperforms contemporary computer algebra systems.
+Davis reviewed this work and come to the positive conclusion, that their transformer model outperforms contemporary computer algebra systems.
 But he criticizes the limited vocabulary used in their generated data set \cite{davis2019use}.
-In their latest paper they widened the scope of to five advanced mathematical problems and improved the many of the limitations discussed by the community \cite{charton2021learning}.
+In their latest paper they widened the scope of to five advanced mathematical problems and improved many of the limitations discussed by the community \cite{charton2021learning}.
 Inspired on that work Hahn et. al. also use a transformer based network for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
-Similar to the result of the work by Lampe their method is capable to solve large formulas, but some results are semantically and syntactically wrong.
+Similar to the result of the work by Lampe their method is capable to solve large formulas, but some for it's predicted results are syntactically and semantically incorrect.
 
 Lamb et al. presented a review on the relationship between GraphNeural Network (GNN) models and architectures and Neural-Symbolic Computing (NSC) \cite{lamb2020graph}.
 They pointed out that this combination could provide trustful, explainable and robust AI systems.
@@ -98,14 +105,14 @@ It is remarkable that they consider typed inference for variables and propositio
 Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$,
 the beam search could try to apply various rules at different nodes in the syntax tree of the equation.
 The policy head proposes the most promising combination of rules $R_j$ and positions $p_\ell$ in the current equation.
-The value head evaluates the probability of success of the current calculation step.
-The cumulative result of the value head can abort the solution path of the attempt, as it "seems" unlikely that the this attempt could succeed \cite{44806}.
+The value head evaluates the probability that the current step might lead to desired solution.
+The cumulative result of the value head can abort the solution path of the attempt, as it "seems" unlikely that the this attempt would succeed \cite{44806}.
 
 \subsection{Rule Application}
 
 A rule $R$ consists of one or multiple premises and one conclusion $B$.
-In this paper we assume each rule to have only one premise $A$.
-The outlook section discusses approaches rule of multiple premisses. 
+In this paper we consider only rules that have a single premise $A$.
+The outlook section discusses approaches with rules of multiple premisses. 
 Every rule is then of the shape $A \Longrightarrow B$ or $A \equiv B$, which is equivalent to $A \Longleftrightarrow B$ or just the combination of $A \Longrightarrow B$ and $B \Longrightarrow A$.
 Without loss of correctness we just use the first shape $A \Longrightarrow B$ in this paper.
 Let's name the term $T$ with the depth $d$ of the corresponding syntax tree representation.
@@ -125,7 +132,7 @@ Let $s$ be the maximal number of children per node in the syntax tree.
 
 We try to match the premise term $A_j$ of rule $R_j$ at any position $p$ in term $T$.
 Doing so results in a set of possible positions $p_\ell$ with the required substitution table ${M_{j,\ell}: S_{A_j} \to S_{T_{p_\ell}}}$,
-where $S_{T_{p_\ell}}$ is the set of the sub-terms in term $T_{p_\ell}$ and $S_{A_j}$ the set of free symbols in the premise $A$.
+where $S_{T_{p_\ell}}$ is the set of the sub-terms in term $T_{p_\ell}$ and $S_{A_j}$ the set of free symbols in the premise $A_j$.
 Free symbols are symbols not defined elsewhere such as standard operators or the number $\pi$.
 Then the application of that rule results in the new terms $T^{(j,\ell)}$ where each sub-term at $p_\ell$ gets replaced by the substituted conclusion ${B_j'^{(\ell)} \coloneqq M_{j,\ell}\left( B_j \right)}$.
 Where $B_j'^{(\ell)}$ is $B_j$ with symbols mapped back by $M_{j,\ell}$. 
@@ -138,14 +145,16 @@ Consider the derivative rule
 	\frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n} \Longrightarrow {\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1} 
 \end{align}
 with the premise $A\equiv \frac{\partial}{\partial {\color{red}x}} {\color{red}x}^{\color{blue}n}$ and the conclusion $B\equiv {\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1}$.
-This rule can be applied to a sub-term of
+This rule can be applied to the sub-term of
 \begin{align}
 	a = \frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4} + b
 	\label{example:problem}
 \end{align}
 at position $p=\left(2,1\right)$ where the derivative $\frac{\partial}{\partial {\color{red}z}} {\color{red}z}^{\color{blue}4}$ is located.
 Using the symbol mapping $M\left({\color{red}x}\right) = \color{red}z$ and $M\left({\color{blue}n} \right) = {\color{blue}4}$ leads to the substituted conclusion
-$B' = M(B) = M({\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1}) = {M(\color{blue}n})\cdot M({\color{red}x})^{M({\color{blue}n})-1} = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1}$.
+\begin{align}
+B' = M(B) = M({\color{blue}n}\cdot {\color{red}x}^{{\color{blue}n}-1}) = {M(\color{blue}n})\cdot M({\color{red}x})^{M({\color{blue}n})-1} = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1}
+\end{align}.
 Now you can replace the sub-term of equation (\ref{example:problem}) at position $p$ with with that $B'$ and obtain the resulting new term
 \begin{align}
 	a = {\color{blue}4}\cdot {\color{red}z}^{{\color{blue}4}-1} + b
@@ -162,8 +171,7 @@ It turned out that a Tree-LSTM network performs poorly on that data \cite{tai201
 
 This paper will discuss the adoption of a network architectures using indexed convolution.
 An attention based network with special positional encoding is discussed in the outlook. 
-
-The indexed CNN operation performs a convolution of each node, with their it's neighbor nodes and itself.
+The indexed CNN operation performs a convolution of each node, with it's neighbor nodes and itself.
 Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 
 \begin{figure}[!htbp]
@@ -172,12 +180,11 @@ Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 	\label{fig:index_tensor}
 \end{figure}
 
-In order to increase the compute efficiency, each term is unrolled.
-Let $t_p$ be the symbol at the root of sub-term $T_p$,
-then the breadth-first unrolled term with $s=2$ is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots, t_{p_L} \right)$ of length $L$.
-Hence in index notation $t_{p_\ell}$ where $1 \leq \ell \leq L$ is the index of symbol $t_p$ in the unrolled term.
+In order to increase the compute efficiency, each term gets unrolled.
+The unrolled term $T$ with $s=2$ using breadth-first is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots, t_{p_L} \right)$ of length $L$.
+Hence in index notation $t_{p_\ell}$ with $\ell \in \left\{1., \cdots,L\right\}$ is the index of symbol $t_p$ in the unrolled term.
 An index map $g \in \mathbb{N}^{L\times \left(K\right)}$ carries the indices of the neighbors in a fixed order.
-The kernel $K= s+2$ depends on the spread.
+The kernel $K= s+2$ depends on the maximal spread of all terms in a batch.
 The index map of example in figure \ref{fig:index_tensor} would look like
 
 \begin{align}
@@ -199,23 +206,23 @@ where index $0$ points to the padding.
 	\caption{While $x\in \mathbb{R}^{L\times E}$ is the input tensor with $E$ encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
 		Each indexed convolution operations (iconv) reads from that index tensor.
 		The policy head returns a matrix with the axis rule id $j$ and path id $\ell$. 
-		The output of the value head is one scalar per sample in the mini-batch. 
+		The output of the value head is just a scalar. 
 	}
 	\label{fig:iconv_network}
 \end{figure}
 
-Convolving over the input $x \in \mathbb{R}^{L\times I}$ with indexed convolution $C$ of with input channel $i \in \left[1,\cdots,I\right]$,
-the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times I \times J}$, output channel $j \in \left[1,\cdots,J\right]$ and bias $b \in \mathbb{R}^J$,
+Convolving over the input $x \in \mathbb{R}^{L\times I}$ with indexed convolution $C$ with input channel $i \in \left\{1,\cdots,I \right\}$,
+the kernel weights $w \in \mathbb{R}^{\left( s+2 \right)\times I \times J}$, output channel $j \in \left\{1,\cdots,J\right\}$ and bias $b \in \mathbb{R}^J$,
 is defined as
 
 \begin{align}
 	C\left( x, g, w, b \right)_{\ell j} \coloneqq \sum_{ki}x_{g_{\ell k}i} w_{kij}+b_j
 \end{align}
 
-Figure \ref{fig:iconv_network} shows a overview of the multi-head network architecture, where the index tensor $g$ gets distributed to each indexed convolution layer.
+Figure \ref{fig:iconv_network} shows a overview of the multi-head network architecture, where the index tensor $g_{\ell k}$ gets distributed to each indexed convolution layer.
 These layers are used in the backbone and in the heads.
 Due to the padding and stride of one the indexed convolution retains the shape of the input tensor, except of the configurable channel size.
-This operation therefore is appropriate for stacking it to deep networks.
+Therefore this operation is appropriate for stacking deep networks.
 A deeper network leads to a larger receptive field and considers more distant symbols.
 
 This is useful for the policy head, which assigns each sub-term a possibility estimation of the most promising rules to apply.
@@ -223,7 +230,7 @@ This is useful for the policy head, which assigns each sub-term a possibility es
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/network_output.tex}
-	\caption{Policy Network output: Each row is a possible rule $R_j$. Each column a sub-term $T_{p_\ell}$ of the initial term $T$ (highlighted in blue font).
+	\caption{Policy Network output normed to the range $[0,100]$: Each row is a possible rule $R_j$. Each column a sub-term $T_{p_\ell}$ of the initial term $T$ (highlighted in blue font).
 	Rules which are not applicable to any $T_{p_\ell}$ are not shown here.
 	}
 	\label{fig:network_output}
@@ -231,24 +238,26 @@ This is useful for the policy head, which assigns each sub-term a possibility es
 
 Figure \ref{fig:network_output} demonstrates the output of the policy head applied on the term $\frac{b}{x}=1\cdot a$.
 % Find better example
-This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in in the in the at the bottom of the map.
-The value head estimates the probability that the input term can lead to a solution.
+This heat-map shows that dividing the equation by $a$ is more promising than blowing it up with the rules in the lower part of the map.
+% The value head estimates the probability that the input term can lead to a solution.
+
 
 \subsection{Three-T-Loop}
 
-The training set consists of problems generated with computer algebra system Sympy \cite{10.7717/peerj-cs.103}.
-A training sample is of a rule like shape $T^{(\text I)} \Longrightarrow T^{(\text T)}$ where $T^{(\text I)}$ is the initial problem term and $T^{(\text T)}$ the solution or target term.
-The goal is to find the shortest chain of rule applications from the initial term to the target term:
+The training set consists of problems generated with the computer algebra system Sympy \cite{10.7717/peerj-cs.103}.
+A training sample has a rule like shape $T^\text{Initial} \Longrightarrow T^\text{Target}$ where $T^\text{Initial}$ is the initial problem term and $T^\text{Target}$ the solution or target term.
+The goal is to find the shortest chain of rule applications from $T^\text{Initial}$ to $T^\text{Target}$:
 
 \begin{align}
-	T^{(\text I)} \Longrightarrow T^{(j_1)} \Longrightarrow T^{(j_1j_2)} \Longrightarrow \cdots \Longrightarrow T^{(\text T)}
+	T^\text{Initial} \Longrightarrow T^{(j_1)} \Longrightarrow T^{(j_1j_2)} \Longrightarrow \cdots \Longrightarrow T^\text{Target}
 	\label{eq:calculation_chain}
 \end{align}
 
-To obtain trainable data from the given problem set, we use an initial beam search without the assistance of a network.
-A few simple problems can already be solved by this and learnable data can be extracted from these solution paths.
+To obtain training data from the given problem set, we use an initial beam search without the assistance of a network.
+A few simple problems can already be solved by this and training data can be extracted from these solution paths.
 % Let's call this procedure \textit{three-T-loop} which consists of these three steps:
 In order to solve more complex problems we choose an iterative approach.
+The so called \textit{three-T-loop}.
 The data loop consists of three steps:
 
 % how is the network output used
@@ -256,26 +265,28 @@ The data loop consists of three steps:
 \begin{enumerate}[label=(\roman*)]
 	\item \textbf{Try} to solve some of the training problems.
 	\item \textbf{Trace} the calculation steps of the solved problems and create training data out of them. 
-	\item \textbf{Train} the model with the trainings data from the previous step.
+	\item \textbf{Train} the model with the training data from the previous step.
 \end{enumerate}
-In each iteration of this \textit{three-T-loop}, the number of trainable data increases.
-As the network's performance increases, it can solve more and more problems.
+
+In each iteration of this \textit{three-T-loop} we gain more training data.
+% As the network's performance increases, it can solve more and more problems.
+With more training data the network performance increases and it can solve more problems.
 The trained network also reduces the number of misleading rule applications.
 The value head helps to decide whether the calculation path seems promising to achieve a suitable result.
 If the accumulated values are below a threshold the current path gets aborted to save resources (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
 
-In order to get the model not doing the same mistake over and over again, it is important to train it with samples of paths which did not lead to a solution. 
+In order to get the model not doing the same mistake over and over again, it is important to train it with samples of calculations which did not lead to a solution. 
 These negative samples are present in the training set for value and policy head.
 
 
-This loop can be extended by a forth step discussed in the outlook section, which allows to incorporate useful sub chains of formula (\ref{eq:calculation_chain}) into the rule set.
+The \textit{three-T-loop} can be extended by a forth step discussed in the outlook section, which allows to incorporate useful sub chains of formula (\ref{eq:calculation_chain}) into the rule set.
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/beam_search.tex}
-	\caption{Search beam: The green trace is the correct solution.
+	\caption{Search beam: The green line is the calculation trace to the correct solution.
 	The red branches do not lead to a solution.
-	The light nodes are skipped in later searches when the model is trained.}
+	The light nodes are skipped in later searches when the model got more experience.}
 	\label{fig:beam_search}
 \end{figure}
 
@@ -283,12 +294,13 @@ This loop can be extended by a forth step discussed in the outlook section, whic
 \section{Results}
 
 Todo.
+% exploration vs exploitation (upper confidence bound)
 % We have defined a basic rule set to perform the given problems via a scenario configuration.
 
 \begin{figure}[!htbp]
 	\centering
 	Todo
-	\caption{The number of solved problems is increasing as often the T3 loop is iterated.}
+	\caption{The number of solved problems is increasing from iteration to iteration of the \textit{three-T-loop}.}
 	\label{fig:t3loop_performance}
 \end{figure}
 
@@ -304,32 +316,42 @@ it has shown that it is capable of solving problems from the field of mathematic
 \section{Outlook}
 
 Let us group some ideas for extending this approach into two categories:
-Due to the limited time budget, many of them could not be tried out yet.
+Due to the limited time budget, many of them could not be studied yet.
 But as the basic algorithm is set up and proven to work, applications based on it's features may be feasible to accomplish in the near future.
-The second group would require an extension of this core algorithm, which would take some time to implement.
+The second group would require an extension of this core algorithm, which causes to additional effort.
 
 \subsection{Near Future}
 
 \subsubsection{Transformer and Positional Encoding}
 
-Positional encoding $PE\left( pos\right)$ in NLP is used to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
-The desired properties for the positional encoding $PE\left( T_a \right) - PE\left( T_b \right)$ sub-terms $T_a$ and $T_b$ should be:
+In the last years transformer based network architectures have entered more and more fields where RNNs or CNNs were used before.
+As mentioned in above, they are also used in the domain of symbol reasoning.
+These approaches flatten the terms before they get feed into the network.
+For instance using the polish notation.
+
+The key of transformers is the positional encoding $PE\left( pos\right)$, which is used in NLP to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
+Since the position of the tree-nodes are only encoded by the positional encoding, there might be a better representation for the tree structured input,
+than polish notation and sin/cos encoding on that now linear sequence.
+Especially when the branches are of different size but only the root of a branch is of interest this approach might fail.
+Therefore it might be interesting, if there could be a better positional encoding of tree structure data.
+
+The desired properties for the positional encoding $\Delta= PE\left( T_a \right) - PE\left( T_b \right)$ of sub-terms $T_a$ and $T_b$ are
 \begin{enumerate}[label=(\roman*)]
-	\item A metric for the relative distance between sub-terms $T_A$ and $T_B$.
-	\item Independent of the absolute position of the sub-terms.
+	\item $\Delta$ is a metric for the relative distance between sub-terms $T_A$ and $T_B$.
+	\item $\Delta$ is independent of the absolute position of the sub-terms in the complete term $T$.
 \end{enumerate}
 
 A naive approach is to draw the tree on a two dimensional plane and count the sub-terms from left to right.
 This approach does not fullfil any of the desired properties.
 
-But dividing these numbers iteratively by the spread $s$.
+But dividing these numbers iteratively by the spread $s$ and erasing the non integer fractions out,
 
 \begin{align}
 	PE^{(n+1)}\left( T \right) \coloneqq \lfloor \frac{PE^{(n)} \left( T \right)}{s} \rfloor
+	\label{eq:positional_encoding}
 \end{align}
 
-the collection of $PE^{(n+1)}\left( T \right)$ together with a vertical encoding partly fulfills these properties.
-Figure \ref{fig:positional_encoding} demonstrates this procedure by an example.
+the collection of $PE^{(n)}\left( T \right)$ together with a vertical encoding partly fulfills these properties.
 This could be good enough as input for sine and cosine functions or learnable embeddings \cite{gehring2017convolutional}.
 
 \begin{figure}[!htbp]
@@ -338,15 +360,14 @@ This could be good enough as input for sine and cosine functions or learnable em
 	\label{fig:positional_encoding}
 \end{figure}
 
+Figure \ref{fig:positional_encoding} demonstrates this procedure by an example.
+One can see that, $\Delta=-1$ points in at least one the sub-figures from a node to it's left children. $\Delta=1$ to it's right child node. 
 
-\subsubsection{Bellman equation}
-
-%Hint: Using Bellman equation?
 
 \subsubsection{Append Corollaries to the Rule Set}
 
 The basic rule set contains only fundamental definitions that lead to very small steps in the calculation.
-These atomic steps can result in long calculation chains seen in formula (\ref{eq:calculation_chain}).
+These atomic steps can result in very long calculation chains.% of the shape of formula (\ref{eq:calculation_chain}).
 
 \begin{equation}
 	\label{eq:tedios_calculation}
@@ -361,21 +382,36 @@ These atomic steps can result in long calculation chains seen in formula (\ref{e
 	\end{aligned}
 \end{equation}
 
-However, it turned out that some parts are repeated over and over again.
+However, it turned out that some sub-chains in formula (\ref{eq:calculation_chain}) appear over and over again.
 % {Calculation (\ref{eq:tedios_calculation})} shows simple example where solving the equation $z=z+y+x$ with just the commutative rule $a+b=b+a$ and $a+b=c+b \Longleftarrow a=c$ seems needless long.
 % Eliminating $z$ on both sides of the equation should be learned by the network as it is a recurring pattern in mathematical problems.
-{Calculation (\ref{eq:tedios_calculation})} is an example calculation to simplify the trigonometric sum $\cos^2(x)+\sin^2(x)$, just using a basic rule set.
-As this pattern occurs frequently in some mathematical domains, it might be useful to train such found rules into the network.   
+Example calculation (\ref{eq:tedios_calculation}) demonstrates just som steps of the simplification of the trigonometric sum $\cos^2(x)+\sin^2(x)$, just using a basic rule set.
+Note that multiple steps are done per line. Otherwise the calculation would occupy the whole page.
+As the pattern $\cos^2(x)+\sin^2(x) \Longrightarrow 1$ occurs frequently in some mathematical domains, it might be useful to train such found rules into the network.   
 These are exactly the corollaries that could be inserted into the original rule set.
 To do this, you need to address three challenges:
 
 \begin{enumerate}[label=(\roman*)]
-	\item It should evaluate which corollary is worth to store.
-	\item It should insert the new rule into the already trained network.
+	\item Evaluate which corollary is worth to store.
+	\item Insert the new rule into the already trained network.
 	\item Since there can be a large number of interesting corollaries, the training and inference time should increase less than linearly with the number of rules.
 \end{enumerate}
 
 One can overcome these challenges with a new network architecture, which will be presented in a future paper.
+
+\subsubsection{Bellman equation}
+
+As the current implementation of the breath-first beam search aborts after when in one level of depth at least one solution is found,
+it only is capable of finding the shortest solution inside the guidelines of the network.
+\begin{align}
+	V(x_{0})\;=\;\max _{\left\{a_{t}\right\}_{t=0}^{\infty }}\sum _{t=0}^{\infty }\beta ^{t}F(x_{t},a_{t})
+	\label{eq:bellman_equation}
+\end{align}
+
+Therefore the bellman equation (\ref{eq:bellman_equation}) evaluates in just two values: A non-zero value if the path lead to a solution. Otherwise zero.
+This justifies not to consider the bellman equation for this reinforcement problem yet \cite{bellman}.
+It's usage might be interesting to take it into account, when providing solutions of different length, and therefore of more different rewards.
+
 
 \subsubsection{Optimizing the Network}
 
@@ -384,7 +420,9 @@ The same is true for the time-performance of the indexed CNN operation and which
 
 \subsubsection{Benchmarks with current data sets}
 
-Hendrycks et al. claim that accuracy of current transformer based models remains relatively low \cite{hendrycks2021measuring}.
+In the last two years some interesting benchmark sets appeared, which is worth to use:
+
+Hendrycks et al. claim that the accuracy of current transformer based models remains relatively low \cite{hendrycks2021measuring}.
 Fortunately they provide a benchmark dataset (MATH) with 12500 challenging competition mathematics problems.
 
 Additional the log of manual calculation steps from the HOList dataset by Bansel et al. \cite{kaliszyk2017holstep} would be interesting for testing our approach.
@@ -392,14 +430,17 @@ Li et al. built a non-synthetic dataset from the largest repository of proofs wr
 
 \subsubsection{Training on proxy tasks}
 
-It might be worth to investigate if a pre-training on a proxy task such as predicting missing node symbols $t_p$ in a term $T$ can help to build a better backbone.
-This paradigm is applied by Rabe et al. \cite{rabe2020mathematical}.
+It might be worth to investigate, if pre-training on a proxy task, such as predicting missing node symbols $t_p$ in a term $T$ can help to create a better generalizing backbone.
+This approach is done by Rabe et al. \cite{rabe2020mathematical}.
 
 \subsection{Far Future}
 
-In university level mathematics many rules depend on multiple premises.
-E.g. the simple commutative property has three: $\forall a \in \mathbb{R}$, and $\forall b \in \mathbb{R}$ applies $a\cdot b \Longrightarrow b\cdot a$.
-This could be represented by the concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
+This paper only considers rules with a single premise.
+But in university level mathematics many rules depend on multiple premises.
+E.g. the simple commutative property has two additional premises: Only if $\forall a \in \mathbb{C}$ and $\forall b \in \mathbb{C}$ are given,
+then the rule $a\cdot b \Longrightarrow b\cdot a$ can be applied. If $a$ or $b$ where for instance matrices, the rule might not lead to a valid deduction.
+
+The requirement of multiple premises could be represented by a concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
 Then you are almost at propositional logic with the challenge of multiple concurrent chains of computation required for the final result.
 This requires an extension to the current core algorithm. For example meta rules as \textit{reductio ad absurdum}.
 
