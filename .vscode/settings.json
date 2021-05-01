@@ -63,5 +63,6 @@
         "tolist",
         "Vaswani",
     ],
-    "vscode-generic-binary-preview.command": "/home/matthias/workspace/github/lochbrunner/symbolic-reasoning/tools/baginfo.py --format html"
+    "vscode-generic-binary-preview.command": "/home/matthias/workspace/github/lochbrunner/symbolic-reasoning/tools/baginfo.py --format html",
+    "python.linting.pylintEnabled": true
 }

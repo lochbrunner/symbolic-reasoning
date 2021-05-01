@@ -293,13 +293,27 @@ The \textit{three-T-loop} can be extended by a forth step discussed in the outlo
 
 \section{Results}
 
-Todo.
+\begin{figure}[!htbp]
+	\centering
+	\input{docs/whitepaper/training.tex}
+	\caption{Validation error for policy prediction.
+	The probability that the correct rule and the correct position is predict by the highest network outcome is higher than $ 47\%$.
+	The upper red line shows the corresponding error ($<53\%$).
+	The probability of miss-prediction of the top two predictions of the network is around $30\%$.
+	The probability of miss-prediction of the top ten predictions of the network is less than $4\%$, as the lowest blue graph indicates.
+	}
+	\label{fig:training}
+\end{figure}
+
+As figure \ref{fig:training} shows the error of the exact prediction of rule $R_j$ and position $p_\ell$ during the training process in the validation set.
+At the beginning the error drops very fast. After 2000 iterations the error of the ten most confident predictions lead to an error of less than $4\%$.
+
 % exploration vs exploitation (upper confidence bound)
 % We have defined a basic rule set to perform the given problems via a scenario configuration.
 
 \begin{figure}[!htbp]
 	\centering
-	Todo
+	Todo: t3 performance
 	\caption{The number of solved problems is increasing from iteration to iteration of the \textit{three-T-loop}.}
 	\label{fig:t3loop_performance}
 \end{figure}
