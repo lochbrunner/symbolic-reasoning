@@ -151,7 +151,8 @@ class LocalTrace:
         queue.put(self.root)
         while not queue.empty():
             node = queue.get()
-            if not just_neighborhood or not node.apply_info or node.apply_info.contributed:
+            # Look for previous in order to get negative value examples
+            if not just_neighborhood or not node.apply_info.previous or node.apply_info.previous.contributed:
                 for child in node.childs:
                     queue.put(child)
             yield node.apply_info
@@ -230,8 +231,8 @@ class TrainingsDataDumper:
             for apply_info in statistics.trace.iter(just_neighborhood=True):
                 if apply_info.rule_id is not None:
                     # Just store fits of contributed steps
-                    fits = [apply_info.fit_info] if apply_info.contributed else []
-                    sample = Sample(apply_info.previous.current, fits, apply_info.contributed)
+                    fits = [apply_info.fit_info] if apply_info.previous.contributed else []
+                    sample = Sample(apply_info.previous.current, fits, apply_info.previous.contributed)
                     self.sample_set.add(sample)
         return self
 

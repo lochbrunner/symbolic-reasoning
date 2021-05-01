@@ -297,14 +297,16 @@ impl PySampleSet {
         for (_, sample) in self.samples.iter_mut() {
             for (rule_id, rule) in rule_mapping.iter() {
                 let fits = fit(&(*sample.initial.inner), &rule.inner.condition);
+                // Make sure we don't override existing fits
                 let old_paths = sample
                     .fits
                     .iter()
+                    .filter(|prev| prev.data.rule_id == *rule_id)
                     .map(|prev| prev.data.path.clone())
                     .collect::<Vec<_>>();
                 sample.fits.extend(
                     fits.into_iter()
-                        .filter(|fit| old_paths.iter().any(|prev| *prev != fit.path))
+                        .filter(|fit| !old_paths.iter().any(|prev| *prev == fit.path))
                         .map(|fit| {
                             PyFitInfo::new(bag::FitInfo {
                                 rule_id: *rule_id,
