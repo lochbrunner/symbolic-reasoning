@@ -34,7 +34,7 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         unfiltered_problems = problems
         problems = [problem for problem in problems if str(problem.condition) in white_list]
         if len(problems) < 1:
-            print('Available:\n' + '\n'.join(f'"{v.condition}"' for _, v in unfiltered_problems.items()))
+            print('Available:\n' + '\n'.join(f'"{v.condition}"' for v in unfiltered_problems))
             raise AssertionError(f'No problems found in the white list: {white_list}')
         logger.warning(f'Using {len(problems)} filtered problems from white list')
 

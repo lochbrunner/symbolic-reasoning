@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import List, Dict
 import sqlite3
+import logging
 
 import numpy as np
 from common.config_and_arg_parser import ArgumentParser
@@ -17,6 +18,8 @@ from tqdm import tqdm
 from pycore import Scenario, fit
 
 database_path = Path('/tmp/database.db')
+
+logger = logging.getLogger(__name__)
 
 
 def get_db():
@@ -206,9 +209,22 @@ def main(config, options):
     # rule_verbose2id = {rule.verbose: i for i, rule in rule_mapping.items()}
     inferencer = Inferencer(config, scenario, fresh_model=False)
     embed2ident = dataset.embed2ident
-    assert dataset.ident_dict == inferencer.ident_dict, f'Inconsistent idents in model and dataset (dataset: {dataset.ident_dict} model: {inferencer.ident_dict})'
+    if dataset.ident_dict != inferencer.ident_dict:
+        msg = f'Inconsistent idents in model and dataset (dataset: {dataset.ident_dict} model: {inferencer.ident_dict})'
+        logger.error(msg)
+        logger.warning('Wills skip histogram calculations')
 
-    histogram_data = create_index(inferencer, dataset)
+        def hist():
+            return {'hist': [], 'bin_edges': []}
+        histogram = {
+            'exact': hist(),
+            'exact_no_padding': hist(),
+            'when_rule': hist(),
+            'with_padding': hist(),
+        }
+        inferencer = None
+    else:
+        histogram_data = create_index(inferencer, dataset)
 
     @app.route('/')
     def root():
@@ -225,7 +241,12 @@ def main(config, options):
         raw_sample = dataset.container[index]
         initial = raw_sample.initial
         x, s, y, p, v, target, mask = dataset[index]
-        py, pv = inferencer.inference(initial, keep_padding=True)
+        if inferencer is not None:
+            py, pv = inferencer.inference(initial, keep_padding=True)
+        else:
+            pv = np.array(0)
+            # path, ruĺe id
+            py = np.zeros_like(mask, dtype=float)
         py = np.transpose(py, (1, 0))
         target = np.transpose(target, (1, 0))
         mask = np.transpose(mask, (1, 0))

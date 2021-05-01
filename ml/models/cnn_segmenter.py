@@ -9,6 +9,15 @@ from iconv import IConv
 from pycore import Symbol
 
 
+class Transpose(nn.Module):
+    def __init__(self, *dimensions):
+        super(Transpose, self).__init__()
+        self.dimensions = dimensions
+
+    def forward(self, x):
+        return torch.transpose(x, *self.dimensions)
+
+
 class SequentialByPass(nn.Sequential):
 
     def __init__(self, *args, residual: bool = False):
@@ -18,12 +27,12 @@ class SequentialByPass(nn.Sequential):
     def forward(self, x, s):  # pylint: disable=arguments-differ
         lastcnn = None
         for module in self._modules.values():
-            if self.residual:
-                if lastcnn is not None:
-                    x = lastcnn + x
-                lastcnn = x
             if type(module) is IConv:
                 x = module(x, s)
+                if self.residual:
+                    if lastcnn is not None:
+                        x = lastcnn + x
+                    lastcnn = x
             else:
                 x = module(x)
         return x
@@ -37,7 +46,11 @@ class ValueHead(nn.Module):
         self.config = config
 
         if self.config['use_batch_normalization']:
-            bn = [nn.BatchNorm1d(num_features=12)]
+            bn = [
+                Transpose(1, 2),
+                nn.BatchNorm1d(num_features=self.hidden_size),
+                Transpose(1, 2)
+            ]
         else:
             bn = []
 
@@ -105,7 +118,7 @@ class TreeCnnSegmenter(nn.Module):
             'value_head_hidden_size': 8,
             'value_accumulator': 'max',
             'residual': False,
-            'use_batch_normalization': False,
+            'use_batch_normalization': True,
         }
         if isinstance(hyper_parameter, dict):
             self.config.update(hyper_parameter)
@@ -127,7 +140,11 @@ class TreeCnnSegmenter(nn.Module):
             self.combine = nn.Bilinear(embedding_size, num_props, embedding_size)
 
         def create_layer():
-            bn = [nn.BatchNorm1d(num_features=12)] if self.config['use_batch_normalization'] else []
+            bn = [
+                Transpose(1, 2),
+                nn.BatchNorm1d(num_features=embedding_size),
+                Transpose(1, 2),
+            ] if self.config['use_batch_normalization'] else []
             return [
                 IConv(embedding_size, embedding_size, kernel_size=kernel_size),
                 *bn,

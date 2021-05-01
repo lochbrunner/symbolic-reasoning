@@ -3,6 +3,7 @@
 import logging
 import signal
 import sys
+import subprocess as sp
 import yaml
 from pathlib import Path
 
@@ -44,7 +45,7 @@ logger = logging.getLogger(__name__)
 class ExecutionParameter:
     def __init__(self, device: str, tensorboard: bool, training: object,
                  manual_seed: bool, use_solved_problems: bool, create_fresh_model: bool,
-                 dont_dump_model: bool = False, **kwargs):
+                 dont_dump_model: bool = False, just_dump_model: bool = False, **kwargs):
         self.report_rate = training.report_rate
         if device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -55,6 +56,7 @@ class ExecutionParameter:
         self.use_solved_problems = use_solved_problems
         self.create_fresh_model = create_fresh_model
         self.dont_dump_model = dont_dump_model
+        self.just_dump_model = just_dump_model
 
     @staticmethod
     def add_parsers(parser: ArgumentParser):
@@ -64,6 +66,7 @@ class ExecutionParameter:
         parser.add_argument('--create-fresh-model', action='store_true', default=False)
         parser.add_argument('--use-solved-problems', action='store_true', default=False)
         parser.add_argument('--dont-dump-model', action='store_true', default=False)
+        parser.add_argument('--just-dump-model', action='store_true', help='Overides dont dump model', default=False)
 
 
 def dump_statistics(config, logbooks):
@@ -117,10 +120,15 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
         scheduler = None
 
     def save_snapshot(metrics=None):
-        if not exe_params.dont_dump_model:
+        if not exe_params.dont_dump_model or exe_params.just_dump_model:
             io.save(config.files.model, model, optimizer, scenario_params, learn_params, dataset, metrics=metrics)
         else:
             logger.info(f'Skipping model dump to "{config.files.model}" as requested.')
+
+    if exe_params.just_dump_model:
+        save_snapshot()
+        logger.warning('I just dump the model and exit. Bye bye!')
+        return
 
     if len(dataset) == 0:
         logger.info('Loaded empty bagfile. Skip training.')
@@ -183,7 +191,9 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 except Exception as e:
                     logger.warning(f'Could not start tensorboard: {e}')
                 writer = SummaryWriter(log_dir=str(log_dir))
-            writer = SummaryWriter(tensorboard_dir and str(tensorboard_dir))
+            else:
+                writer = SummaryWriter(tensorboard_dir and str(tensorboard_dir))
+            sp.Popen(['tensorboard', '--logdir', writer.log_dir])
             x, s, _, p, _, _, _ = next(iter(validation_dataloader))
             device = model.device
             x = x.to(device)
@@ -204,6 +214,7 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 return True
             model.eval()
             validation = validate(model, validation_dataloader, no_negative=False, **kwargs)
+            validation_training = validate(model, training_dataloader, no_negative=False, **kwargs)
             error = validation.error
             model.train()
             loss = epoch_loss and learn_params.batch_size * epoch_loss
@@ -232,6 +243,13 @@ def main(exe_params: ExecutionParameter, learn_params: LearningParmeter,
                 error.exact_no_padding.log_bundled(writer, 'policy/exact', epoch)
                 error.in_possibilities_positive.log_bundled(writer, 'policy/just possibilities', epoch)
                 error.in_possibilities_negative.log_bundled(writer, 'policy/just possibilities (negative)', epoch)
+
+                train_error = validation_training.error
+                train_error.exact.log_bundled(writer, 'train-policy/exact with padding', epoch)
+                train_error.exact_no_padding.log_bundled(writer, 'train-policy/exact', epoch)
+                train_error.in_possibilities_positive.log_bundled(writer, 'train-policy/just possibilities', epoch)
+                train_error.in_possibilities_negative.log_bundled(
+                    writer, 'train-policy/just possibilities (negative)', epoch)
                 # error.with_padding.log_bundled(writer, 'policy/class', epoch)
                 # error.when_rule.log_bundled(writer, 'policy/class (no padding)', epoch)
                 if loss is not None:
@@ -306,6 +324,7 @@ if __name__ == '__main__':
     if options.smoke:
         config.training.data_size_limit = 100
         config.training.num_epochs = 1
+        options.dont_dump_model = True
 
     stats = []
     model_hyper_parameters = config.training.model_parameter
@@ -320,5 +339,7 @@ if __name__ == '__main__':
             scenario_params=ScenarioParameter.from_config(config),
             config=config
         )
+        if options.just_dump_model:
+            break
         stats.append((grid_search.strip_keys(model_hyper_parameter, arg, names=changed_parameters), result))
     dump_statistics(config=config, logbooks=stats)

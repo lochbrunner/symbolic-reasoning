@@ -230,6 +230,8 @@ pub struct Embedding {
 }
 
 impl Symbol {
+    /// In order to prevent deductions ala a=b => 1*(a=b)
+    #[inline]
     pub fn only_root(&self) -> bool {
         self.flags & symbol_flags::ROOT_ONLY != 0
     }
@@ -246,10 +248,15 @@ impl Symbol {
     pub fn fixed(&self) -> bool {
         self.flags & symbol_flags::FIXED != 0
     }
+
+    /// Function are operators when they are written with arguments.
+    /// Example: f + h: f is not an operator
+    /// Example: f(x) : f is an operator
     #[inline]
     pub fn operator(&self) -> bool {
         !self.childs.is_empty()
     }
+
     #[inline]
     pub fn is_number(&self) -> bool {
         self.value.is_some()

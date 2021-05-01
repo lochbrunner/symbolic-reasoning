@@ -1,7 +1,5 @@
 name: basic
-declarations:
-  f:
-    is_function: true
+declarations: {}
 rules:
   trivial subtraction: a-a => 0
   trivial division: a/a => 1
@@ -51,6 +49,5 @@ rules:
   equation 2.1: a / b = 1 => a = b # corollary from 3
   equation commutative: a = b => b = a
   subtraction 1: a - b <=> a + (-b)
-premises: [] # no data generation
 problems:
   filename: experiments/basics/problems.spb

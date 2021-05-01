@@ -5,6 +5,7 @@ files:
   new-rules: &new-rules experiments/basics/new-rules.yaml
   scenario: real_world_problems/basics/dataset.yaml
   solver-trainings-data: &solver-data experiments/basics/solver-trainings-data.samples
+  # solver-trainings-data: &solver-data experiments/basics/solver-trainings-data.only-positives.samples
   training-statistics: &training-statistics experiments/training-statistics.yaml
   trainings-data-traces: experiments/bag-basic_*.tr
   trainings-data: &bag experiments/bag-basic.samples
@@ -30,8 +31,8 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 100
-  report-rate: 2
+  num-epochs: 2000
+  report-rate: 5
   batch-size: 32
   learning-rate:
     initial: 0.01
@@ -54,18 +55,19 @@ training:
     dropout: 0
     use_props: False
     use_batch_normalization: false
-    residual: True
+    residual: true
     value_accumulator: mean
 fine-tuning:
-  learning-rate: 0.01
+  learning-rate: -1
 evaluation:
   num-epochs: 10
+  exploration_ratio: 5
   problems:
     beam-size: 10
     num_epochs: 30
     max_track_loss: 3
     max_fit_results: 10000
-    iterations: 1
+    iterations: 10
   training-data:
     beam-size: "1:15"
     max-steps: -1

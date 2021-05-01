@@ -105,6 +105,7 @@ def train_cmd(args, config):
                          lower_is_better=True)
 
     scenario_params = ScenarioParameter.from_config(config, use_solver_data=True)
+    scenario_params.data_size_limit = 0.01
     exe_params = ExecutionParameter(training=config.training, device='cpu', tensorboard=True,
                                     manual_seed=True, use_solved_problems=True, create_fresh_model=True, dont_dump_model=True)
 
