@@ -54,16 +54,15 @@ sorting=none
 	% They have to problem ...
 	% my idea
 	% promising results
-	As computer algebra systems are used for decades, in recent years more and more machine learning approaches were published.
-	They attempt to overcome the limitations of classical solvers by learning from data rather than hard-coding transformation rules.
-	This splits the domain into two groups of programs, which exist side by side:
-	Classical systems proven to be correct, but additional features require manual effort and the new ones,
-	which are able to discover new knowledge by on their one, but the results can be incorrect.
+    As computer algebra systems are used for decades, more and more machine learning approaches were published in recent years.
+    They attempt to overcome the limitations of classical solvers by learning from data rather than hard-coding transformation rules.
+    This splits the domain into two groups of programs, which exist side by side:
+    Classical systems have been proven to be correct, but additional features require manual effort, and the new ones,
+    which are able to discover new knowledge on their own, but the results can be incorrect.
 
-	This paper proposes to address these issues by a rule-based reinforcement learning approach.
-	The combination of a rule-based beam search and deep learning, 
-	makes it possible to discover new knowledge without loosing the confidence in correct results.
-	First prototypes provide promising results. 
+    This paper proposes to address these issues by a rule-based reinforcement learning approach.
+    The combination of a rule-based beam search and deep learning makes it possible to discover new knowledge without losing confidence in the correctness of the results.
+    First prototypes provide promising results. 
 	
 	% The combination of a rule based beam search and deep learning is a promising approach to solve mathematical problems.
 	% One obstacle to overcome is the amount of possible branches in this search as the number of applicable rules and the length of the calculation increases.
@@ -77,60 +76,60 @@ sorting=none
 
 As current computer algebra systems use a complex but fixed set of rules to solve mathematical problems,
 it takes manual effort to extend their capabilities \cite{wolfram}.
-On the other hand, since 2020, more and more papers have been published describing, how to solve mathematical problems using pure deep learning approaches.
-They operate without any knowledge database and their estimated solutions are subject to a certain degree of uncertainty.
+On the other hand, since 2020, more and more papers have been published describing how to solve mathematical problems using pure deep learning approaches.
+They operate without any knowledge database, and their estimated solutions are subject to a certain degree of uncertainty.
 
-Therefore Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach, centered around cognitive models,
+Therefore Gary Marcus proposes a hybrid, knowledge-driven, reasoning-based approach centered around cognitive models,
 that could provide the substrate for a richer, more robust AI than is currently possible. \cite{marcus2020decade}
 
 This paper demonstrates one possible approach to do so:
-A rule based beam search guided by a reinforcement network setup.
+A rule-based beam search guided by a reinforcement network setup.
 The generic approach described here might be able to incorporate additional rules without requiring manual work.
-Moreover, it is not limited to mathematical problems as long as the domain can be described by a well-defined rule set.
-The correctness of the result depends only on the correctness of the given rule set.
+Moreover, it is not limited to mathematical problems as long as a well-defined rule set can describe the domain.
+The correctness of the result depends only on the correctness of the given ruleset.
 
 \section{Related work}
 
-The first outstanding paper was published by Lampe et. al. in 2020.
-They use state of the art sequence to sequence transformers (Vaswani et al. \cite{vaswani2017attention}) on equations represented in the polish notation \cite{Lample2020Deep}.
+The first outstanding paper was published by Lampe et al. in 2020.
+They use state-of-the-art sequence to sequence transformers (Vaswani et al. \cite{vaswani2017attention}) on equations represented in the polish notation \cite{Lample2020Deep}.
 This approach solves mathematical problems similar to translating a sentence from one language to another. 
 % This approach views solving a mathematical problem as a translation problem.
 % They don't use the concept of rules and tree structured data in the network.
-Davis reviewed this work and come to the positive conclusion, that their transformer model outperforms contemporary computer algebra systems.
-But he criticizes the limited vocabulary used in their generated data set \cite{davis2019use}.
-In their latest paper they widened the scope of to five advanced mathematical problems and improved many of the limitations discussed by the community \cite{charton2021learning}.
-Inspired on that work Hahn et. al. also use a transformer based network for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
-Similar to the result of the work by Lampe, their method is capable to solve large formulas.
-But some for it's predicted results are syntactically and semantically incorrect.
+Davis reviewed this work and came to the positive conclusion that their transformer model outperforms contemporary computer algebra systems.
+However, he criticizes the limited vocabulary used in their generated data set \cite{davis2019use}.
+In their latest paper, they widened the scope to five advanced mathematical problems and improved many of the limitations discussed by the community \cite{charton2021learning}.
+Inspired by that work, Hahn et. al. also use a transformer based network for linear-time temporal logical formulas (LTL) \cite{hahn2021teaching}.
+Similar to the result of the work by Lampe, their method is capable of solving large formulas.
+Nevertheless, some of its predicted results are syntactically and semantically incorrect.
 
 Lamb et al. presented a review on the relationship between GraphNeural Network (GNN) models and architectures and Neural-Symbolic Computing (NSC) \cite{lamb2020graph}.
 They pointed out that this combination could provide trustful, explainable and robust AI systems.
 
-Panju et at. build up a novel symbolic function learner to solve differential equations \cite{panju2020neurosymbolic}.
+Panju et al. build up a novel symbolic function learner to solve differential equations \cite{panju2020neurosymbolic}.
 Their modeling approach is to iteratively feed the individual nodes of a syntax tree from the leaves to the root.
 A very similar approach was elaborated by Piepenbrock et al. \cite{piepenbrock2021learning}. 
 % This method is able to approximate a symbolic function when the problem has no elementary symbolic solution.
 
-A significant improvement is worked out by Rabe et al. They use an unsupervised proxy task to pre-train a sequence to sequence language model \cite{rabe2020mathematical}.
-In their skip-tree training task the model is trained to predict a subtree in the syntax tree of an expression.
+Rabe et al. worked out a significant improvement. They use an unsupervised proxy task to pre-train a sequence to sequence language model \cite{rabe2020mathematical}.
+In their skip-tree training task, the model is trained to predict a subtree in the syntax tree of an expression.
 It is remarkable that they consider typed inference for variables and propositional logic to some extent.
 
-All of these approaches lack confidence in correct results as they simulate calculations.
-They are not backed up by mechanisms that protect the algorithm from errors that lead to wrong results.
+All of these approaches lack confidence in the correctness of the results as they simulate calculations.
+They are not backed up by mechanisms that protect the algorithm from errors that lead to inaccurate results.
 
 \section{Method}
 
-The method I propose uses fundamental and well known rules of the domain to overcome the drawbacks of existing methods.
+The method I propose uses fundamental and well-known rules of the domain to overcome the drawbacks of existing methods.
 % The method I propose is inspired by humans solving mathematical problems by hand.
 % the  to overcame the drawbacks of existing methods. % todo
 Given a problem, e.g. solve the equation $T_1\left(x\right)\equiv T_2\left(x\right)$ for $x$,
 the beam search could try to apply various rules at different nodes in the syntax tree of the equation.
 The policy head proposes the most promising combination of rules $R_j$ and positions $p_\ell$ in the current equation.
-The value head evaluates the probability that the current step might lead to desired solution.
-The cumulative result of the value head can abort the attempt of a certain solution path, as it "seems" unlikely that the this attempt would succeed \cite{44806}.
+The value head evaluates the probability that the current step might lead to the desired solution.
+The cumulative result of the value head can abort the attempt of a particular solution path, as it "seems" unlikely that this attempt would succeed \cite{44806}.
 
 % Sub-section \ref{ssec:rule_application} will  
-In this section, we first introduce the nomenclature and description of rule application to a given mathematical expression.
+This section introduces the nomenclature and description of rule application to a given mathematical expression.
 Followed by a presentation of a deep network architecture for tree-structured data.
 The last part shows how to put the pieces together and set up a data loop.
 
@@ -190,14 +189,14 @@ Now you can replace the sub-term of equation (\ref{example:problem}) at position
 
 \subsection{Indexed Convolution for Tree Structured Data}
 
-Lampe et. al. showed an approach where they unroll the term $T$ using the polish notation.
+Lampe et al. showed an approach where they unroll the term $T$ using the polish notation.
 Then they apply contemporary NLP translation methods on that sequence, where the resulting "translated sentence" is the next step in the calculation \cite{Lample2020Deep}.
 The approach discussed here keeps the tree structure.
 It turned out that a Tree-LSTM network performs poorly on that data \cite{tai2015improved}.
 
-This paper will discuss the adoption of a network architectures using indexed convolution operations.
-An attention based network with special positional encoding is discussed in the outlook. 
-The indexed CNN operation performs a convolution of each node, with it's neighbor nodes and itself.
+This paper will discuss the adoption of a network architecture using indexed convolution operations.
+An attention-based network with particular positional encoding is discussed in the outlook. 
+The indexed CNN operation performs a convolution of each node, with its neighbor nodes and itself.
 Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 
 \begin{figure}[!htbp]
@@ -206,7 +205,7 @@ Figure \ref{fig:index_tensor} demonstrates the operation by a simple example.
 	\label{fig:index_tensor}
 \end{figure}
 
-In order to increase the compute efficiency, each term gets unrolled.
+In order to increase the computing efficiency, each term gets unrolled.
 The unrolled term $T$ with $s=2$ using breadth-first is the vector $\left( t, t_1, t_2, t_{1,1},t_{1,2}, t_{2,1}, t_{2,2}, \cdots \right) \equiv  \left( t_{p_1}, t_{p_2}, t_{p_3},\cdots, t_{p_L} \right)$ of length $L$.
 Hence in index notation $t_{p_\ell}$ with $\ell \in \left\{1., \cdots,L\right\}$ is the index of symbol $t_p$ in the unrolled term.
 An index map $g \in \mathbb{N}^{L\times \left(K\right)}$ carries the indices of the neighbors in a fixed order.
@@ -231,7 +230,7 @@ where index $0$ points to the padding.
 	\input{docs/whitepaper/iconv.tex}
 	\caption{While $x\in \mathbb{R}^{L\times E}$ is the input tensor with $E=t+f$ encoded features per symbol $t_\ell$, the network needs the index tensor $g$ is an additional input.
 		While $t$ is the encoding of the symbol's word representation and $f$ contains some additional properties of that symbol.
-		Each indexed convolution operations (iconv) reads from that index tensor.
+		Each indexed convolution operation (iconv) reads from that index tensor.
 		The policy head returns a matrix with the axis rule id $j$ and path id $\ell$. 
 		The output of the value head is just a scalar. 
 	}
@@ -248,11 +247,11 @@ is defined as
 
 Figure \ref{fig:iconv_network} shows an overview of the multi-head network architecture, where the index tensor $g_{\ell k}$ gets distributed to each indexed convolution layer.
 These layers are used in the backbone and in the heads.
-Due to the padding and stride of one, the indexed convolution retains the shape of the input tensor, except of the configurable channel size.
+Due to the padding and stride of one, the indexed convolution retains the shape of the input tensor, except for the configurable channel size.
 Therefore this operation is appropriate for stacking deep networks.
 A deeper network leads to a larger receptive field and considers more distant symbols.
 
-This is useful for the policy head, which assigns each sub-term a possibility estimation of the most promising rules to apply.
+This is useful for the policy head, assigning each sub-term a possibility estimation of the most promising rules to apply.
 
 \begin{figure}[!htbp]
 	\centering
@@ -281,7 +280,7 @@ The goal is to find the shortest chain of rule applications from $T^\text{Initia
 \end{align}
 
 To obtain training data from the given problem set, we use an initial beam search without the assistance of a network.
-A few simple problems can already be solved by this and training data can be extracted from these solution paths.
+This can already solve a few simple problems, and training data can be extracted from these solution paths.
 % Let's call this procedure \textit{three-T-loop} which consists of these three steps:
 In order to solve more complex problems we choose an iterative approach.
 The so called \textit{three-T-loop}.
@@ -297,23 +296,25 @@ The data loop consists of three steps:
 
 In each iteration of this \textit{three-T-loop} we gain more training data.
 % As the network's performance increases, it can solve more and more problems.
-With more training data the network performance increases and it can solve more problems.
+With more training data, the network performance increases, and it can solve more problems.
 The trained network also reduces the number of misleading rule applications.
 The value head helps to decide whether the calculation path seems promising to achieve a suitable result.
 If the accumulated values are below a threshold the current path gets aborted to save resources (see Figure \ref{fig:beam_search} on page \pageref{fig:beam_search}). 
 
-In order to get the model not doing the same mistakes over and over again, it is important to add samples of calculations which did not lead to a solution to the training data. 
+In order to get the model not making the same mistakes over and over again, it is crucial to add samples of calculations that did not lead to a solution to the training data. 
 These negative samples are present in the training set for value and policy head.
 
 
-The \textit{three-T-loop} can be extended by a forth step discussed in the outlook section, which allows to incorporate useful sub chains of formula (\ref{eq:calculation_chain}) into the rule set.
+The \textit{three-T-loop} can be extended by a fourth step discussed in the outlook section, which allows incorporating useful sub-chains of formula (\ref{eq:calculation_chain}) into the ruleset.
 
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/beam_search.tex}
-	\caption{Search beam: The green line shows the calculation path to the correct solution.
+	\caption{Search beam:
+	The green line shows the calculation path to the correct solution.
 	The red branches do not lead to a solution.
-	The light nodes are skipped in later searches when the model got more experience.}
+	The light nodes are skipped in later searches when the model got more experience.
+	}
 	\label{fig:beam_search}
 \end{figure}
 
@@ -323,9 +324,9 @@ The \textit{three-T-loop} can be extended by a forth step discussed in the outlo
 \begin{figure}[!htbp]
 	\centering
 	\input{docs/whitepaper/training.tex}
-	\caption{Validation error for policy prediction. The data was split randomly into validation data and trainings data.
-	While the proportion of validation dataset is $10\%$ of the samples extracted from the traces.
-	The probability (=relative frequency) that the correct rule and the correct position is predict by the highest network outcome is higher than $ 47\%$.
+	\caption{Validation error for policy prediction. The data was split randomly into validation data and training data.
+	While the proportion of validation dataset are $10\%$ of the samples extracted from the traces.
+	The probability (=relative frequency) that the highest network outcome predicts the correct rule and the correct position is higher than $ 47\%$.
 	The upper red line shows the corresponding error ($<53\%$).
 	The probability of miss-prediction of the top two predictions of the network is around $30\%$.
 	The probability of miss-prediction of the top ten predictions of the network is less than $4\%$, as the lowest blue graph indicates.
@@ -334,7 +335,7 @@ The \textit{three-T-loop} can be extended by a forth step discussed in the outlo
 \end{figure}
 
 Figure \ref{fig:training} shows the error of the exact prediction of rule $R_j$ and position $p_\ell$ during the training process in the validation set.
-At the beginning the error drops very fast. After 2000 iterations the error of the ten most confident predictions lead to an error of less than $4\%$.
+In the beginning, the error drops very fast. After 2000 iterations, the error of the ten most confident predictions leads to an error of less than $4\%$.
 
 % exploration vs exploitation (upper confidence bound)
 % We have defined a basic rule set to perform the given problems via a scenario configuration.
@@ -347,11 +348,12 @@ At the beginning the error drops very fast. After 2000 iterations the error of t
 \end{figure}
 
 Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems over iteration in the \textit{three-T-loop}. 
-It turned out that it is very important to suppress nonsensical rule applications, as they can blow up the beam.
+It turned out that it is essential to suppress nonsensical rule applications, as they can blow up the beam.
 To overcome this issue, adding negative training samples is very useful.
 
 Although the approach described here for solving mathematical problems is hardly optimized yet,
-it has shown that it is capable of solving problems from the field of mathematics.
+the solving rate shows promising results when using the neuronal network.
+% it has shown that it is capable of solving problems from the field of mathematics.
 % Many extension of that approach are possible, as mentioned the "Outlook" section.
 
 
@@ -360,28 +362,28 @@ it has shown that it is capable of solving problems from the field of mathematic
 The here presented approach has much room for improvement and extension.
 Due to the limited time budget, many of them could not be studied yet.
 Let us group some ideas into two categories:
-As the basic algorithm is set up and proven to work, applications based on it's features may be feasible to accomplish in the near future.
-The second group would require an extension of this core algorithm, which cause additional effort.
+As the basic algorithm is set up and proven to work, applications based on its features may be feasible to accomplish in the near future.
+The second group would require an extension of this core algorithm, which causes additional effort.
 
 \subsection{Near Future}
 
 Based on the core algorithm, I hope to explore other topics and solve more advanced problems in the near future.
 In addition to various optimizations of the current network, the use of a transformer architecture seems to be the next step to be investigated.
-After that, it seems useful to look at the latest benchmark data sets that have emerged in recent years to evaluate this approach in more detail.
+After that, it seems helpful to look at the latest benchmark data sets that have emerged in recent years to evaluate this approach in more detail.
 % But there are also additional 
 
 \subsubsection{Transformer and Positional Encoding}
 
-In the last years transformer based network architectures have entered more and more fields where RNNs or CNNs were used before.
+In the last years, transformer-based network architectures have entered more and more fields where RNNs or CNNs were used before.
 As mentioned above, they are also used in the domain of symbol reasoning.
 These approaches flatten the terms before they get feed into the network.
-For instance using the polish notation.
+For instance, using the polish notation.
 
 The key of transformers is the positional encoding $PE\left( pos\right)$, which is used in NLP to "attach" the position $pos$ of a word in the sentence to the embedding of that word \cite{vaswani2017attention}.
 Since the position of the tree-nodes are only encoded by the positional encoding, there might be a better representation for the tree structured input,
 than polish notation and sin/cos encoding on that now linear sequence.
-Especially when the branches are of different size this approach might fail.
-Therefore it might be interesting, if there could be a better positional encoding of tree structure data.
+Especially when the branches are of different sizes, this approach might fail.
+Therefore it might be interesting if there could be a better positional encoding of tree structure data.
 
 The desired properties for the distance $\Delta= PE\left( T_a \right) - PE\left( T_b \right)$ of such a positional encoding $PE$ of sub-terms $T_a$ and $T_b$ are
 \begin{enumerate}[label=(\roman*)]
@@ -389,8 +391,8 @@ The desired properties for the distance $\Delta= PE\left( T_a \right) - PE\left(
 	\item $\Delta$ is independent of the absolute position of the sub-terms in the complete term $T$.
 \end{enumerate}
 
-A naive approach is to draw the tree represented on a two dimensional plane and count the sub-terms from left to right.
-This approach does not fullfil any of the desired properties.
+A naive approach is to draw the tree represented on a two-dimensional plane and count the sub-terms from left to the right.
+This approach does not fulfill any of the desired properties.
 
 But dividing these numbers iteratively by the spread $s$ and erasing the non integer fractions out,
 
@@ -414,8 +416,8 @@ One can see that, $\Delta=-1$ points in at least one the sub-figures from a node
 
 \subsubsection{Append Corollaries to the Rule Set}
 
-One of the key ideas of the here proposed method is that just fundamental definitions are provided to the algorithm.
-The drawback is that this lead to very small steps in the calculation.
+One of the proposed method's key ideas is that just fundamental definitions are provided to the algorithm.
+The drawback is that this leads to very small steps in the calculation.
 These atomic steps can result in very long calculation chains.% of the shape of formula (\ref{eq:calculation_chain}).
 
 \begin{equation}
@@ -431,15 +433,15 @@ These atomic steps can result in very long calculation chains.% of the shape of 
 	\end{aligned}
 \end{equation}
 
-However, it turned out that some sub-chains in formula (\ref{eq:calculation_chain}) appear over and over again.
+However, it turned out that some sub-chains in the formula (\ref{eq:calculation_chain}) appear over and over again.
 % {Calculation (\ref{eq:tedios_calculation})} shows simple example where solving the equation $z=z+y+x$ with just the commutative rule $a+b=b+a$ and $a+b=c+b \Longleftarrow a=c$ seems needless long.
 % Eliminating $z$ on both sides of the equation should be learned by the network as it is a recurring pattern in mathematical problems.
 The example calculation (\ref{eq:tedios_calculation}) demonstrates just some steps of the simplification of the trigonometric sum $\cos^2(x)+\sin^2(x)$, while using a basic rule set.
-Note that multiple steps are done per line. Otherwise the calculation would occupy the whole page.
-As the pattern $\cos^2(x)+\sin^2(x) \Longrightarrow 1$ occurs frequently in some mathematical domains, it might be useful to train such found rules into the network.
+Note that there are multiple steps per line. Otherwise, the calculation would occupy the whole page.
+As the pattern $\cos^2(x)+\sin^2(x) \Longrightarrow 1$ frequently occurs in some mathematical domains, it might be helpful to train such found rules into the network.
 This would allow the algorithm to take some previous self proven shortcuts.
-These are exactly the corollaries that could be inserted into the original rule set.
-To do this, you need to address three challenges:
+These are precisely the corollaries that could be inserted into the original ruleset.
+To do this, one needs to address three challenges:
 
 \begin{enumerate}[label=(\roman*)]
 	\item Evaluate which corollary is worth to store.
@@ -459,9 +461,10 @@ it is only capable of finding the shortest solution inside the guidelines of the
 	\label{eq:bellman_equation}
 \end{align}
 
-Therefore the bellman equation (\ref{eq:bellman_equation}) evaluates in just two values: A non-zero value if the path leads to a solution. Otherwise zero.
-This justifies not to consider the bellman equation for this reinforcement problem yet \cite{bellman}.
-As soon as the algorithm provides solutions of different length, and therefore of more different rewards, is might be interesting to take the Bellman equation into account.
+Therefore the Bellman equation (\ref{eq:bellman_equation}) evaluates in just two values:
+A non-zero value if the path leads to a solution. Otherwise zero.
+This justifies not considering the Bellman equation for this reinforcement problem yet \cite{bellman}.
+As soon as the algorithm provides solutions of different lengths, and therefore of more different rewards, it might be interesting to take the Bellman equation into account.
 % It's usage might be interesting to take it into account, when providing solutions of different length, and therefore of more different rewards.
 
 
@@ -473,29 +476,29 @@ A big leap in that would allow hyper-parameter tuning to be performed in a feasi
 
 \subsubsection{Benchmarks with current data sets}
 
-In the last two years some interesting benchmark sets appeared, which is worth to use:
+In the last two years, some interesting benchmark sets appeared, which is worth using:
 
-Hendrycks et al. claim that the accuracy of current transformer based models remains relatively low \cite{hendrycks2021measuring}.
-Fortunately they provide a benchmark dataset (MATH) with 12500 challenging competition mathematics problems.
+Hendrycks et al. claim that the accuracy of current transformer-based models remains relatively low \cite{hendrycks2021measuring}.
+Fortunately, they provide a benchmark dataset (MATH) with 12500 challenging competition mathematics problems.
 
-Additional the log of manual calculation steps from the HOList dataset by Bansel et al. \cite{kaliszyk2017holstep} would be interesting for testing our approach.
+Additionally the log of manual calculation steps from the HOList dataset by Bansel et al. \cite{kaliszyk2017holstep} would be interesting for testing our approach.
 Li et al. built a non-synthetic dataset from the largest repository of proofs written by human experts in a theorem prover \cite{li2021isarstep}.
 
 \subsubsection{Training on proxy tasks}
 
-It might be worth to investigate, if pre-training on a proxy task, such as predicting missing node symbols $t_p$ in a term $T$ can help to create a better generalizing backbone.
-This approach is done by Rabe et al. \cite{rabe2020mathematical}.
+It might be worth investigating if pre-training on a proxy task, such as predicting missing node symbols $t_p$ in a term $T$, can help create a better generalizing backbone.
+This approach is made by Rabe et al. \cite{rabe2020mathematical}.
 
 \subsection{Far Future}
 
 This paper only considers rules with a single premise.
-But in university level mathematics a lot of rules depend on multiple premises.
-E.g. the simple commutative property has two additional premises: Only if $\forall a \in \mathbb{C}$ and $\forall b \in \mathbb{C}$ are given,
-then the rule $a\cdot b \Longrightarrow b\cdot a$ can be applied. If $a$ or $b$ where for instance matrices, the rule might not lead to a valid deduction.
+However, in university-level mathematics, many rules depend on multiple premises.
+E.g., the simple commutative property has two additional premises: Only if $\forall a \in \mathbb{C}$ and $\forall b \in \mathbb{C}$ are given,
+then the rule $a\cdot b \Longrightarrow b\cdot a$ can be applied. If $a$ or $b$ were, for instance, matrices, the rule might not lead to a valid deduction.
 
 The requirement of multiple premises could be represented by a concatenation via $A_1 \wedge \cdots \wedge A_n \Longrightarrow B$.
 Then you are almost at propositional logic with the challenge of multiple concurrent chains of computation required for the final result.
-This requires an extension to the current core algorithm. For example meta rules as \textit{reductio ad absurdum}.
+This requires an extension to the current core algorithm—for example, meta-rules as \textit{reductio ad absurdum}.
 
 Moreover, some premises use first-order logic, which introduces the handling of complex mathematical sets.
 
