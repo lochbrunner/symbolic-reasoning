@@ -15,6 +15,7 @@
         "maplit",
         "pyclass",
         "pymethods",
+        "pyproto",
         "repr",
         "serde",
         "staticmethod"

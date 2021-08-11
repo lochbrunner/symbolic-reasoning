@@ -45,3 +45,4 @@ pub use fit::*;
 pub use rule::*;
 pub use symbol::*;
 pub mod io;
+pub mod solver;

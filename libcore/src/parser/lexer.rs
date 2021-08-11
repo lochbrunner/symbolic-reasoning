@@ -114,12 +114,9 @@ macro_rules! check(
 
 // Reserved or ident
 fn parse_ident(c: CompleteStr, rest: Option<CompleteStr>) -> Token {
-  let mut string = c.0.to_owned();
-  string.push_str(rest.unwrap_or(CompleteStr("")).0);
-  // match string.as_ref {
-  //     _ => Token::Ident(string),
-  // }
-  Token::Ident(string)
+  let mut ident = c.0.to_owned();
+  ident.push_str(rest.unwrap_or(CompleteStr("")).0);
+  Token::Ident(ident)
 }
 
 fn complete_byte_slice_str_from_utf8(c: CompleteByteSlice) -> Result<CompleteStr, Utf8Error> {

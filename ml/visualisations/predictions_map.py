@@ -13,7 +13,7 @@ def highlight_cell(cells, ax=None, **kwargs):
     return rect
 
 
-def show_part_predictions(predict_rule, samples, ix_to_rule, rule_to_ix):
+def show_part_predictions(predict_rule, samples, rule_to_ix):
     fig = plt.figure(figsize=(8, 6))
     graph = fig.add_subplot(111)
     ax = plt.gca()
@@ -37,7 +37,7 @@ def show_part_predictions(predict_rule, samples, ix_to_rule, rule_to_ix):
         def draw(self):
             graph.clear()
             self.cb = plot_part_prediction_impl(
-                predict_rule, samples[self.index], ix_to_rule, rule_to_ix, graph, fig, ax=ax, cb=self.cb)
+                predict_rule, samples[self.index], rule_to_ix, graph, fig, ax=ax, cb=self.cb)
             plt.draw()
 
     index = Index()
@@ -53,21 +53,21 @@ def show_part_predictions(predict_rule, samples, ix_to_rule, rule_to_ix):
     plt.show()
 
 
-def plot_part_prediction(predict_rule, sample, ix_to_rule, rule_to_ix, filename_prefix='../out/ml/lstm-single-prediction'):
+def plot_part_prediction(predict_rule, sample, rule_to_ix, filename_prefix='../out/ml/lstm-single-prediction'):
     fig = plt.figure(figsize=(8, 6))
     graph = fig.add_subplot(111)
 
     plot_part_prediction_impl(
-        predict_rule, sample, ix_to_rule, rule_to_ix, graph, fig)
+        predict_rule, sample, rule_to_ix, graph, fig)
 
     plt.savefig(
         f'{filename_prefix}-{sanitize_path(str(sample.initial))}.svg')
     plt.show()
 
 
-def plot_part_prediction_impl(predict_rule, sample, ix_to_rule, rule_to_ix, graph, fig, ax=None, cb=None):
-    rules = [f'$ {r.latex} $' for i, r in ix_to_rule.items()]
-    rules_ix = [i for i, r in ix_to_rule.items()]
+def plot_part_prediction_impl(predict_rule, sample, rule_to_ix, graph, fig, ax=None, cb=None):
+    rules = [f'$ {r.latex} $' for r, _ in rule_to_ix.items()]
+    rules_ix = [i for _, i in rule_to_ix.items()]
 
     y_ticks = []
     prob_matrix = []

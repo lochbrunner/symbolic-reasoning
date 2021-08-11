@@ -7,7 +7,8 @@ from pycore import Symbol, Rule
 from common import load_bag, sanitize_path, ProgressBar, clear_line
 from visualisations import *
 
-from models import IdentTreeModeler, RootIdentModeler, BiasedModeler
+from models import IdentTreeLstmModeler, RootIdentModeler, BiasedModeler
+from ml_common import predict_rule, create_batches
 
 import torch
 import torch.nn as nn
@@ -17,32 +18,11 @@ import matplotlib.pyplot as plt
 import argparse
 
 
-def predict(model, term, ident_to_ix):
-    # Get remainders of prev
-    remainders = [predict(model, child, ident_to_ix)[1] for child in term.childs]
-
-    hidden = model.initial_hidden()
-
-    ident_tensor = torch.tensor(
-        [ident_to_ix[term.ident]], dtype=torch.long)
-
-    if len(remainders) == 0:
-        remainders = model.initial_remainder()
-
-    for incoming_remainder in remainders:
-        out, hidden, remainder = model(
-            ident_tensor, incoming_remainder, hidden)
-
-    (out, hidden, remainder) = model(ident_tensor)
-
-    return out, remainder
-
-
 @torch.no_grad()
 def validate_sample(predict_rule, rule_to_ix, samples):
     '''Validates the model based on the samples.
 
-    Returns a list [fraction of ]
+    Returns a list [fraction of top 1, top2, ...]
     '''
     ranks = [0] * len(rule_to_ix)
 
@@ -65,11 +45,11 @@ def create_model(name, ident_size, rules_size):
     elif name == 'root':
         return RootIdentModeler(ident_size, 32, rules_size)
     elif name == 'lstm':
-        return IdentTreeModeler(ident_size=ident_size,
-                                remainder_dim=32,
-                                hidden_dim=64,
-                                embedding_dim=32,
-                                rules_size=rules_size)
+        return IdentTreeLstmModeler(ident_size=ident_size,
+                                    remainder_dim=32,
+                                    hidden_dim=64,
+                                    embedding_dim=32,
+                                    rules_size=rules_size)
     else:
         raise f'Unknown model {name}!'
 
@@ -89,7 +69,6 @@ def main(model_name):
 
     rules = [stat.rule for stat in bag.meta.rules]
     rule_to_ix = {rule.verbose: i for i, rule in enumerate(rules)}
-    ix_to_rule = {i: rule for i, rule in enumerate(rules)}
 
     # Model
 
@@ -115,8 +94,7 @@ def main(model_name):
     trainings_set = samples[test_size:]
 
     BATCH_SIZE = 8
-    batches = [trainings_set[i:i+BATCH_SIZE]
-               for i in range(0, len(trainings_set), BATCH_SIZE)]
+    batches = create_batches(trainings_set, BATCH_SIZE)
 
     # Training
     optimizer = optim.SGD(model.parameters(), lr=0.0002)
@@ -132,12 +110,11 @@ def main(model_name):
 
     for epoch in range(6):
         total_loss = 0
-        progres = 0.0
         for i, batch in enumerate(batches):
             progress_bar.update(i)
             model.zero_grad()
             for sample in batch:
-                log_probs, _ = predict(model, sample.initial.at(sample.path), ident_to_ix)
+                log_probs, _ = predict_rule(model, sample.initial.at(sample.path), ident_to_ix)
                 log_probs = log_probs.view(1, -1)
                 expected = torch.tensor(
                     [rule_to_ix[sample.rule]], dtype=torch.long)
@@ -148,7 +125,7 @@ def main(model_name):
             optimizer.step()
 
         # Validate
-        rank = validate_sample(lambda part: predict(model, part, ident_to_ix), rule_to_ix, test_set)
+        rank = validate_sample(lambda part: predict_rule(model, part, ident_to_ix), rule_to_ix, test_set)
         ranks.append(rank)
         error_pc = (1.-rank[0])*100.0
         clear_line()
@@ -164,10 +141,10 @@ def main(model_name):
 
     with torch.no_grad():
         show_part_predictions(
-            lambda part: predict(model, part, ident_to_ix), bag.samples, ix_to_rule, rule_to_ix)
+            lambda part: predict_rule(model, part, ident_to_ix), bag.samples, rule_to_ix)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Rule and path prediction.')
     parser.add_argument('-m', '--model', type=str, choices=['bias', 'root', 'lstm'],
                         default='lstm', help='The model to use')

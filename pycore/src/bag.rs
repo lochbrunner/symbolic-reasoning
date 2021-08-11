@@ -143,15 +143,19 @@ pub struct PyBag {
 impl PyBag {
     #[staticmethod]
     fn load(path: String) -> PyResult<PyBag> {
-        let file = match File::open(path) {
-            Err(msg) => Err(PyErr::new::<FileNotFoundError, _>(msg.to_string())),
-            Ok(file) => Ok(file),
-        }?;
+        let file =
+            File::open(path).map_err(|msg| PyErr::new::<FileNotFoundError, _>(msg.to_string()))?;
+        // let file = match File::open(path) {
+        //     Err(msg) => Err(PyErr::new::<FileNotFoundError, _>(msg.to_string())),
+        //     Ok(file) => Ok(file),
+        // }?;
         let reader = BufReader::new(file);
-        let bag = match bag::Bag::read_bincode(reader) {
-            Err(msg) => Err(PyErr::new::<TypeError, _>(msg.to_string())),
-            Ok(bag) => Ok(bag),
-        }?;
+        let bag = bag::Bag::read_bincode(reader)
+            .map_err(|msg| PyErr::new::<TypeError, _>(msg.to_string()))?;
+        // let bag = match bag::Bag::read_bincode(reader) {
+        //     Err(msg) => Err(PyErr::new::<TypeError, _>(msg.to_string())),
+        //     Ok(bag) => Ok(bag),
+        // }?;
         // Convert bag
         let meta = BagMetaData {
             idents: bag.meta.idents,
