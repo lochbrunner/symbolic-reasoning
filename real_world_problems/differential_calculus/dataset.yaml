@@ -1,0 +1,35 @@
+short: diff
+include:
+  - real_world_problems/advanced/dataset.yaml
+declarations:
+  f: # example for rules
+    is_function: true
+    is_fixed: false
+  g: # example for rules
+    is_function: true
+    is_fixed: false
+  h: # example for rules
+    is_function: true
+    is_fixed: false
+  D: # Derivative D(f(x),s) := d/dx f(x)
+    is_function: true
+  sin:
+    is_function: true
+  cos:
+    is_function: true
+rules:
+  exponential: D(e^x, x) = e^x
+  # from https://de.wikipedia.org/wiki/Differentialrechnung#Ableitungsregeln
+  potential: D(x^n,x) = n*x^(n-1)
+  constant-function: D(a,x) = 0
+  factor: D(a*f(x),x) = a*D(f(x),x)
+  sum: D(g(x)+h(x),x) = D(g(x),x) + D(h(x), x)
+  product: D(g(x)*h(x),x) = D(g(x),x)*h(x) + g(x)*D(h(x),x)
+  quotient: D(g(x)/h(x),x) = (D(g(x),x)*h(x) - g(x)*D(h(x),x)) / (h(x))^2
+  reciprocal: D(1/h(x),x) = - D(h(x),x)) / (h(x))^2
+  chain: D(g(h(x)), x) =  D(g(h(x), h(x))* D(h(x),x))
+  # reverse: D(1/f(x),x)(f(a)) = 1/(D(f(x),x)(a)) # hm
+  sin: D(sin(x),x) = cos(x)
+  cos: D(cos(x),x) = -sin(x)
+problems:
+  filename: experiments/differential_calculus/problems.spb
