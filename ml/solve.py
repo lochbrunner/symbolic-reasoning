@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
-from pathlib import Path
 from tqdm import tqdm
-from typing import Dict
 
 from common.config_and_arg_parser import ArgumentParser
 from common.timer import Timer
-from common.validation import Mean
-from common.utils import get_rule_mapping
-from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
+from training.validation import Mean
+from common.utils import get_rule_mapping, setup_logging
+from pycore import ProblemStatistics, Scenario, SolverStatistics
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
 
@@ -31,7 +29,7 @@ def main(options, config):
     # Try
     with Timer('Loading scenario'):
         scenario = Scenario.load(config.files.scenario)
-    use_network = not options.fresh_model
+    use_network = not options.fresh_model and not config.evaluation.problems.shuffle_fits  # TODO: use enum?
 
     rule_mapping = get_rule_mapping(scenario)
 
@@ -47,7 +45,7 @@ def main(options, config):
     success_rate = Mean()
     needed_fits = Mean()
     for statistics, _ in solve_problems(
-            options, config, problems, inferencer, rule_mapping, use_network=use_network):
+            options, config, problems, inferencer, rule_mapping, use_network=use_network, exploration_ratio=config.evaluation.exploration_ratio):
 
         # Trace
         success_rate += statistics.success
@@ -59,7 +57,7 @@ def main(options, config):
 
     if success_rate.correct == 0.0:
         logger.warning('Could not solve any of the training problems.')
-        return
+        return None
     logger.info(f'Solved: {success_rate.verbose} with {needed_fits.statistic} fits')
 
     if not options.no_dumping:
@@ -79,6 +77,7 @@ def create_parser():
     # Common
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('-o', '--once', action='store_true', default=False, help='Hide repeating messages')
     parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
     parser.add_argument('--policy-last', action='store_true', default=False)
     parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
@@ -90,23 +89,9 @@ def create_parser():
     return parser
 
 
-def setup_logging(config_args, self_args):
-    loglevel = 'DEBUG' if self_args.verbose else self_args.log.upper()
-
-    logging.basicConfig(
-        level=logging.getLevelName(loglevel),
-        format='%(message)s'
-    )
-    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    for module_logger in loggers:
-        module_logger.setLevel(logging.INFO)
-
-    return config_args, self_args
-
-
 if __name__ == '__main__':
     config_args, self_args = create_parser().parse_args()
-    setup_logging(config_args, self_args)
+    setup_logging(verbose=self_args.verbose, log=self_args.log, once=self_args.once)
     metric = main(self_args, config_args)
 
     if azure_run is not None:

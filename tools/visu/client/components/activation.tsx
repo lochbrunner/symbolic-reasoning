@@ -90,42 +90,45 @@ function BooleanLayer(props: { dx: number, values: boolean[], label: string }): 
     );
 }
 
+function createColor(props: { min: number, max: number }) {
+    const { min, max } = props;
+    if (Math.abs(min - max) < 0.001) {
+        return (value: number) => {
+            return '#ccc';
+        }
+    }
+    else {
+        const SHADES_COUNT = 100;
+        const colors: string[] = createColorMap({
+            colormap: 'jet',
+            nshades: SHADES_COUNT,
+            format: 'hex',
+            alpha: 1
+        });
+
+        return (value: number) => {
+            const normedValue = (value - min) * SHADES_COUNT / (max - min);
+            return colors[Math.floor(normedValue)];
+        };
+    }
+}
+
 function createMap(predictions: number[][], dx: number, dy: number): JSX.Element[] {
-    const SHADES_COUNT = 100;
-    const colors: string[] = createColorMap({
-        colormap: 'jet',
-        nshades: SHADES_COUNT,
-        format: 'hex',
-        alpha: 1
-    });
     const min = Math.min(...predictions.map(s => Math.min(...s)));
     const max = Math.max(...predictions.map(s => Math.max(...s)));
-    const color = (value: number) => {
-        const normedValue = (value - min) * SHADES_COUNT / (max - min);
-        return colors[Math.floor(normedValue)];
-    };
+    const color = createColor({ min, max });
     const width = `${dx}px`;
     const height = `${dy}px`;
     return predictions.map((path, iy) => path.map((rule, ix) => <rect key={`${ix}-${iy}`} y={`${(iy) * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
 }
 
 function createMapFiltered(predictions: number[][], dx: number, dy: number, filter: Position[], ruleMap: { [orig: number]: number }): JSX.Element[] {
-    const SHADES_COUNT = 100;
-    const colors: string[] = createColorMap({
-        colormap: 'jet',
-        nshades: SHADES_COUNT,
-        format: 'hex',
-        alpha: 1
-    });
     const apply = (ruleId: number, path: number) => {
         return filter.some(pos => pos.path === path && pos.ruleId === ruleId);
     }
     const min = Math.min(...predictions.map((paths, ruleId) => Math.min(...paths.filter((j, path) => apply(ruleId, path)))));
     const max = Math.max(...predictions.map((paths, ruleId) => Math.max(...paths.filter((j, path) => apply(ruleId, path)))));
-    const color = (value: number) => {
-        const normedValue = (value - min) * SHADES_COUNT / (max - min);
-        return colors[Math.floor(normedValue)];
-    };
+    const color = createColor({ min, max });
     const width = `${dx}px`;
     const height = `${dy}px`;
     return predictions.map((paths, iy) => paths.map((rule, ix) => ({ rule, ix }))
@@ -133,13 +136,31 @@ function createMapFiltered(predictions: number[][], dx: number, dy: number, filt
         .map(({ rule, ix }) => <rect key={`${ix}-${iy}`} y={`${ruleMap[iy] * dy}px`} x={`${ix * dx}px`} width={width} height={height} style={{ fill: color(rule) }} ><title>{rule.toFixed(3)}</title></rect>)).flat();
 }
 
+function createSortedColor(props: { min: number, max: number, length: number }) {
+    const { min, max, length } = props;
+    if (Math.abs(min - max) < 0.001) {
+        return Array(length).fill('#ccc');
+    }
+    else {
+        return createColorMap({
+            colormap: 'jet',
+            nshades: length,
+            format: 'hex',
+            alpha: 1
+        });
+    }
+}
+
 function createSortedMap(predictions: number[][], dx: number, dy: number, filter: Position[], ruleMap: { [orig: number]: number }): JSX.Element[] {
-    const colors: string[] = createColorMap({
-        colormap: 'jet',
-        nshades: filter.length,
-        format: 'hex',
-        alpha: 1
-    });
+    const min = Math.min(...predictions.map(s => Math.min(...s)));
+    const max = Math.max(...predictions.map(s => Math.max(...s)));
+    const colors = createSortedColor({ min, max, length: filter.length });
+    // const colors: string[] = createColorMap({
+    //     colormap: 'jet',
+    //     nshades: filter.length,
+    //     format: 'hex',
+    //     alpha: 1
+    // });
     const possibilities = filter.map(position => ({ position, confidence: predictions[position.ruleId][position.path] })).sort((a, b) => a.confidence - b.confidence)
     const width = `${dx}px`;
     const height = `${dy}px`;
@@ -201,13 +222,13 @@ export function render(props: Props) {
                 // [rule][path]
                 const usedRuleIds = sample.fitMask.map((paths, rule_id) => ({ rule_id, paths })).filter(rule => rule.paths.some(p => p)).map(rule => rule.rule_id);
                 ruleMap = _.fromPairs(Array.from(usedRuleIds.values()).map((p, i) => [p, i]));
+                const initial: IntermediatePos<boolean>[] = [];
+                const possibleFits: Position[] = sample.fitMask.reduce((total, rule, rule_id) => [...total, ...rule.map((value, path_id) => ({ rule_id, path_id, value }))], initial).filter(cell => cell.value).map(cell => ({ ruleId: cell.rule_id, path: cell.path_id }))
                 if (sortPossibilities) {
-                    const initial: IntermediatePos<boolean>[] = [];
-                    const possibleFits: Position[] = sample.fitMask.reduce((total, rule, rule_id) => [...total, ...rule.map((value, path_id) => ({ rule_id, path_id, value }))], initial).filter(cell => cell.value).map(cell => ({ ruleId: cell.rule_id, path: cell.path_id }))
                     layers = [...layers, ...createSortedMap(sample.predictedPolicy, dx, dy, possibleFits, ruleMap)];
                 }
                 else {
-
+                    layers = [...layers, ...createMapFiltered(sample.predictedPolicy, dx, dy, possibleFits, ruleMap)];
                 }
             } else {
                 const usedRuleIds = new Set(sample.possibleFits.map(p => p.ruleId));

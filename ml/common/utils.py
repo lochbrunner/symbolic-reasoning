@@ -50,7 +50,7 @@ def memoize(function):
     return wrapper
 
 
-class Compose(object):
+class Compose:
     '''Composes several transforms together.
 
     Transforms on a generic tuple instead of on value
@@ -66,7 +66,17 @@ class Compose(object):
         return args
 
 
-def setup_logging(verbose, log, **kwargs):
+class DuplicateFilter:
+    def __init__(self):
+        self.history = set()
+
+    def filter(self, record):
+        rv = record.msg not in self.history
+        self.history.add(record.msg)
+        return rv
+
+
+def setup_logging(verbose, log, once: bool, **kwargs):
     loglevel = 'INFO' if verbose else log.upper()
     if sys.stdin.isatty():
         log_format = '%(message)s'
@@ -78,11 +88,15 @@ def setup_logging(verbose, log, **kwargs):
         format=log_format,
         datefmt='%I:%M:%S'
     )
+    if once:
+        duplicate_filter = DuplicateFilter()
     # Set the log level of all existing loggers
     all_loggers = [logging.getLogger()] + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     for mod_logger in all_loggers:
         mod_logger._cache.clear()  # pylint: disable=protected-access
         mod_logger.setLevel(logging.getLevelName(loglevel))
+        if once:
+            logger.addFilter(duplicate_filter)
 
 
 def split_dataset(dataset: torch.utils.data.Dataset, validation_ratio=0.1):

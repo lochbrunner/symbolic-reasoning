@@ -8,13 +8,12 @@ from torch.utils import data
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from common import grid_search, io
 from common.config_and_arg_parser import ArgumentParser
 from common.parameter_search import LearningParmeter
 from common.reports import report_tops
 from common.timer import Timer
 from dataset.bag import BagDataset
-from pycore import ProblemStatistics, Scenario, SolverStatistics, Trace
+from pycore import ProblemStatistics, Scenario, SolverStatistics
 from solver.inferencer import Inferencer
 from solver.solve_problems import solve_problems
 from solver.trace import TrainingsDataDumper
@@ -76,7 +75,8 @@ def main(options, config, early_abort_hook=None):
             success_rate = Mean()
             needed_fits = Mean()
             for statistics, solution in solve_problems(
-                    options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger, use_network=use_network):
+                    options, config, scenario.problems.training, inferencer, rule_mapping, logger=solver_logger, use_network=use_network,
+                    exploration_ratio=config.evaluation.exploration_ratio):
                 if solution is not None:
                     solution_summarieser += solution
 
@@ -101,7 +101,7 @@ def main(options, config, early_abort_hook=None):
             logger.info(f'Solved: {success_rate.verbose} with {needed_fits.statistic} fits in iteration {iteration}')
             dataset = trainings_data_dumper.get_dataset()
             logger.info(f'Training with {len(dataset)} samples')
-            if len(dataset) < 2:
+            if len(dataset) < 1:
                 raise RuntimeError(f'Too less samples. Just {len(dataset)} available')
             training_dataloader = data.DataLoader(dataset, **data_loader_config)
 

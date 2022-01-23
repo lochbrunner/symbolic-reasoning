@@ -106,6 +106,9 @@ class Ratio:
             predict = predict[mask]
             target = target[mask]
 
+        if np.count_nonzero(target) < 1:
+            return
+
         predict = (-predict).flatten().argsort()
         for i, index in enumerate(predict[:self.size]):
             if target[index] > 0.5:
@@ -117,6 +120,9 @@ class Ratio:
         if mask is not None:
             predict = predict[mask]
             target = target[mask]
+
+        if np.count_nonzero(target) < 1:
+            return
 
         predict = predict.flatten().argsort()
         for i, index in enumerate(predict[:self.size]):

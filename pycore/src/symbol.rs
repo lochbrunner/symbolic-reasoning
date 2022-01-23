@@ -375,6 +375,11 @@ impl PyEmbedding {
     fn target(&self, py: Python) -> PyResult<Py<PyArray2<f32>>> {
         make_2darray(py, self.inner.target.clone())
     }
+
+    #[getter]
+    fn mask(&self, py: Python) -> PyResult<Py<PyArray2<bool>>> {
+        make_2darray(py, self.inner.possibility_mask.clone())
+    }
 }
 
 #[pymethods]

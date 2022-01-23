@@ -134,7 +134,7 @@ Followed by a presentation of a deep network architecture for tree-structured da
 The last part shows how to put the pieces together and set up a data loop.
 
 \subsection{Rule Application}
-
+\label{ssec:rule_application}
 A rule $R$ consists of one or multiple premises and one conclusion $B$.
 In this paper we consider only rules that have a single premise $A$.
 The outlook section discusses an approach with rules of multiple premisses. 
@@ -337,19 +337,27 @@ The \textit{three-T-loop} can be extended by a fourth step discussed in the outl
 Figure \ref{fig:training} shows the error of the exact prediction of rule $R_j$ and position $p_\ell$ during the training process in the validation set.
 In the beginning, the error drops very fast. After 2000 iterations, the error of the ten most confident predictions leads to an error of less than $4\%$.
 
+Using a basic ruleset defined by a simple configuration file, the network helps increase the performance:
+After the first iteration, the number of solved problems increased from $18.0\%$ to $25.4\%$,
+while the amount of tried rule application described in section \ref{ssec:rule_application} dropped in their mean from $3507.9$ to $1804.5$.
+That shows that the beam of width 10 is more focused with the help of the training.
+The number of maximal applications it cut to 10000. When this number is reached the calculation gets aborted.
+
 % exploration vs exploitation (upper confidence bound)
 % We have defined a basic rule set to perform the given problems via a scenario configuration.
 
-\begin{figure}[!htbp]
-	\centering
-	Todo: t3 performance
-	\caption{The number of solved problems is increasing from iteration to iteration of the \textit{three-T-loop}.}
-	\label{fig:t3loop_performance}
-\end{figure}
+% \begin{figure}[!htbp]
+% 	\centering
+% 	% Random: 					Solved: 18.03% (44 / 244) with Ø 3507.9 (max: 8920) fits
+% 	% Network (just policy):	Solved: 25.41% (62 / 244) with Ø 1804.5 (max: 8346) fits
+% 	Todo: t3 performance
+% 	\caption{The number of solved problems is increasing from iteration to iteration of the \textit{three-T-loop}.}
+% 	\label{fig:t3loop_performance}
+% \end{figure}
 
-Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems over iteration in the \textit{three-T-loop}. 
-It turned out that it is essential to suppress nonsensical rule applications, as they can blow up the beam.
-To overcome this issue, adding negative training samples is very useful.
+% Figure \ref{fig:t3loop_performance} on page \pageref{fig:t3loop_performance} shows the amount of solved problems over iteration in the \textit{three-T-loop}. 
+% It turned out that it is essential to suppress nonsensical rule applications, as they can blow up the beam.
+% To overcome this issue, adding negative training samples is very useful.
 
 Although the approach described here for solving mathematical problems is hardly optimized yet,
 the solving rate shows promising results when using the neuronal network.

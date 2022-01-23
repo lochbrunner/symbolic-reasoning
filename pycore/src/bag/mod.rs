@@ -67,6 +67,16 @@ impl PyContainer {
         Ok(self.samples.clone())
     }
 
+    #[getter]
+    fn samples_with_policy(&self) -> PyResult<Vec<PySample>> {
+        Ok(self
+            .samples
+            .iter()
+            .filter(|sample| !sample.data.fits.is_empty())
+            .cloned()
+            .collect())
+    }
+
     fn add_sample(&mut self, sample: PySample) -> PyResult<()> {
         let symbol = &sample.get_initial();
         let size = symbol.size();

@@ -7,8 +7,7 @@ import logging
 
 import numpy as np
 from common.config_and_arg_parser import ArgumentParser
-from common.utils import (get_rule_mapping, get_rule_mapping_by_config,
-                          setup_logging, split_dataset)
+from common.utils import (get_rule_mapping, setup_logging)
 from training.validation import Error, Ratio
 from dataset.bag import BagDataset
 from flask import Flask, jsonify, request, send_from_directory, g
@@ -238,7 +237,7 @@ def main(config, options):
     @app.route('/api/sample/<path:index>')
     def sample(index):
         index = int(index)
-        raw_sample = dataset.container[index]
+        raw_sample = dataset.container[index % len(dataset.container)]
         initial = raw_sample.initial
         x, s, y, p, v, target, mask = dataset[index]
         if inferencer is not None:

@@ -1,7 +1,7 @@
 name: basics
 files:
   evaluation-results: experiments/evaluation-results.yaml
-  model: &model experiments/basics/basics.mdl
+  model: &model experiments/basics/basics.debug.mdl
   new-rules: &new-rules experiments/basics/new-rules.yaml
   scenario: real_world_problems/basics/dataset.yaml
   solver-trainings-data: &solver-data experiments/basics/solver-trainings-data.samples
@@ -31,7 +31,7 @@ training:
   save-model: *model
   device: cpu
   # Learning
-  num-epochs: 2000
+  num-epochs: 1000
   report-rate: 5
   batch-size: 32
   learning-rate:
@@ -61,13 +61,16 @@ fine-tuning:
   learning-rate: -1
 evaluation:
   num-epochs: 10
-  exploration_ratio: 5
+  exploration_ratio: 1
   problems:
-    beam-size: 10
+    beam-size: 15
     num_epochs: 30
-    max_track_loss: 3
-    max_fit_results: 10000
+    max_track_loss: 100 #prev: 3
+    max_fit_results: 20000
     iterations: 10
+    shuffle-fits: false
+    # white-list:
+    #   - a-b-x=0
   training-data:
     beam-size: "1:15"
     max-steps: -1

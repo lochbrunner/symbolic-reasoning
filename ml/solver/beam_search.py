@@ -2,9 +2,12 @@
 import logging
 from typing import List
 from memory_profiler import profile
+import random
 
 from solver.trace import ApplyInfo, Statistics
 from pycore import fit_at_and_apply, fit_and_apply
+
+logger = logging.getLogger(__name__)
 
 
 def beam_search(inference, rule_mapping, initial, targets, variable_generator, num_epochs, beam_size, black_list_terms, black_list_rules, **kwargs):
@@ -15,7 +18,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
     statistics = Statistics(initial)
 
     for epoch in range(num_epochs):
-        logging.debug(f'epoch: {epoch}')
+        logger.debug(f'epoch: {epoch}')
         for prev in statistics.trace:
             policies, value = inference(prev.current, beam_size)
 
@@ -27,7 +30,7 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
                 statistics.fit_tries += 1
                 statistics.fit_results += 1 if result is not None else 0
                 if result is None:
-                    logging.debug(f'Missing fit of {rule.condition} at {path} in {prev.current}')
+                    logger.debug(f'Missing fit of {rule.condition} at {path} in {prev.current}')
                     continue
                 deduced, mapping = result
                 s = deduced.verbose
@@ -55,11 +58,13 @@ def beam_search(inference, rule_mapping, initial, targets, variable_generator, n
 # @profile
 def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variable_generator, num_epochs: int, beam_size: int, max_track_loss: int,
                             black_list_terms: List[str], white_list_terms: List[str], black_list_rules: List[str],
-                            max_size: int, max_grow: int, max_fit_results: int, use_network=True, **kwargs):
+                            max_size: int, max_grow: int, max_fit_results: int, use_network=True, exploration_ratio: int, shuffle_fits=True, **kwargs):
     '''Same as `beam_search` but first get fit results and then apply policy to sort the results.'''
 
     if not use_network:
-        logging.debug('Don\'t use policy and value network. Just try brutforce solving.')
+        logger.debug('Don\'t use policy and value network. Just try brutforce solving.')
+    if exploration_ratio is None or exploration_ratio == 0:
+        exploration_ratio = num_epochs + 1
 
     black_list_terms = (black_list_terms or None) and set(black_list_terms)
     black_list_rules = set(black_list_rules)
@@ -76,7 +81,7 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
     # print(f'white_list_terms: {white_list_terms}')
 
     for epoch in range(num_epochs):
-        logging.debug(f'epoch: {epoch}')
+        logger.debug(f'epoch: {epoch}')
         # print(f'epoch: {epoch}')
         successfull_epoch = False
         for prev in statistics.trace:
@@ -87,7 +92,7 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
                         possible_rules[i] = fits
 
             # Apply network outcome
-            if use_network:
+            if use_network and random.random() > exploration_ratio:
                 # Sort the possible fits by the policy network
                 policies, value = inference(prev.current, None)  # rule_id, path
                 prev.value = value.item()
@@ -119,6 +124,12 @@ def beam_search_policy_last(*, inference, rule_mapping, initial, targets, variab
                     for deduced, fit_result in fits:
                         confidence = None
                         possible_fits.append((rule_id, fit_result, confidence, deduced))
+
+                if shuffle_fits:
+                    random.shuffle(possible_fits)
+
+                if beam_size is not None:
+                    possible_fits = possible_fits[:beam_size]
 
             for top, (rule_id, fit_result, confidence, deduced) in enumerate(possible_fits, 1):
                 if deduced.size > max_size:

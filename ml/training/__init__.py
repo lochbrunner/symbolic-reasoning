@@ -30,6 +30,7 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
     value_loss_function = nn.NLLLoss(reduction='mean', weight=value_weight)
     timer = Timer(f'Trained {len(training_dataloader.dataset)} samples. Training per sample:')
     device = model.device
+    NORM_POWER = 20.
     for epoch in tqdm(range(learn_params.num_epochs), desc='train', leave=False, disable=not sys.stdin.isatty()):
         epoch_loss = 0
         model.zero_grad()
@@ -42,9 +43,9 @@ def train(*, learn_params, model, optimizer: optim.Optimizer, training_dataloade
             optimizer.zero_grad()
             py, pv = model(x, s)
             # batch x tags
+            target = ((target+1.)/2.)**NORM_POWER
             policy_loss = policy_loss_function(py, target)
             v = v.squeeze()
-            # print(f'pv: {pv.shape}  v: {v.shape}')
             value_loss = value_loss_function(pv, v)
             loss = policy_loss + value_loss*learn_params.value_loss_weight
             loss.backward()

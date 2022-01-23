@@ -1,4 +1,5 @@
 import numpy as np
+from dataclasses import dataclass
 
 import torch
 from torch.utils.data import Dataset
@@ -27,6 +28,8 @@ def pad(sample, width, pad_token=0):
 
 
 def stack(samples, width=None):
+    if samples[0] is None:
+        return None
     if width is None:
         samples = [torch.as_tensor(sample) for sample in samples if sample is not None]
     else:
@@ -53,9 +56,35 @@ def dynamic_width_collate(batch):
     return [stack(channel, width) for channel, width in zip(transposed, widths)]
 
 
+@dataclass
+class StackedEmbedding:
+    idents: torch.Tensor
+    index_map: torch.Tensor
+    positional_encoding: torch.Tensor
+    rules: torch.Tensor
+    policy: torch.Tensor
+    value: torch.Tensor
+    target: torch.Tensor
+    mask: torch.Tensor
+
+
+def typed_width_collate(batch) -> StackedEmbedding:
+    max_width = max(sample.idents.shape[0] for sample in batch)
+    return StackedEmbedding(
+        idents=stack([sample.idents for sample in batch], max_width),
+        index_map=stack([sample.index_map for sample in batch], max_width),
+        positional_encoding=stack([sample.positional_encoding for sample in batch], max_width),
+        rules=stack([sample.rules for sample in batch], max_width),
+        policy=stack([sample.policy for sample in batch], max_width),
+        value=stack([sample.value for sample in batch], None),
+        target=stack([sample.target for sample in batch], max_width),
+        mask=stack([sample.mask for sample in batch], max_width),
+    )
+
+
 class BagDataset(Dataset):
     '''
-    > Note: Returning numpy arrays no torch tensors. 
+    > Note: Returning numpy arrays no torch tensors.
     '''
 
     pad_token = 0
@@ -73,7 +102,7 @@ class BagDataset(Dataset):
     def load(filename, data_size_limit=None, preprocess=False):
         logger.info(f'Loading samples from {filename}')
         bag = Bag.load(str(filename))
-        samples = [sample for container in bag.containers for sample in container.samples]
+        samples = [sample for container in bag.containers for sample in container.samples_with_policy]
         max_depth = bag.containers[-1].max_depth
         max_size = bag.containers[-1].max_size
         return BagDataset(bag.meta, samples, max_depth, max_size, data_size_limit, preprocess)
@@ -133,11 +162,20 @@ class BagDataset(Dataset):
     #     points P np.repeat()
     #     return []
 
+    def _process_sample_typed(self, sample):
+        try:
+            return sample.create_embedding(self.ident_dict, self.pad_token, self.spread,
+                                           self._max_depth, target_size=self.tag_size,
+                                           index_map=self.index_map, positional_encoding=self.positional_encoding)
+        except KeyError as e:
+            raise RuntimeError(f'{e} Available idents are {self.ident_dict.keys()}')
+
     def _process_sample(self, sample):
         try:
             channels = sample.embed(self.ident_dict, self.pad_token, self.spread,
                                     self._max_depth, target_size=self.tag_size,
                                     index_map=self.index_map, positional_encoding=self.positional_encoding)
+
         # if self.positional_encoding:
         #     channels[2] = self._positional_encoding_waves(channels[2])
             return [c for c in channels if c is not None]
