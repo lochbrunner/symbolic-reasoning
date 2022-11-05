@@ -12,4 +12,5 @@ crate-type = ["cdylib"]
 pyo3 = {version = "0.11.1", features = ["extension-module"]}
 numpy = "0.11.0"
 ndarray = "0.13"
+#ndarray = "0.15.6"
 core = { path = "../libcore" }
