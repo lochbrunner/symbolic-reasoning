@@ -18,6 +18,7 @@ generated-members=numpy.*,torch.*
 
 [FORMAT]
 max-line-length=120
+indent-string='  '
 
 [DESIGN]
 max-attributes=20

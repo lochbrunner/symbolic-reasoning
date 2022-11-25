@@ -3,7 +3,7 @@ use crate::common::op_to_string;
 use crate::context::PyContext;
 use core::dumper::Decoration;
 use core::dumper::{dump_latex, dump_symbol_plain};
-use core::symbol::Embedding;
+use core::embedding::{CnnEmbedding, Embeddable, GraphEmbedding};
 use core::Symbol;
 use ndarray::Array;
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
@@ -82,7 +82,7 @@ impl PySymbol {
 
     /// Unrolls the symbol tree using breath first traversing
     /// u16 is not supported by pytorch
-    pub fn embed_impl(
+    pub fn embed_cnn_unrolled_impl(
         &self,
         py: Python,
         dict: HashMap<String, i16>,
@@ -99,7 +99,7 @@ impl PySymbol {
             .into_iter()
             .map(|fit| (*fit.data).clone())
             .collect::<Vec<_>>();
-        let Embedding {
+        let CnnEmbedding {
             embedded,
             index_map,
             positional_encoding,
@@ -110,7 +110,7 @@ impl PySymbol {
             possibility_mask,
         } = self
             .inner
-            .embed(
+            .embed_cnn(
                 &dict,
                 padding,
                 spread,
@@ -327,13 +327,13 @@ where
     }
 }
 
-#[pyclass(name=Embedding)]
-pub struct PyEmbedding {
-    inner: Arc<Embedding>,
+#[pyclass(name=CnnEmbedding)]
+pub struct PyCnnEmbedding {
+    inner: Arc<CnnEmbedding>,
 }
 
-impl PyEmbedding {
-    pub fn new(data: Embedding) -> Self {
+impl PyCnnEmbedding {
+    pub fn new(data: CnnEmbedding) -> Self {
         Self {
             inner: Arc::new(data),
         }
@@ -341,7 +341,7 @@ impl PyEmbedding {
 }
 
 #[pymethods]
-impl PyEmbedding {
+impl PyCnnEmbedding {
     #[getter]
     fn idents(&self, py: Python) -> PyResult<Py<PyArray2<i64>>> {
         make_2darray(py, self.inner.embedded.clone())
@@ -366,6 +366,7 @@ impl PyEmbedding {
     fn policy(&self, py: Python) -> PyResult<Py<PyArray1<f32>>> {
         Ok(self.inner.policy.clone().into_pyarray(py).to_owned())
     }
+
     #[getter]
     fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
         Ok([self.inner.value].to_pyarray(py).to_owned())
@@ -379,6 +380,70 @@ impl PyEmbedding {
     #[getter]
     fn mask(&self, py: Python) -> PyResult<Py<PyArray2<bool>>> {
         make_2darray(py, self.inner.possibility_mask.clone())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyCnnEmbedding {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
+    }
+}
+
+#[pyclass(name=GraphEmbedding)]
+pub struct PyGraphEmbedding {
+    inner: Arc<GraphEmbedding>,
+}
+
+impl PyGraphEmbedding {
+    pub fn new(data: GraphEmbedding) -> Self {
+        Self {
+            inner: Arc::new(data),
+        }
+    }
+}
+
+#[pymethods]
+impl PyGraphEmbedding {
+    #[getter]
+    fn nodes(&self, py: Python) -> PyResult<Py<PyArray2<i64>>> {
+        make_2darray(py, self.inner.nodes.clone())
+    }
+    #[getter]
+    fn receivers(&self, py: Python) -> PyResult<Py<PyArray1<i16>>> {
+        Ok(self.inner.receivers.to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn senders(&self, py: Python) -> PyResult<Py<PyArray1<i16>>> {
+        Ok(self.inner.senders.to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn n_node(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.n_node].to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn n_edge(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.n_edge].to_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn target(&self, py: Python) -> PyResult<Py<PyArray2<f32>>> {
+        make_2darray(py, self.inner.target.clone())
+    }
+    #[getter]
+    fn mask(&self, py: Python) -> PyResult<Py<PyArray2<bool>>> {
+        make_2darray(py, self.inner.possibility_mask.clone())
+    }
+    #[getter]
+    fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.value].to_pyarray(py).to_owned())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyGraphEmbedding {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
     }
 }
 
@@ -489,14 +554,14 @@ impl PySymbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
-    ) -> PyResult<PyEmbedding> {
+    ) -> PyResult<PyCnnEmbedding> {
         let fits = fits
             .into_iter()
             .map(|fit| (*fit.data).clone())
             .collect::<Vec<_>>();
         let embedding = self
             .inner
-            .embed(
+            .embed_cnn(
                 &dict,
                 padding,
                 spread,
@@ -510,7 +575,27 @@ impl PySymbol {
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
             })?;
-        Ok(PyEmbedding::new(embedding))
+        Ok(PyCnnEmbedding::new(embedding))
+    }
+
+    fn create_graph_embedding(
+        &self,
+        dict: HashMap<String, i16>,
+        target_size: usize,
+        fits: Vec<PyFitInfo>,
+        useful: bool,
+    ) -> PyResult<PyGraphEmbedding> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let embedding = self
+            .inner
+            .embed_graph(&dict, target_size, &fits, useful)
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
+        Ok(PyGraphEmbedding::new(embedding))
     }
 
     /// Unrolls the symbol tree using breath first traversing
@@ -540,7 +625,7 @@ impl PySymbol {
         index_map: bool,
         positional_encoding: bool,
     ) -> PyResult<UnrolledEmbedding> {
-        self.embed_impl(
+        self.embed_cnn_unrolled_impl(
             py,
             ident2index,
             padding,

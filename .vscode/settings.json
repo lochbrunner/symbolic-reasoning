@@ -67,5 +67,7 @@
         "Vaswani"
     ],
     "vscode-generic-binary-preview.command": "/home/matthias/workspace/github/lochbrunner/symbolic-reasoning/tools/baginfo.py --format html",
-    "python.linting.pylintEnabled": true
+    "python.linting.pylintEnabled": true,
+    "python.formatting.provider": "black",
+    "python.analysis.typeCheckingMode": "basic"
 }

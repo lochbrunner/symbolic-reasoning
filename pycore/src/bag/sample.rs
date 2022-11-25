@@ -1,7 +1,8 @@
 use crate::bag::{PyContainer, PyFitInfo};
 use crate::rule::PyRule;
-use crate::symbol::{PyEmbedding, PySymbol, UnrolledEmbedding};
+use crate::symbol::{PyCnnEmbedding, PySymbol, UnrolledEmbedding};
 use core::dumper::dump_symbol_plain;
+use core::embedding::Embeddable;
 use core::fit;
 use core::io::bag;
 use core::symbol::Symbol;
@@ -72,7 +73,7 @@ impl PySample {
         Ok(self.data.useful)
     }
 
-    fn create_embedding(
+    fn create_cnn_embedding(
         &self,
         dict: HashMap<String, i16>,
         padding: i16,
@@ -81,7 +82,7 @@ impl PySample {
         target_size: usize,
         index_map: bool,
         positional_encoding: bool,
-    ) -> PyResult<PyEmbedding> {
+    ) -> PyResult<PyCnnEmbedding> {
         let fits = self
             .data
             .fits
@@ -92,7 +93,7 @@ impl PySample {
             .data
             .initial
             .inner
-            .embed(
+            .embed_cnn(
                 &dict,
                 padding,
                 spread,
@@ -109,7 +110,7 @@ impl PySample {
                     self.data.initial.inner, msg
                 ))
             })?;
-        Ok(PyEmbedding::new(embedding))
+        Ok(PyCnnEmbedding::new(embedding))
     }
 
     #[args(
@@ -122,7 +123,7 @@ impl PySample {
         index_map,
         positional_encoding
     )]
-    fn embed(
+    fn embed_cnn(
         &self,
         py: Python,
         ident2index: HashMap<String, i16>,
@@ -133,7 +134,7 @@ impl PySample {
         index_map: bool,
         positional_encoding: bool,
     ) -> PyResult<UnrolledEmbedding> {
-        self.data.initial.embed_impl(
+        self.data.initial.embed_cnn_unrolled_impl(
             py,
             ident2index,
             padding,

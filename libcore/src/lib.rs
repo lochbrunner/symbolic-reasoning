@@ -36,6 +36,7 @@ pub mod apply;
 pub mod common;
 pub mod context;
 pub mod dumper;
+pub mod embedding;
 pub mod fit;
 pub mod io;
 pub mod parser;
