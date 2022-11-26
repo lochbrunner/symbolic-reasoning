@@ -8,12 +8,13 @@ from common.timer import Timer
 from training.validation import Mean
 from common.utils import get_rule_mapping, setup_logging
 from pycore import ProblemStatistics, Scenario, SolverStatistics
-from solver.inferencer import Inferencer
+from solver.inferencer import TorchInferencer, RandomInferencer
 from solver.solve_problems import solve_problems
 
 try:
     from azureml.core import Run
     import azureml
+
     azure_run = Run.get_context(allow_offline=False)
 except ImportError:
     azure_run = None
@@ -29,23 +30,43 @@ def main(options, config):
     # Try
     with Timer('Loading scenario'):
         scenario = Scenario.load(config.files.scenario)
-    use_network = not options.fresh_model and not config.evaluation.problems.shuffle_fits  # TODO: use enum?
+    use_network = (
+        not options.fresh_model and not config.evaluation.problems.shuffle_fits
+    )  # TODO: use enum?
 
     rule_mapping = get_rule_mapping(scenario)
 
     if use_network:
-        inferencer = Inferencer(config=config, scenario=scenario, fresh_model=options.fresh_model)
+        inferencer = TorchInferencer(
+            config=config, scenario=scenario, fresh_model=options.fresh_model
+        )
     else:
-        inferencer = None
+        inferencer = RandomInferencer(scenario=scenario)
 
-    problems = scenario.problems.training if options.solve_training else scenario.problems.validation
-    problems_statistics = {problem.name: ProblemStatistics(problem.name, problem.conclusion.latex)
-                           for problem in problems}
+    if scenario.problems is not None:
+        problems = (
+            scenario.problems.training
+            if options.solve_training
+            else scenario.problems.validation
+        )
+    else:
+        raise AssertionError('No problems found in Scenario!')
+    problems_statistics = {
+        problem.name: ProblemStatistics(problem.name, problem.conclusion.latex)
+        for problem in problems
+    }
 
     success_rate = Mean()
     needed_fits = Mean()
     for statistics, _ in solve_problems(
-            options, config, problems, inferencer, rule_mapping, use_network=use_network, exploration_ratio=config.evaluation.exploration_ratio):
+        options,
+        config,
+        problems,
+        inferencer,
+        rule_mapping,
+        use_network=use_network,
+        exploration_ratio=config.evaluation.exploration_ratio,
+    ):
 
         # Trace
         success_rate += statistics.success
@@ -66,7 +87,7 @@ def main(options, config):
             intro += stat
         logger.info(f'Dumping traces to "{config.files.solver_traces}" ...')
         with tqdm(total=100, desc='Create index', leave=False) as progress_bar:
-            intro.create_index(lambda progress: progress_bar.update(100*progress))
+            intro.create_index(lambda progress: progress_bar.update(100 * progress))
         intro.dump(config.files.solver_traces)
 
     return success_rate.summary
@@ -77,14 +98,35 @@ def create_parser():
     # Common
     parser.add_argument('--log', help='Set the log level', default='warning')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
-    parser.add_argument('-o', '--once', action='store_true', default=False, help='Hide repeating messages')
-    parser.add_argument('--solve-training', help='Tries to solve the trainings data', action='store_true')
+    parser.add_argument(
+        '-o',
+        '--once',
+        action='store_true',
+        default=False,
+        help='Hide repeating messages',
+    )
+    parser.add_argument(
+        '--solve-training',
+        help='Tries to solve the trainings data',
+        action='store_true',
+    )
     parser.add_argument('--policy-last', action='store_true', default=False)
-    parser.add_argument('--smoke', action='store_true', help='Run only a the first samples to test the functionality.')
-    parser.add_argument('--no-dumping', action='store_true', default=False, help='Prevent from dumping traces.')
+    parser.add_argument(
+        '--smoke',
+        action='store_true',
+        help='Run only a the first samples to test the functionality.',
+    )
+    parser.add_argument(
+        '--no-dumping',
+        action='store_true',
+        default=False,
+        help='Prevent from dumping traces.',
+    )
 
     # Model
-    parser.add_argument('--fresh-model', action='store_true', help='Creates a fresh model')
+    parser.add_argument(
+        '--fresh-model', action='store_true', help='Creates a fresh model'
+    )
 
     return parser
 

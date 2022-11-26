@@ -18,6 +18,7 @@ def create_solving_problems(
     desc='create',
     **kwargs,
 ):
+    """Creates problems by permutation over all possibilities and using sympy to obtain solutions."""
     used_symbols = tuple(alphabet[:num_symbols]) + ('x',)
     used_numbers = (1, 0)
     reservoir = sp.symbols(used_symbols) + used_numbers

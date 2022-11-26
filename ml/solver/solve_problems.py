@@ -1,8 +1,9 @@
-from typing import Dict
+from typing import Sequence
 import itertools
 import logging
-from tqdm import tqdm
 import sys
+
+from tqdm import tqdm
 
 from pycore import Symbol, Context, Rule
 
@@ -14,8 +15,16 @@ from solver.inferencer import Inferencer
 module_logger = logging.getLogger(__name__)
 
 
-def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Inferencer,
-                   rule_mapping: Dict, logger: logging.Logger = module_logger, use_network: bool = True, **kwargs):
+def solve_problems(
+    options,
+    config,
+    problems: Sequence[Rule],
+    inferencer: Inferencer,
+    rule_mapping: dict,
+    logger: logging.Logger = module_logger,
+    use_network: bool = True,
+    **kwargs,
+):
 
     show_progress = not logger.isEnabledFor(logging.DEBUG) and sys.stdin.isatty()
 
@@ -27,14 +36,19 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
     eval_config = config.evaluation
 
     if options.smoke:
-        problems = dict(itertools.islice(problems.items(), 1))
+        problems = list(itertools.islice(problems, 1))
 
     if hasattr(eval_config.problems, 'white_list') and eval_config.problems.white_list:
         white_list = set(s.replace(' ', '') for s in eval_config.problems.white_list)
         unfiltered_problems = problems
-        problems = [problem for problem in problems if str(problem.condition) in white_list]
+        problems = [
+            problem for problem in problems if str(problem.condition) in white_list
+        ]
         if len(problems) < 1:
-            print('Available:\n' + '\n'.join(f'"{v.condition}"' for v in unfiltered_problems))
+            print(
+                'Available:\n'
+                + '\n'.join(f'"{v.condition}"' for v in unfiltered_problems)
+            )
             raise AssertionError(f'No problems found in the white list: {white_list}')
         logger.warning(f'Using {len(problems)} filtered problems from white list')
 
@@ -44,18 +58,27 @@ def solve_problems(options, config, problems: Dict[str, Rule], inferencer: Infer
         source = problem.condition
         target = problem.conclusion
 
-        with Timer(f'Solving problem "{problem.name}"', logger=logger, quite=show_progress):
-            search_strategy = beam_search_policy_last if options.policy_last else beam_search
-            solution, statistics = search_strategy(inference=inferencer,
-                                                   rule_mapping=rule_mapping, initial=problem.condition,
-                                                   targets=[problem.conclusion], variable_generator=variable_generator,
-                                                   use_network=use_network,
-                                                   black_list_terms=getattr(eval_config, 'black_list_terms', []),
-                                                   white_list_terms=getattr(eval_config, 'white_list_terms', []),
-                                                   black_list_rules=getattr(eval_config, 'black_list_rules', []),
-                                                   max_size=eval_config.max_size,
-                                                   max_grow=eval_config.max_grow,
-                                                   **vars(eval_config.problems), **kwargs)
+        with Timer(
+            f'Solving problem "{problem.name}"', logger=logger, quite=show_progress
+        ):
+            search_strategy = (
+                beam_search_policy_last if options.policy_last else beam_search
+            )
+            solution, statistics = search_strategy(
+                inference=inferencer,
+                rule_mapping=rule_mapping,
+                initial=problem.condition,
+                targets=[problem.conclusion],
+                variable_generator=variable_generator,
+                use_network=use_network,
+                black_list_terms=getattr(eval_config, 'black_list_terms', []),
+                white_list_terms=getattr(eval_config, 'white_list_terms', []),
+                black_list_rules=getattr(eval_config, 'black_list_rules', []),
+                max_size=eval_config.max_size,
+                max_grow=eval_config.max_grow,
+                **vars(eval_config.problems),
+                **kwargs,
+            )
 
         if solution is None:
             logger.debug(f'No solution found for {source} => {target}')

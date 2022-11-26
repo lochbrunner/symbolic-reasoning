@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-import yaml
-import random
-from tqdm import tqdm
+from typing import Callable, Optional, Sequence
 import logging
+import random
+
+import yaml
+from tqdm import tqdm
+
 
 from pycore import ScenarioProblems, Rule, Context, Symbol
 
@@ -18,7 +21,13 @@ class Replacer:
     pad_size: int = 2
 
 
-def collect(args, config_path: Path, factories, replacer: Replacer = None):
+def collect(
+    args,
+    config_path: Path,
+    factories: Sequence[Callable[..., tuple[Sequence[str], Sequence[str]]]],
+    replacer: Optional[Replacer] = None,
+):
+    """Uses the factories to create problems and dumps them int a file."""
     loglevel = 'INFO' if args.verbose else args.log.upper()
     logging.basicConfig(
         level=logging.getLevelName(loglevel), format='%(message)s', datefmt='%I:%M:%S'
@@ -41,16 +50,13 @@ def collect(args, config_path: Path, factories, replacer: Replacer = None):
     scenario_problems = ScenarioProblems()
     context = Context.standard()
 
-    if not isinstance(factories, list):
-        problems, used_idents = factories(**vars(args))
-    else:
-        problems = []
-        used_idents = set()
-        for factory in factories:
-            new_problems, new_used_idents = factory(**vars(args))
-            used_idents.update(new_used_idents)
-            problems += new_problems
-        used_idents = list(used_idents)
+    problems = []
+    used_idents = set()
+    for factory in factories:
+        new_problems, new_used_idents = factory(**vars(args))
+        used_idents.update(new_used_idents)
+        problems += new_problems
+    used_idents = list(used_idents)
     problem_size = len(problems)
 
     # Take 10% as validation set
@@ -64,8 +70,12 @@ def collect(args, config_path: Path, factories, replacer: Replacer = None):
     ):
         rule = Rule.parse(context, problem, f'solving {i+1}')
         if replacer is not None:
-            rule.replace_and_pad(pattern=replacer.pattern, target=replacer.pattern,
-                                 pad_size=replacer.pad_size, pad_symbol=replacer.padding)
+            rule.replace_and_pad(
+                pattern=replacer.pattern,
+                target=replacer.pattern,
+                pad_size=replacer.pad_size,
+                pad_symbol=replacer.padding,
+            )
         if i in validation_indices:
             scenario_problems.add_to_validation(rule)
         else:
@@ -92,7 +102,7 @@ def create_term(operations, symbols):
                 raise ZeroDivisionError()
             a = a / b
         elif operation == '^':
-            a = a ** b
+            a = a**b
         else:
             raise RuntimeError(f'Unsupported operator {operation}')
 

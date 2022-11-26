@@ -1,25 +1,47 @@
 import logging
 import yaml
-from typing import List, Dict
+from typing import Sequence, Optional
 from queue import Queue
-from pathlib import Path
+import pathlib
 
 from dataset.bag import BagDataset
 
-from pycore import Rule, FitInfo, SampleSet, Sample, Bag, Scenario, BagMeta, StepInfo, TraceStatistics
+Path = Sequence[int]
+
+from pycore import (
+    Rule,
+    FitInfo,
+    SampleSet,
+    Sample,
+    Bag,
+    Scenario,
+    BagMeta,
+    StepInfo,
+    TraceStatistics,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class ApplyInfo:
-    def __init__(self, rule_name: str, rule_formula: str, current, previous,
-                 mapping, confidence, top: int, rule_id: int, path: list):
+    def __init__(
+        self,
+        rule_name: str,
+        rule_formula: str,
+        current,
+        previous,
+        mapping,
+        confidence,
+        top: int,
+        rule_id: Optional[int],  # None means initial
+        path: Optional[Path],  # None means initial
+    ):
         self.rule_name = rule_name
         self.rule_formula = rule_formula
         self.current = current
         self.value = None
         self.previous = previous
-        self.subsequent: List[ApplyInfo] = []
+        self.subsequent: Sequence[ApplyInfo] = []
         self.mapping = mapping
         self.rule_id = rule_id
         self.path = path
@@ -74,10 +96,16 @@ class ApplyInfo:
         '''Rules from all previous steps to current'''
         for i, step in enumerate(self.trace, 1):
             if step.previous is not None:
-                yield Rule(condition=step.previous.current, conclusion=self.current, name=f'New rule {i}')
+                yield Rule(
+                    condition=step.previous.current,
+                    conclusion=self.current,
+                    name=f'New rule {i}',
+                )
 
     @property
     def fit_info(self):
+        if self.rule_id is None or self.path is None:
+            return None
         return FitInfo(self.rule_id, self.path, self.contributed)
 
     @property
@@ -100,17 +128,25 @@ class ApplyInfo:
 
 
 class LocalTrace:
-
     class Node:
         def __init__(self, apply_info: ApplyInfo):
             self.apply_info = apply_info
             self.childs = []
 
     def __init__(self, initial):
-        self.root = LocalTrace.Node(ApplyInfo(
-            rule_name='initial', rule_formula='',
-            current=initial, previous=None, mapping=None,
-            confidence=1, top=1, rule_id=None, path=None))
+        self.root = LocalTrace.Node(
+            ApplyInfo(
+                rule_name='initial',
+                rule_formula='',
+                current=initial,
+                previous=None,
+                mapping=None,
+                confidence=1,
+                top=1,
+                rule_id=None,
+                path=None,
+            )
+        )
         self.current_stage = [self.root]
         self.current_index = None
         self.next_stage = []
@@ -132,14 +168,18 @@ class LocalTrace:
         if apply_info.previous:
             apply_info.previous.subsequent.append(apply_info)
         node = LocalTrace.Node(apply_info)
+        if self.current_index is None:
+            raise AssertionError()
         self.current_stage[self.current_index].childs.append(node)
         self.next_stage.append(node)
         self.size += 1
 
     @staticmethod
     def as_dict_recursive(node):
-        return {'apply_info': node.apply_info.as_dict(),
-                'childs': [LocalTrace.as_dict_recursive(c) for c in node.childs]}
+        return {
+            'apply_info': node.apply_info.as_dict(),
+            'childs': [LocalTrace.as_dict_recursive(c) for c in node.childs],
+        }
 
     def iter(self, just_neighborhood=False):
         '''Traverses breath first through all nodes in the tree.'''
@@ -152,7 +192,11 @@ class LocalTrace:
         while not queue.empty():
             node = queue.get()
             # Look for previous in order to get negative value examples
-            if not just_neighborhood or not node.apply_info.previous or node.apply_info.previous.contributed:
+            if (
+                not just_neighborhood
+                or not node.apply_info.previous
+                or node.apply_info.previous.contributed
+            ):
                 for child in node.childs:
                     queue.put(child)
             yield node.apply_info
@@ -223,7 +267,9 @@ class TrainingsDataDumper:
 
     def __init__(self, config, scenario: Scenario):
         self.sample_set = SampleSet()
-        self.solver_trainings_data = Path(config.evaluation.solver_trainings_data)
+        self.solver_trainings_data = pathlib.Path(
+            config.evaluation.solver_trainings_data
+        )
         self.scenario = scenario
 
     def __add__(self, statistics: Statistics):
@@ -231,12 +277,18 @@ class TrainingsDataDumper:
             for apply_info in statistics.trace.iter(just_neighborhood=True):
                 if apply_info.rule_id is not None:
                     # Just store fits of contributed steps
-                    fits = [apply_info.fit_info] if apply_info.previous.contributed else []
-                    sample = Sample(apply_info.previous.current, fits, apply_info.previous.contributed)
+                    fits = (
+                        [apply_info.fit_info] if apply_info.previous.contributed else []
+                    )
+                    sample = Sample(
+                        apply_info.previous.current,
+                        fits,
+                        apply_info.previous.contributed,
+                    )
                     self.sample_set.add(sample)
         return self
 
-    def dump(self, rule_mapping: Dict[int, Rule]):
+    def dump(self, rule_mapping: dict[int, Rule]):
         bag = Bag.from_scenario(self.scenario)
         self.sample_set.fill_possibilities(rule_mapping)
         bag.add_container(self.sample_set.to_container())
@@ -265,17 +317,22 @@ class TrainingsDataDumper:
         container = self.sample_set.to_container()
         meta = BagMeta.from_scenario(self.scenario)
         meta = meta.clone_with_distribution(container.samples)
-        return BagDataset(meta=meta, samples=container.samples,
-                          max_depth=container.max_depth, max_size=container.max_size)
+        return BagDataset(
+            meta=meta,
+            samples=container.samples,
+            max_depth=container.max_depth,
+            max_size=container.max_size,
+        )
 
 
-def dump_new_rules(solutions: List[ApplyInfo], new_rules_filename: Path, **kwargs):
+def dump_new_rules(
+    solutions: Sequence[ApplyInfo], new_rules_filename: pathlib.Path, **kwargs
+):
 
-    new_rules = [rule.verbose for solution in solutions
-                 for rule in solution.new_rules()]
+    new_rules = [
+        rule.verbose for solution in solutions for rule in solution.new_rules()
+    ]
     new_rules_filename.parent.mkdir(exist_ok=True, parents=True)
     logging.info(f'Dumping new rules to {new_rules_filename}')
     with new_rules_filename.open('w') as f:
-        yaml.dump({
-            'rules': new_rules
-        }, f)
+        yaml.dump({'rules': new_rules}, f)

@@ -15,12 +15,11 @@ def main(args):
     me = Path(__file__).absolute()
 
     config_path = me.parent / 'config.yaml'
+    args.operations_reservoir = ('-', '+', '*', '/', '^')
     collect(
         args,
         config_path=config_path,
-        factories=create_solving_problems(
-            operations_reservoir=('-', '+', '*', '/', '^'), **vars(args)
-        ),
+        factories=[create_solving_problems],
     )
 
 
