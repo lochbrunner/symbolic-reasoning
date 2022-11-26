@@ -46,6 +46,7 @@ pub trait Embeddable {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> Result<CnnEmbedding, String>;
 
     fn embed_graph(
@@ -54,6 +55,7 @@ pub trait Embeddable {
         target_size: usize,
         fits: &[FitInfo],
         useful: bool,
+        use_additional_features: bool,
     ) -> Result<GraphEmbedding, String>;
 }
 
@@ -165,7 +167,11 @@ impl Symbol {
         index_map
     }
 
-    fn nodes_features(&self, ident2id: &HashMap<String, i16>) -> Result<Vec<Vec<i64>>, String> {
+    fn nodes_features(
+        &self,
+        ident2id: &HashMap<String, i16>,
+        use_additional_features: bool,
+    ) -> Result<Vec<Vec<i64>>, String> {
         let mut ref_to_index: HashMap<RefEquality<Self>, i16> = HashMap::new();
         let embedded = self
             .iter_bfs()
@@ -175,12 +181,16 @@ impl Symbol {
                 ident2id
                     .get(&s.ident)
                     .map(|i| {
-                        vec![
-                            *i as i64,
-                            one_encode(s.operator()),
-                            one_encode(s.fixed()),
-                            one_encode(s.is_number()),
-                        ]
+                        if use_additional_features {
+                            vec![
+                                *i as i64,
+                                one_encode(s.operator()),
+                                one_encode(s.fixed()),
+                                one_encode(s.is_number()),
+                            ]
+                        } else {
+                            vec![*i as i64]
+                        }
                     })
                     .ok_or(format!("Unknown ident {}", s.ident))
             })
@@ -216,8 +226,9 @@ impl Embeddable for Symbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> Result<CnnEmbedding, String> {
-        let mut embedded = self.nodes_features(ident2id)?;
+        let mut embedded = self.nodes_features(ident2id, use_additional_features)?;
         let padding_index = embedded.len() as i16;
         embedded.push(vec![padding as i64, 0, 0, 0]);
         let ref_to_index = self.ref_to_index();
@@ -272,8 +283,9 @@ impl Embeddable for Symbol {
         target_size: usize,
         fits: &[FitInfo],
         useful: bool,
+        use_additional_features: bool,
     ) -> Result<GraphEmbedding, String> {
-        let nodes = self.nodes_features(ident2id)?;
+        let nodes = self.nodes_features(ident2id, use_additional_features)?;
         let n_node = nodes.len() as i64;
 
         // (parents, child)
@@ -394,6 +406,7 @@ mod specs {
                 true,
                 true,
                 false,
+                true,
             )
             .unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
@@ -445,6 +458,7 @@ mod specs {
                 true,
                 true,
                 false,
+                true,
             )
             .unwrap();
         let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
@@ -499,6 +513,7 @@ mod specs {
                 true,
                 true,
                 false,
+                true,
             )
             .unwrap();
 
@@ -605,6 +620,7 @@ mod specs {
                     policy: Policy::Negative,
                 },
             ],
+            true,
             true,
         );
         let actual = embedding.unwrap();

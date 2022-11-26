@@ -5,6 +5,7 @@ dash_katex
 matplotlib
 pylint
 scipy
+sympy
 tensorboard
 tikzplotlib
 torch

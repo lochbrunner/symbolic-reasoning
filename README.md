@@ -3,7 +3,6 @@
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/ml/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=ml)
 [![GitHub Actions status](https://github.com/lochbrunner/symbolic-reasoning/workflows/smoker/badge.svg)](https://github.com/lochbrunner/symbolic-reasoning/actions?workflow=smoker)
 
-
 # Symbolic reasoning
 
 ## Outline
@@ -85,7 +84,6 @@ This project contains.
 * [Calculation Generator](./generator)
 * [Machine Learning](./ml)
 
-
 ## Test
 
 Run
@@ -122,3 +120,8 @@ See [torch.utils.bottleneck](https://pytorch.org/docs/stable/bottleneck.html)
 cd ml
 python -m torch.utils.bottleneck ./train.py -v -d cpu --bag-filename ../out/generator/bag-2-2.bin --scenario bag -r 10 -n 10
 ```
+
+## Additional Tooling
+
+* Visualization extension of traces for VS Code: [react-mind-flower](https://github.com/lochbrunner/react-mind-flower)
+* PyTorch extension for indexed convolution: [iconv](https://github.com/lochbrunner/iconv)

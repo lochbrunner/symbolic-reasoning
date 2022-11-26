@@ -1,5 +1,5 @@
-from pycore import Context, Decoration, Symbol, Rule
 import unittest
+from pycore import Context, Symbol, Rule
 
 
 class TestRule(unittest.TestCase):

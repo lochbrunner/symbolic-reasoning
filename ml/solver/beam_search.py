@@ -132,7 +132,7 @@ def beam_search_policy_last(
             if use_network and random.random() > exploration_ratio:
                 # Sort the possible fits by the policy network
                 policies, value = inference(prev.current, None)  # rule_id, path
-                prev.value = value.item()
+                prev.value = value
                 ranked_fits = {}
                 for rule_id, fits in possible_rules.items():
                     for deduced, fit_result in fits:

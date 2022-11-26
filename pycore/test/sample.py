@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from pycore import Sample, SampleSet, Symbol, Context, FitInfo
-
 import unittest
+
+from pycore import Sample, SampleSet, Symbol, Context, FitInfo
 
 
 class TestSample(unittest.TestCase):
@@ -15,34 +15,52 @@ class TestSample(unittest.TestCase):
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
         target_size = 3
         padding = 20
-        _, _, _, label, policy, value, target, mask = sample.embed(
-            ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
+        _, _, _, label, policy, value, target, mask = sample.embed_cnn(
+            ident2index,
+            padding,
+            2,
+            initial.depth,
+            target_size=target_size,
+            index_map=True,
+            positional_encoding=False,
+            use_additional_features=True,
+        )
 
         self.assertEqual(value.tolist(), [1])
         self.assertEqual(policy.tolist(), [0, 0, 0, 1, -1, 0, 0, 0, 0, 0])
         self.assertEqual(label.tolist(), [0, 0, 0, 1, 2, 0, 0, 0, 0, 0])
 
-        self.assertEqual(target.tolist(), [[0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 1.0, 0.0],
-                                           [0.0, 0.0, -1.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0],
-                                           [0.0, 0.0, 0.0]])
+        self.assertEqual(
+            target.tolist(),
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, -1.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+        )
 
-        self.assertEqual(mask.tolist(), [[False, False, False],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, True, False],
-                                         [False, False, True],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, False, False]])
+        self.assertEqual(
+            mask.tolist(),
+            [
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+                [False, True, False],
+                [False, False, True],
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+            ],
+        )
 
     def test_from_merged(self):
         context = Context.standard()
@@ -56,40 +74,58 @@ class TestSample(unittest.TestCase):
                 FitInfo(rule_id=1, path=[1, 0], positive=False),
                 FitInfo(rule_id=2, path=[1, 1], positive=True),
             ],
-            useful=True
+            useful=True,
         )
 
         target_size = 3
 
         ident2index = {'a': 1, '/': 2, 'x': 3, '+': 4, '1': 5, '=': 6, '-': 7}
         padding = 20
-        _, _, _, label, policy, value, target, mask = sample.embed(
-            ident2index, padding, 2, initial.depth, target_size=target_size, index_map=True, positional_encoding=False)
+        _, _, _, label, policy, value, target, mask = sample.embed_cnn(
+            ident2index,
+            padding,
+            2,
+            initial.depth,
+            target_size=target_size,
+            index_map=True,
+            positional_encoding=False,
+            use_additional_features=True,
+        )
 
         self.assertEqual(value.tolist(), [1])
         self.assertEqual(policy.tolist(), [0, 0, 0, 1, -1, -1, 1, 0, 0, 0])
         self.assertEqual(label.tolist(), [0, 0, 0, 1, 2, 1, 2, 0, 0, 0])
-        self.assertEqual(target.tolist(), [[0.,  0.,  0.],
-                                           [0.,  0.,  0.],
-                                           [0.,  0.,  0.],
-                                           [0.,  1.,  0.],
-                                           [0.,  0., -1.],
-                                           [0., -1.,  0.],
-                                           [0.,  0.,  1.],
-                                           [0.,  0.,  0.],
-                                           [0.,  0.,  0.],
-                                           [0.,  0., 0.]])
+        self.assertEqual(
+            target.tolist(),
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, -1.0],
+                [0.0, -1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+        )
 
-        self.assertEqual(mask.tolist(), [[False, False, False],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, True, False],
-                                         [False, False, True],
-                                         [False, True, False],
-                                         [False, False, True],
-                                         [False, False, False],
-                                         [False, False, False],
-                                         [False, False, False]])
+        self.assertEqual(
+            mask.tolist(),
+            [
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+                [False, True, False],
+                [False, False, True],
+                [False, True, False],
+                [False, False, True],
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+            ],
+        )
 
 
 class TestSampleSet(unittest.TestCase):
@@ -116,7 +152,7 @@ class TestSampleSet(unittest.TestCase):
                 FitInfo(rule_id=1, path=[1, 0], positive=False),
                 FitInfo(rule_id=2, path=[1, 1], positive=True),
             ],
-            useful=True
+            useful=True,
         )
 
         self.assertEqual(repr(sample_set.values()[0]), repr(expected))
@@ -147,7 +183,7 @@ class TestSampleSet(unittest.TestCase):
                 FitInfo(rule_id=1, path=[1, 0], positive=False),
                 FitInfo(rule_id=2, path=[1, 1], positive=True),
             ],
-            useful=True
+            useful=True,
         )
 
         self.assertEqual(repr(set_a.values()[0]), repr(expected))
@@ -176,7 +212,7 @@ class TestSampleSet(unittest.TestCase):
                 FitInfo(rule_id=1, path=[1, 0], positive=False),
                 FitInfo(rule_id=2, path=[1, 1], positive=True),
             ],
-            useful=True
+            useful=True,
         )
 
         self.assertEqual(len(actual), 1)

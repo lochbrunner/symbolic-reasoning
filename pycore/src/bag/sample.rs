@@ -82,6 +82,7 @@ impl PySample {
         target_size: usize,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> PyResult<PyCnnEmbedding> {
         let fits = self
             .data
@@ -103,6 +104,7 @@ impl PySample {
                 self.data.useful,
                 index_map,
                 positional_encoding,
+                use_additional_features,
             )
             .map_err(|msg| {
                 PyErr::new::<exceptions::KeyError, _>(format!(
@@ -133,6 +135,7 @@ impl PySample {
         target_size: usize,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> PyResult<UnrolledEmbedding> {
         self.data.initial.embed_cnn_unrolled_impl(
             py,
@@ -145,6 +148,7 @@ impl PySample {
             self.data.useful,
             index_map,
             positional_encoding,
+            use_additional_features,
         )
     }
 }

@@ -12,7 +12,6 @@ class TestSymbol(unittest.TestCase):
     @staticmethod
     def unroll(x: Symbol) -> Iterator[Symbol]:
         stack = [(x, '/')]
-        x = []
         # Using the path as unique id because id(n) is not unique enough ;)
         # id(n) is the memory address which get reused by the rust backend.
         seen = set()
@@ -158,6 +157,7 @@ class TestSymbol(unittest.TestCase):
             useful,
             index_encoding,
             positional_encoding,
+            use_additional_features=True,
         )
 
         self.assertIsNone(positional_encoding)
@@ -215,7 +215,13 @@ class TestSymbol(unittest.TestCase):
         embed_dict = {'=': 1, '+': 2, '*': 3, 'a': 4, 'b': 5, 'c': 6, 'd': 7}
         fits = [FitInfo(1, [0], True)]
 
-        actual = symbol.create_graph_embedding(embed_dict, 2, fits, True)
+        actual = symbol.create_graph_embedding(
+            embed_dict,
+            2,
+            fits,
+            True,
+            use_additional_features=True,
+        )
 
         npt.assert_equal(
             actual.nodes,

@@ -6,7 +6,14 @@ import os
 import shutil
 import tempfile
 
-from pycore import StepInfo, TraceStatistics, ProblemStatistics, SolverStatistics, ProblemSummary, IterationSummary
+from pycore import (
+    StepInfo,
+    TraceStatistics,
+    ProblemStatistics,
+    SolverStatistics,
+    ProblemSummary,
+    IterationSummary,
+)
 
 
 class TestStepInfo(unittest.TestCase):
@@ -127,7 +134,13 @@ class TestSolverStatistics(unittest.TestCase):
 
             loaded = SolverStatistics.load(filename)
 
-            expected_summary = ProblemSummary('Problem a', False, [IterationSummary(0, False, 1)], '', target_latex='a')
+            expected_summary = ProblemSummary(
+                'Problem a',
+                False,
+                [IterationSummary(0, False, 1)],
+                '',
+                target_latex='a',
+            )
             self.assertEqual(loaded.header[0], expected_summary)
 
         finally:

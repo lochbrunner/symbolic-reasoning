@@ -39,7 +39,7 @@ class ApplyInfo:
         self.rule_name = rule_name
         self.rule_formula = rule_formula
         self.current = current
-        self.value = None
+        self.value: Optional[float] = None
         self.previous = previous
         self.subsequent: Sequence[ApplyInfo] = []
         self.mapping = mapping
@@ -62,6 +62,8 @@ class ApplyInfo:
             step.value = self.value
         if self.confidence is not None:
             step.confidence = self.confidence
+        if self.rule_id is None or self.path is None:
+            raise AssertionError()
         step.rule_id = self.rule_id
         step.path = self.path
         step.top = self.top

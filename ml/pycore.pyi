@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Iterator, Optional, Sequence
 import numpy as np
 
 Path = Sequence[int]
@@ -101,9 +101,10 @@ class Symbol:
     def create_graph_embedding(
         self,
         ident2id: dict[str, int],
-        target_size: str,
+        target_size: int,
         fits: Sequence[FitInfo],
         useful: bool,
+        use_additional_features: bool,
     ) -> GraphEmbedding:
         pass
     def create_embedding(
@@ -117,6 +118,7 @@ class Symbol:
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> CnnEmbedding:
         pass
     def embed(
@@ -130,6 +132,7 @@ class Symbol:
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> UnrolledEmbedding:
         pass
     def create_padded(self, adding: str, spread: int, depth: int) -> Symbol:
@@ -155,8 +158,28 @@ class Rule:
     latex_verbose: str
     reverse: Rule
 
+class SymbolBuilder:
+    def add_level_uniform(self, child_per_arm: int = 2) -> None:
+        """Adds childs at each arm uniformly"""
+        pass
+    def set_level_idents(self, level: int, idents: Sequence[str]) -> None:
+        """
+        Sets the idents of all symbols of the specified level in the order of traversing
+        to the given ident.
+        If there are more entries in the list the remaining get ignored.
+        """
+        pass
+    def get_level_idents(self, level: int) -> Sequence[str]:
+        pass
+    @property
+    def symbol(self) -> Symbol:
+        pass
+
 class ScenarioProblems:
     def dump(self, filename: str):
+        pass
+    @staticmethod
+    def load(filename: str) -> ScenarioProblems:
         pass
     def add_to_validation(self, rule: Rule):
         pass
@@ -203,6 +226,8 @@ class StepInfo:
     contributed: bool
     def add_subsequent(self, other: StepInfo) -> None:
         pass
+    def __iadd__(self, other: StepInfo) -> StepInfo:
+        pass
 
 class TraceStatistics:
     success: bool
@@ -213,10 +238,10 @@ class TraceStatistics:
 class IterationSummary:
     def __init__(
         self,
-        fit_results: Optional[int],
-        success: Optional[bool],
-        max_depth: Optional[int],
-        depth_of_solution: Optional[int],
+        fit_results: Optional[int] = None,
+        success: Optional[bool] = None,
+        max_depth: Optional[int] = None,
+        depth_of_solution: Optional[int] = None,
     ) -> None:
         pass
     fit_results: Optional[int]
@@ -229,9 +254,9 @@ class ProblemSummary:
         self,
         name: str,
         success: bool,
-        iterations: Optional[Sequence[IterationSummary]],
-        initial_latex: Optional[str],
-        target_latex: Optional[str],
+        iterations: Optional[Sequence[IterationSummary]] = None,
+        initial_latex: Optional[str] = None,
+        target_latex: Optional[str] = None,
     ):
         pass
     @property
@@ -275,6 +300,8 @@ class SolverStatistics:
     @property
     def header(self) -> Sequence[ProblemSummary]:
         pass
+    def __iadd__(self, problem: ProblemStatistics) -> SolverStatistics:
+        pass
 
 # Sample
 
@@ -301,6 +328,7 @@ class Sample:
         target_size: int,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> CnnEmbedding:
         pass
     def embed_cnn(
@@ -312,6 +340,7 @@ class Sample:
         target_size: int,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> UnrolledEmbedding:
         pass
 
@@ -351,6 +380,10 @@ class SampleSet:
     def values(self) -> Sequence[Sample]:
         pass
     def items(self) -> Sequence[tuple[str, Sample]]:
+        pass
+    def __iadd__(self, problem: Sample) -> SampleSet:
+        pass
+    def __len__(self) -> int:
         pass
 
 class BagMeta:
@@ -398,6 +431,47 @@ class Bag:
     def update_meta(self) -> None:
         pass
     def clear_containers(self) -> None:
+        pass
+
+# Trace
+
+class ApplyInfo:
+    @property
+    def rule(self) -> Rule:
+        pass
+    @property
+    def path(self) -> Path:
+        pass
+    @property
+    def initial(self) -> Symbol:
+        pass
+    @property
+    def deduced(self) -> Symbol:
+        pass
+
+class Calculation:
+    steps: Sequence[ApplyInfo]
+
+class Meta:
+    @property
+    def used_idents(self) -> Sequence[str]:
+        pass
+    @property
+    def rules(self) -> Sequence[Rule]:
+        pass
+
+class Trace:
+    @staticmethod
+    def load(filename: str) -> Trace:
+        pass
+    @property
+    def unroll(self) -> Iterator[Calculation]:
+        pass
+    @property
+    def all_steps(self) -> Iterator[ApplyInfo]:
+        pass
+    @property
+    def meta(self) -> Meta:
         pass
 
 # Fitting

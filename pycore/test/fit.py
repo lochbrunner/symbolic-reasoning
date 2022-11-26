@@ -6,7 +6,6 @@ import unittest
 
 
 class TestFit(unittest.TestCase):
-
     def __init__(self, *args):
         super(TestFit, self).__init__(*args)
         self.context = Context.standard()
@@ -31,6 +30,8 @@ class TestFit(unittest.TestCase):
         c = Symbol.parse(self.context, '3*(e+f)')
 
         fitmap = fit_at(c, a, [1])
+        if fitmap is None:
+            raise AssertionError()
         self.assertIsNotNone(fitmap)
         self.assertEqual(fitmap.path, [1])
         a = Symbol.parse(self.context, 'a')

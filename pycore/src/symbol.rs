@@ -94,6 +94,7 @@ impl PySymbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> PyResult<UnrolledEmbedding> {
         let fits = fits
             .into_iter()
@@ -120,6 +121,7 @@ impl PySymbol {
                 useful,
                 index_map,
                 positional_encoding,
+                use_additional_features,
             )
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
@@ -554,6 +556,7 @@ impl PySymbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> PyResult<PyCnnEmbedding> {
         let fits = fits
             .into_iter()
@@ -571,6 +574,7 @@ impl PySymbol {
                 useful,
                 index_map,
                 positional_encoding,
+                use_additional_features,
             )
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
@@ -584,6 +588,7 @@ impl PySymbol {
         target_size: usize,
         fits: Vec<PyFitInfo>,
         useful: bool,
+        use_additional_features: bool,
     ) -> PyResult<PyGraphEmbedding> {
         let fits = fits
             .into_iter()
@@ -591,7 +596,7 @@ impl PySymbol {
             .collect::<Vec<_>>();
         let embedding = self
             .inner
-            .embed_graph(&dict, target_size, &fits, useful)
+            .embed_graph(&dict, target_size, &fits, useful, use_additional_features)
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
             })?;
@@ -624,6 +629,7 @@ impl PySymbol {
         useful: bool,
         index_map: bool,
         positional_encoding: bool,
+        use_additional_features: bool,
     ) -> PyResult<UnrolledEmbedding> {
         self.embed_cnn_unrolled_impl(
             py,
@@ -636,6 +642,7 @@ impl PySymbol {
             useful,
             index_map,
             positional_encoding,
+            use_additional_features,
         )
     }
 

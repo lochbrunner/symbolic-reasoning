@@ -13,11 +13,11 @@ class RealProblems(unittest.TestCase):
     def variable_creator(self):
         return Symbol.parse(self.context, 'z')
 
-    def assert_step(self, initial: str, target: str, rule: str, verbose=False):
-        initial = Symbol.parse(self.context, initial)
-        rule = Rule.parse(self.context, rule)
+    def assert_step(self, initial: str, target: str, rule_code: str, verbose=False):
+        initial_symbol = Symbol.parse(self.context, initial)
+        rule = Rule.parse(self.context, rule_code)
 
-        fits = fit_and_apply(self.variable_creator, initial, rule)
+        fits = fit_and_apply(self.variable_creator, initial_symbol, rule)
         if verbose:
             deduced = {d.verbose for d, _ in fits}
         else:
