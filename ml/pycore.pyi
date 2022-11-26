@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any, Callable, Iterator, Optional, Sequence
 import numpy as np
 
-Path = Sequence[int]
+_Path = Sequence[int]
 
 class Decoration:
-    def __init__(self, path: Path, pre: str, post: str) -> None:
+    def __init__(self, path: _Path, pre: str, post: str) -> None:
         pass
 
 class Declaration:
@@ -82,15 +82,15 @@ class Symbol:
     # traversing
     parts_dfs: Sequence[Symbol]
     parts_bfs: Sequence[Symbol]
-    parts_bfs_with_path: Sequence[tuple[Path, Symbol]]
+    parts_bfs_with_path: Sequence[tuple[_Path, Symbol]]
 
     def clone(self) -> Symbol:
         pass
-    def at(self, path: Path) -> Symbol:
+    def at(self, path: _Path) -> Symbol:
         pass
     def latex_with_deco(self, decorations: Sequence[Decoration]) -> str:
         pass
-    def latex_with_colors(self, colors: Sequence[tuple[str, Path]]) -> str:
+    def latex_with_colors(self, colors: Sequence[tuple[str, _Path]]) -> str:
         pass
     def pad(self, padding: str, spread: int, depth: int) -> None:
         pass
@@ -221,7 +221,7 @@ class StepInfo:
     confidence: Optional[float]
     subsequent: Sequence[StepInfo]
     rule_id: int
-    path: Path
+    path: _Path
     top: int
     contributed: bool
     def add_subsequent(self, other: StepInfo) -> None:
@@ -440,7 +440,7 @@ class ApplyInfo:
     def rule(self) -> Rule:
         pass
     @property
-    def path(self) -> Path:
+    def path(self) -> _Path:
         pass
     @property
     def initial(self) -> Symbol:
@@ -477,20 +477,20 @@ class Trace:
 # Fitting
 
 class FitInfo:
-    def __init__(self, rule_id: int, path: Path, positive: bool):
+    def __init__(self, rule_id: int, path: _Path, positive: bool):
         pass
     rule: int
-    path: Path
+    path: _Path
     policy: float
 
 class FitMap:
-    path: Path
+    path: _Path
     variable: dict[Symbol, Symbol]
 
 def fit(outer: Symbol, inner: Symbol) -> Sequence[FitMap]:
     del outer, inner
 
-def fit_at(outer: Symbol, inner: Symbol, path: Path) -> Optional[FitMap]:
+def fit_at(outer: Symbol, inner: Symbol, path: _Path) -> Optional[FitMap]:
     del outer, inner, path
 
 VariableCreator = Callable[[], Symbol]
@@ -506,6 +506,6 @@ def fit_and_apply(
     del variable_creator, orig, rule
 
 def fit_at_and_apply(
-    variable_creator: VariableCreator, orig: Symbol, rule: Rule, path: Path
+    variable_creator: VariableCreator, orig: Symbol, rule: Rule, path: _Path
 ) -> Optional[tuple[Symbol, FitMap]]:
     del variable_creator, orig, rule, path

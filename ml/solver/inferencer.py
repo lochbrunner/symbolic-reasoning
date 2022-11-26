@@ -11,7 +11,7 @@ from common.parameter_search import LearningParameter
 from dataset import create_scenario
 from dataset import ScenarioParameter
 
-from pycore import Scenario, Symbol
+from pycore import Scenario, Symbol, Rule, fit
 
 Path = Sequence[int]
 
@@ -50,7 +50,7 @@ def _policy_field_to_fitinfo(
     y: np.ndarray,
     count: Optional[int],
     initial: Symbol,
-    rule_offset: int = 1.0,
+    rule_offset: int = 1,
 ) -> Sequence[tuple[int, Path, float]]:
 
     parts_path = [p[0] for p in initial.parts_bfs_with_path]
@@ -67,6 +67,26 @@ def _policy_field_to_fitinfo(
         )  # rule at path and confidence
 
     return [calc(i) for i in range(count or i.shape[0])]
+
+
+class SophisticatedInferencer(Inferencer):
+    def __init__(self, scenario: Scenario, rule_mapping: dict[int, Rule]) -> None:
+        super().__init__()
+        self._tagset_size = scenario.tagset_size
+        self._rng = np.random.default_rng(0)
+        self._rule_mapping = rule_mapping
+
+    def __call__(
+        self, initial: Symbol, count: Optional[int] = None
+    ) -> tuple[Sequence[tuple[int, Path, float]], float]:
+        fits = []
+        for rule_id, rule in self._rule_mapping.items():
+            for fit_map in fit(initial, rule.condition):
+                fits.append((rule_id, fit_map.path, 1.0))
+                if count is not None and count == len(fits):
+                    return fits, 1.0
+
+        return fits, 1.0
 
 
 class RandomInferencer(Inferencer):

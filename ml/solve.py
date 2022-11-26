@@ -8,7 +8,7 @@ from common.timer import Timer
 from training.validation import Mean
 from common.utils import get_rule_mapping, setup_logging
 from pycore import ProblemStatistics, Scenario, SolverStatistics
-from solver.inferencer import TorchInferencer, RandomInferencer
+from solver.inferencer import TorchInferencer, SophisticatedInferencer
 from solver.solve_problems import solve_problems
 
 try:
@@ -41,7 +41,9 @@ def main(options, config):
             config=config, scenario=scenario, fresh_model=options.fresh_model
         )
     else:
-        inferencer = RandomInferencer(scenario=scenario)
+        inferencer = SophisticatedInferencer(
+            scenario=scenario, rule_mapping=rule_mapping
+        )
 
     if scenario.problems is not None:
         problems = (

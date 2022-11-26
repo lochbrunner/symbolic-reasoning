@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from pycore import Context, Symbol, fit, fit_at
-
 import unittest
+
+from pycore import Context, Symbol, fit, fit_at
 
 
 class TestFit(unittest.TestCase):

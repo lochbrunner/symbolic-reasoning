@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pycore import Context, Symbol, fit, apply, fit_and_apply, Rule
+from pycore import Context, Symbol, fit_and_apply, Rule
 
 import unittest
 
