@@ -75,7 +75,7 @@ impl PySample {
 
     fn create_cnn_embedding(
         &self,
-        dict: HashMap<String, i16>,
+        ident2index: HashMap<String, i16>,
         padding: i16,
         spread: usize,
         max_depth: u32,
@@ -94,7 +94,7 @@ impl PySample {
             .initial
             .inner
             .embed_cnn(
-                &dict,
+                &ident2index,
                 padding,
                 spread,
                 max_depth,
