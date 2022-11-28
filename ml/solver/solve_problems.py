@@ -1,18 +1,37 @@
-from typing import Sequence
+from typing import Optional, Sequence
 import itertools
 import logging
 import sys
+import multiprocessing
 
 from tqdm import tqdm
 
 from pycore import Symbol, Context, Rule
 
-from common.timer import Timer
+from solver.trace import ApplyInfo, Statistics
 from solver.beam_search import beam_search, beam_search_policy_last
 from solver.inferencer import Inferencer
 
 
 module_logger = logging.getLogger(__name__)
+
+
+def search_fn(args: dict) -> tuple[Optional[ApplyInfo], Statistics, Rule]:
+    problem = args['problem']
+    context = Context.standard()
+
+    def variable_generator():
+        return Symbol.parse(context, 'u')
+
+    return (
+        *args['fn'](
+            variable_generator=variable_generator,
+            initial=problem.condition,
+            targets=[problem.conclusion],
+            **args,
+        ),
+        problem,
+    )
 
 
 def solve_problems(
@@ -27,11 +46,6 @@ def solve_problems(
 ):
 
     show_progress = not logger.isEnabledFor(logging.DEBUG) and sys.stdin.isatty()
-
-    context = Context.standard()
-
-    def variable_generator():
-        return Symbol.parse(context, 'u')
 
     eval_config = config.evaluation
 
@@ -52,38 +66,48 @@ def solve_problems(
             raise AssertionError(f'No problems found in the white list: {white_list}')
         logger.warning(f'Using {len(problems)} filtered problems from white list')
 
-    for problem in tqdm(problems, desc='solve', disable=not show_progress, leave=False):
-        # Get first problem
-        logger.debug(f'problem: {problem}')
-        source = problem.condition
-        target = problem.conclusion
+    search_strategy = beam_search_policy_last if options.policy_last else beam_search
 
-        with Timer(
-            f'Solving problem "{problem.name}"', logger=logger, quite=show_progress
-        ):
-            search_strategy = (
-                beam_search_policy_last if options.policy_last else beam_search
-            )
-            solution, statistics = search_strategy(
-                inference=inferencer,
-                rule_mapping=rule_mapping,
-                initial=problem.condition,
-                targets=[problem.conclusion],
-                variable_generator=variable_generator,
-                use_network=use_network,
-                black_list_terms=getattr(eval_config, 'black_list_terms', []),
-                white_list_terms=getattr(eval_config, 'white_list_terms', []),
-                black_list_rules=getattr(eval_config, 'black_list_rules', []),
-                max_size=eval_config.max_size,
-                max_grow=eval_config.max_grow,
-                **vars(eval_config.problems),
-                **kwargs,
-            )
+    problem_args = [
+        dict(
+            inference=inferencer,
+            rule_mapping=rule_mapping,
+            use_network=use_network,
+            black_list_terms=getattr(eval_config, 'black_list_terms', []),
+            white_list_terms=getattr(eval_config, 'white_list_terms', []),
+            black_list_rules=getattr(eval_config, 'black_list_rules', []),
+            max_size=eval_config.max_size,
+            max_grow=eval_config.max_grow,
+            problem=problem,
+            fn=search_strategy,
+            **vars(eval_config.problems),
+            **kwargs,
+        )
+        for problem in problems
+    ]
 
-        if solution is None:
-            logger.debug(f'No solution found for {source} => {target}')
+    with multiprocessing.Pool(processes=8) as pool:
+        pbar = tqdm(
+            pool.imap_unordered(search_fn, problem_args),
+            desc='solve (success: 0)',
+            disable=not show_progress,
+            leave=False,
+            total=len(problems),
+        )
+        success_count = 0
+        for solution, statistics, problem in pbar:
+            # Get first problem
+            logger.debug(f'problem: {problem}')
 
-        statistics.name = problem.name
-        logger.debug(statistics)
+            if solution is None:
+                logger.debug(
+                    f'No solution found for {problem.condition} => {problem.conclusion}'
+                )
+            else:
+                success_count += 1
+                pbar.set_description(f'solve (success: {success_count})')
 
-        yield statistics, solution
+            statistics.name = problem.name
+            logger.debug(statistics)
+
+            yield statistics, solution
