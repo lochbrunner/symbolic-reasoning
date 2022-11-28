@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable
+from typing import Callable, Optional
 from pycore import Rule
 
 # from memory_profiler import profile
@@ -23,7 +23,7 @@ def beam_search(
     black_list_terms,
     black_list_rules,
     **kwargs,
-):
+) -> tuple[Optional[ApplyInfo], Statistics]:
     '''First apply the policy and then try to fit the suggestions.'''
     seen = set()
     black_list_terms = set(black_list_terms)

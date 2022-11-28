@@ -4,12 +4,13 @@ use core::dumper::{dump_latex, dump_symbol_plain};
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::exceptions;
+use pyo3::exceptions::{LookupError, TypeError};
 use pyo3::prelude::*;
 use std::convert::From;
 use std::sync::Arc;
 
 /// Python Wrapper for core::Rule
-#[pyclass(name=Rule,subclass)]
+#[pyclass(name=Rule,module="pycore",subclass)]
 #[derive(Clone)]
 pub struct PyRule {
     pub inner: Arc<Rule>,
@@ -27,7 +28,7 @@ impl From<&Rule> for PyRule {
 impl PyRule {
     #[new]
     fn py_new(condition: PySymbol, conclusion: PySymbol, name: &str) -> Self {
-        PyRule {
+        Self {
             inner: Arc::new(Rule {
                 condition: (*condition.inner).clone(),
                 conclusion: (*conclusion.inner).clone(),
@@ -156,6 +157,32 @@ impl PyRule {
                 "Could not mutable borrow reference of rule".to_owned(),
             ))
         }
+    }
+
+    /// Used for pickle
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        let refs = Arc::get_mut(&mut self.inner).ok_or_else(|| {
+            PyErr::new::<TypeError, _>(format!("Can not get mut reference of rule ",))
+        })?;
+        *refs = bincode::deserialize(&state[..]).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!("Could not deserialize rule\"{:?}\"", msg))
+        })?;
+        Ok(())
+    }
+    fn __getstate__(&self) -> PyResult<Vec<u8>> {
+        bincode::serialize(&*self.inner).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!(
+                "Could not serialize rule {}: \"{:?}\"",
+                self.inner, msg
+            ))
+        })
+    }
+    pub fn __getnewargs__(&self) -> PyResult<(PySymbol, PySymbol, &str)> {
+        Ok((
+            PySymbol::new(self.inner.condition.clone()),
+            PySymbol::new(self.inner.conclusion.clone()),
+            &self.inner.name,
+        ))
     }
 }
 

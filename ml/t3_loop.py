@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch.optim as optim
 from torch.utils import data
-from torch.utils.tensorboard import SummaryWriter
+
 from tqdm import tqdm
 
 from common.config_and_arg_parser import ArgumentParser
@@ -31,7 +31,12 @@ def main(options, config, early_abort_hook=None):
     try:
         if options.tensorboard_dir:
             options.tensorboard_dir.mkdir(parents=True, exist_ok=True)
-            writer = SummaryWriter(log_dir=str(options.tensorboard_dir))
+            try:
+                from torch.utils.tensorboard import SummaryWriter
+
+                writer = SummaryWriter(log_dir=str(options.tensorboard_dir))
+            except ModuleNotFoundError:
+                writer = None
         else:
             writer = None
 

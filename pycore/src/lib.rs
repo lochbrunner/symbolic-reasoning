@@ -12,6 +12,9 @@ mod symbol;
 mod symbol_builder;
 mod trace;
 
+#[macro_use]
+extern crate serde_derive;
+
 #[pymodule]
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<context::PyDeclaration>()?;

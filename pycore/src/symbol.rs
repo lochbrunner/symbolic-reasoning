@@ -9,7 +9,7 @@ use ndarray::Array;
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
-use pyo3::exceptions::{IndexError, KeyError, NotImplementedError, TypeError};
+use pyo3::exceptions::{IndexError, KeyError, LookupError, NotImplementedError, TypeError};
 use pyo3::gc::{PyGCProtocol, PyVisit};
 use pyo3::prelude::*;
 use std::collections::hash_map::DefaultHasher;
@@ -39,7 +39,7 @@ impl PyDecoration {
 }
 
 /// Python Wrapper for core::Symbol
-#[pyclass(name=Symbol,subclass)]
+#[pyclass(name=Symbol,module="pycore",subclass)]
 #[derive(PartialEq)]
 pub struct PySymbol {
     pub inner: Arc<Symbol>,
@@ -451,6 +451,14 @@ impl PyObjectProtocol for PyGraphEmbedding {
 
 #[pymethods]
 impl PySymbol {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            inner: Arc::new(Symbol::default()),
+            attributes: HashMap::new(),
+        }
+    }
+
     #[staticmethod]
     #[text_signature = "(context, code, /)"]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
@@ -803,6 +811,24 @@ impl PySymbol {
             })
             .collect::<Vec<_>>();
         Ok(dump_latex(&self.inner, &decorations, false))
+    }
+    /// Used for pickle
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        let refs = Arc::get_mut(&mut self.inner).ok_or_else(|| {
+            PyErr::new::<LookupError, _>(format!("Can not get mut reference of symbol!",))
+        })?;
+        *refs = bincode::deserialize(&state[..]).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!("Could not deserialize symbol\"{:?}\"", msg))
+        })?;
+        Ok(())
+    }
+    fn __getstate__(&self) -> PyResult<Vec<u8>> {
+        bincode::serialize(&*self.inner).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!(
+                "Could not serialize symbol {}: \"{:?}\"",
+                self.inner, msg
+            ))
+        })
     }
 }
 

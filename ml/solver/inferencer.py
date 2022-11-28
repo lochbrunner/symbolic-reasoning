@@ -81,6 +81,7 @@ class SophisticatedInferencer(Inferencer):
     ) -> tuple[Sequence[tuple[int, Path, float]], float]:
         fits = []
         for rule_id, rule in self._rule_mapping.items():
+            rule_id += 1
             for fit_map in fit(initial, rule.condition):
                 fits.append((rule_id, fit_map.path, 1.0))
                 if count is not None and count == len(fits):
@@ -152,6 +153,7 @@ class TorchInferencer(Inferencer):
             True,
             index_map=True,
             positional_encoding=False,
+            use_additional_features=True,
         )
         x = torch.unsqueeze(torch.as_tensor(np.copy(x), device=self.model.device), 0)
         s = torch.unsqueeze(torch.as_tensor(np.copy(s), device=self.model.device), 0)

@@ -3,13 +3,15 @@
 import logging
 from tqdm import tqdm
 
+from pycore import ProblemStatistics, Scenario, SolverStatistics
+
 from common.config_and_arg_parser import ArgumentParser
 from common.timer import Timer
 from training.validation import Mean
 from common.utils import get_rule_mapping, setup_logging
-from pycore import ProblemStatistics, Scenario, SolverStatistics
 from solver.inferencer import TorchInferencer, SophisticatedInferencer
 from solver.solve_problems import solve_problems
+from solver.trace import TrainingsDataDumper
 
 try:
     from azureml.core import Run
@@ -36,13 +38,13 @@ def main(options, config):
 
     rule_mapping = get_rule_mapping(scenario)
 
-    if use_network:
-        inferencer = TorchInferencer(
-            config=config, scenario=scenario, fresh_model=options.fresh_model
-        )
-    else:
+    if options.inferencer == 'sophisticated':
         inferencer = SophisticatedInferencer(
             scenario=scenario, rule_mapping=rule_mapping
+        )
+    else:
+        inferencer = TorchInferencer(
+            config=config, scenario=scenario, fresh_model=options.fresh_model
         )
 
     if scenario.problems is not None:
@@ -57,6 +59,7 @@ def main(options, config):
         problem.name: ProblemStatistics(problem.name, problem.conclusion.latex)
         for problem in problems
     }
+    trainings_data_dumper = TrainingsDataDumper(config, scenario)
 
     success_rate = Mean()
     needed_fits = Mean()
@@ -74,6 +77,7 @@ def main(options, config):
         success_rate += statistics.success
         if statistics.success:
             needed_fits += statistics.fit_results
+            trainings_data_dumper += statistics
 
         problems_statistics[statistics.name] += statistics.as_builtin
         # Trace
@@ -91,6 +95,9 @@ def main(options, config):
         with tqdm(total=100, desc='Create index', leave=False) as progress_bar:
             intro.create_index(lambda progress: progress_bar.update(100 * progress))
         intro.dump(config.files.solver_traces)
+
+    if options.dump_trainings_data:
+        trainings_data_dumper.dump(rule_mapping)
 
     return success_rate.summary
 
@@ -123,6 +130,18 @@ def create_parser():
         action='store_true',
         default=False,
         help='Prevent from dumping traces.',
+    )
+    parser.add_argument(
+        '--dump-trainings-data',
+        action='store_true',
+        default=False,
+        help='Dumps trainings data.',
+    )
+    parser.add_argument(
+        '--inferencer',
+        default='sophisticated',
+        choices=['sophisticated', 'torch'],
+        help='The inferencer to use.',
     )
 
     # Model
