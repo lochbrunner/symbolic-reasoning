@@ -9,7 +9,11 @@ from tqdm import tqdm
 from pycore import Symbol, Context, Rule
 
 from solver.trace import ApplyInfo, Statistics
-from solver.beam_search import beam_search, beam_search_policy_last
+from solver.beam_search import (
+    beam_search,
+    beam_search_policy_last,
+    bidirectional_beam_search,
+)
 from solver.inferencer import Inferencer
 
 
@@ -66,16 +70,23 @@ def solve_problems(
             raise AssertionError(f'No problems found in the white list: {white_list}')
         logger.warning(f'Using {len(problems)} filtered problems from white list')
 
-    search_strategy = beam_search_policy_last if options.policy_last else beam_search
+    if options.search_strategy == 'beam-search':
+        search_strategy = beam_search
+    elif options.search_strategy == 'beam-search':
+        search_strategy = beam_search_policy_last
+    elif options.search_strategy == 'bidirectional-beam-search':
+        search_strategy = bidirectional_beam_search
+    else:
+        raise AssertionError(f'Unknown search strategy: {options.search_strategy}')
 
     problem_args = [
         dict(
-            inference=inferencer,
+            inferencer=inferencer,
             rule_mapping=rule_mapping,
             use_network=use_network,
-            black_list_terms=getattr(eval_config, 'black_list_terms', []),
-            white_list_terms=getattr(eval_config, 'white_list_terms', []),
-            black_list_rules=getattr(eval_config, 'black_list_rules', []),
+            black_list_terms=set(getattr(eval_config, 'black_list_terms', [])),
+            white_list_terms=set(getattr(eval_config, 'white_list_terms', [])),
+            black_list_rules=set(getattr(eval_config, 'black_list_rules', [])),
             max_size=eval_config.max_size,
             max_grow=eval_config.max_grow,
             problem=problem,

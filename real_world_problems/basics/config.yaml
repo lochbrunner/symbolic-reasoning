@@ -64,7 +64,7 @@ evaluation:
   exploration_ratio: 1
   problems:
     beam-size: 15
-    num_epochs: 30
+    num_epochs: 5
     max_track_loss: 100 #prev: 3
     max_fit_results: 20000
     iterations: 10

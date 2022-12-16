@@ -1,42 +1,49 @@
 import logging
-from typing import Callable, Optional
-from pycore import Rule
+from typing import Callable, Optional, Sequence
 
 # from memory_profiler import profile
 import random
+import unittest
 
-from solver.inferencer import Inferencer
+from common.utils import get_rule_mapping
+from solver.inferencer import Inferencer, SophisticatedInferencer
 from solver.trace import ApplyInfo, Statistics
-from pycore import fit_at_and_apply, fit_and_apply
+from pycore import (
+    Context,
+    FitMap,
+    Rule,
+    Scenario,
+    Symbol,
+    fit_at_and_apply,
+    fit_and_apply,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def beam_search(
-    inference: Inferencer,
+    inferencer: Inferencer,
     rule_mapping: dict[int, Rule],
-    initial,
-    targets,
-    variable_generator: Callable,
+    initial: Symbol,
+    targets: Sequence[Symbol],
+    variable_generator: Callable[[], Symbol],
     num_epochs: int,
     beam_size: int,
-    black_list_terms,
-    black_list_rules,
+    black_list_terms: set[Symbol],
+    black_list_rules: set[Symbol],
     **kwargs,
 ) -> tuple[Optional[ApplyInfo], Statistics]:
     '''First apply the policy and then try to fit the suggestions.'''
     seen = set()
-    black_list_terms = set(black_list_terms)
-    black_list_rules = set(black_list_rules)
     statistics = Statistics(initial)
 
     for epoch in range(num_epochs):
         logger.debug(f'epoch: {epoch}')
         for prev in statistics.trace:
-            policies, _ = inference(prev.current, beam_size)
+            policies, _ = inferencer(prev.current, beam_size)
 
             for top, (rule_id, path, confidence) in enumerate(policies, 1):
-                rule = rule_mapping[rule_id - 1]
+                rule = rule_mapping[rule_id]
                 if rule.name in black_list_rules:
                     continue
                 result = fit_at_and_apply(variable_generator, prev.current, rule, path)
@@ -74,20 +81,97 @@ def beam_search(
     return None, statistics
 
 
+def bidirectional_beam_search(
+    inferencer: Inferencer,
+    rule_mapping: dict[int, Rule],
+    initial: Symbol,
+    targets: Sequence[Symbol],
+    variable_generator: Callable[[], Symbol],
+    num_epochs: int,
+    beam_size: int,
+    black_list_terms: set[Symbol],
+    black_list_rules: set[Symbol],
+    **kwargs,
+):
+    assert isinstance(
+        inferencer, SophisticatedInferencer
+    ), f'Inferencer of type {type(inferencer)} is not supported!'
+    assert len(targets) == 1, f'Only one target supported yet and not {targets}!'
+    target = targets[0]
+
+    reversed_rule_mapping = {i: rule.reverse for i, rule in rule_mapping.items()}
+    _, statistics = beam_search(
+        inferencer=inferencer.clone_reversed(),
+        rule_mapping=reversed_rule_mapping,
+        initial=target,
+        targets=[initial],
+        variable_generator=variable_generator,
+        num_epochs=num_epochs,
+        beam_size=beam_size,
+        black_list_terms=black_list_terms,
+        black_list_rules=black_list_rules,
+        **kwargs,
+    )
+
+    target_lake = statistics.trace.reversed()
+
+    # # Go from the target
+    statistics = Statistics(initial)
+    seen = set()
+    for epoch in range(num_epochs):
+        logger.debug(f'epoch: {epoch}')
+        for prev in statistics.trace:
+            policies, _ = inferencer(prev.current, beam_size)
+            for top, (rule_id, path, confidence) in enumerate(policies, 1):
+                rule = rule_mapping[rule_id]
+                if rule.name in black_list_rules:
+                    continue
+                result = fit_at_and_apply(variable_generator, prev.current, rule, path)
+                if result is None:
+                    logger.debug(
+                        f'Missing fit of {rule.condition} at {path} in {prev.current}'
+                    )
+                    continue
+                deduced, mapping = result
+                s = deduced.verbose
+                if s in seen or s in black_list_terms:
+                    continue
+                seen.add(s)
+                apply_info = ApplyInfo(
+                    rule_name=rule.name,
+                    rule_formula=rule.verbose,
+                    current=deduced,
+                    previous=prev,
+                    mapping=mapping,
+                    confidence=confidence,
+                    top=top,
+                    rule_id=rule_id,
+                    path=path,
+                )
+                statistics.trace.add(apply_info)
+                towards = target_lake.get_thread(apply_info)
+                if towards is not None:
+                    statistics.success = True
+                    towards.contribute()
+                    return towards, statistics
+
+    return None, statistics
+
+
 # @profile
 def beam_search_policy_last(
     *,
-    inference: Inferencer,
-    rule_mapping,
-    initial,
-    targets,
-    variable_generator,
+    inferencer: Inferencer,
+    rule_mapping: dict[int, Rule],
+    initial: Symbol,
+    targets: Sequence[Symbol],
+    variable_generator: Callable[[], Symbol],
     num_epochs: int,
     beam_size: int,
     max_track_loss: int,
-    black_list_terms: list[str],
-    white_list_terms: list[str],
-    black_list_rules: list[str],
+    black_list_terms: Optional[set[str]],
+    white_list_terms: set[str],
+    black_list_rules: set[str],
     max_size: int,
     max_grow: int,
     max_fit_results: int,
@@ -104,13 +188,12 @@ def beam_search_policy_last(
         exploration_ratio = num_epochs + 1
 
     black_list_terms = (black_list_terms or None) and set(black_list_terms)
-    black_list_rules = set(black_list_rules)
-    white_list_terms = set(white_list_terms)
-    seen = {initial.verbose: None}
+
+    seen: dict[str, Optional[ApplyInfo]] = {initial.verbose: None}
     statistics = Statistics(initial)
     max_size = min(max_size, initial.size + max_grow)
 
-    targets = set(t.verbose for t in targets)
+    target_set = set(t.verbose for t in targets)
 
     # print(f'initial: {initial}')
     # print(f'targets: {targets}')
@@ -122,7 +205,7 @@ def beam_search_policy_last(
         # print(f'epoch: {epoch}')
         successful_epoch = False
         for prev in statistics.trace:
-            possible_rules = {}
+            possible_rules: dict[int, Sequence[tuple[Symbol, FitMap]]] = {}
             for i, rule in rule_mapping.items():
                 if rule.name not in black_list_rules:
                     if fits := fit_and_apply(variable_generator, prev.current, rule):
@@ -131,9 +214,9 @@ def beam_search_policy_last(
             # Apply network outcome
             if use_network and random.random() > exploration_ratio:
                 # Sort the possible fits by the policy network
-                policies, value = inference(prev.current, None)  # rule_id, path
+                policies, value = inferencer(prev.current, None)  # rule_id, path
                 prev.value = value
-                ranked_fits = {}
+                ranked_fits: dict[int, tuple[int, FitMap, float, Symbol]] = {}
                 for rule_id, fits in possible_rules.items():
                     for deduced, fit_result in fits:
                         try:
@@ -152,12 +235,12 @@ def beam_search_policy_last(
                         # rule id, path, mapping, deduced
                         ranked_fits[j] = (rule_id, fit_result, confidence, deduced)
 
-                possible_fits = (v for _, v in sorted(ranked_fits.items()))
+                possible_fits_gen = (v for _, v in sorted(ranked_fits.items()))
 
                 # filter out already seen terms
-                possible_fits = [
+                possible_fits: list[tuple[int, FitMap, Optional[float], Symbol]] = [
                     (*args, deduced)
-                    for *args, deduced in possible_fits
+                    for *args, deduced in possible_fits_gen
                     if deduced.verbose not in black_list_terms
                 ]
                 if beam_size is not None:
@@ -212,7 +295,7 @@ def beam_search_policy_last(
                 statistics.trace.add(apply_info)
                 successful_epoch = True
 
-                if deduced.verbose in targets:
+                if deduced.verbose in target_set:
                     statistics.success = True
                     apply_info.contribute()
                     return apply_info, statistics
@@ -225,3 +308,37 @@ def beam_search_policy_last(
         statistics.trace.close_stage()
 
     return None, statistics
+
+
+@unittest.skip('Debugging')
+class TestBeamSearch(unittest.TestCase):
+    def test_bidirectional(self):
+        context = Context.standard()
+        context.add_constant('a')
+        context.add_constant('b')
+        context.add_constant('c')
+
+        def variable_generator():
+            return Symbol.parse(context, 'u')
+
+        scenario = Scenario.create_for_test(
+            context, [Rule.parse(context, 'a=>b'), Rule.parse(context, 'b=>c')]
+        )
+        rule_mapping = get_rule_mapping(scenario)
+
+        solution, statistics = bidirectional_beam_search(
+            inferencer=SophisticatedInferencer.from_scenario(scenario),
+            rule_mapping=rule_mapping,
+            initial=Symbol.parse(context, 'a'),
+            targets=[Symbol.parse(context, 'c')],
+            variable_generator=variable_generator,
+            num_epochs=1,
+            beam_size=2,
+            black_list_terms=set(),
+            black_list_rules=set(),
+        )
+
+        self.assertIsNotNone(solution)
+        if solution is None:
+            return
+        print([a.current.verbose for a in solution.trace])

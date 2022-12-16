@@ -39,9 +39,7 @@ def main(options, config):
     rule_mapping = get_rule_mapping(scenario)
 
     if options.inferencer == 'sophisticated':
-        inferencer = SophisticatedInferencer(
-            scenario=scenario, rule_mapping=rule_mapping
-        )
+        inferencer = SophisticatedInferencer.from_scenario(scenario=scenario)
     else:
         inferencer = TorchInferencer(
             config=config, scenario=scenario, fresh_model=options.fresh_model
@@ -119,7 +117,6 @@ def create_parser():
         help='Tries to solve the trainings data',
         action='store_true',
     )
-    parser.add_argument('--policy-last', action='store_true', default=False)
     parser.add_argument(
         '--smoke',
         action='store_true',
@@ -142,6 +139,12 @@ def create_parser():
         default='sophisticated',
         choices=['sophisticated', 'torch'],
         help='The inferencer to use.',
+    )
+    parser.add_argument(
+        '--search-strategy',
+        default='beam-search',
+        choices=['beam-search', 'beam-search-policy-last', 'bidirectional-beam-search'],
+        help='The search strategy to use.',
     )
 
     # Model

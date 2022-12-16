@@ -43,6 +43,18 @@
             "justMyCode": false
         },
         {
+            "name": "ml tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/run_tests.py",
+            "args": [
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "train",
             "type": "python",
             "request": "launch",

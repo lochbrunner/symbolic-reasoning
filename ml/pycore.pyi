@@ -23,6 +23,8 @@ class Context:
         pass
     def add_function(self, name: str, fixed: Optional[bool]) -> None:
         pass
+    def add_constant(self, name: str) -> None:
+        pass
     declarations: dict[str, Declaration]
 
 class CnnEmbedding:
@@ -203,6 +205,9 @@ class ScenarioProblems:
 class Scenario:
     @staticmethod
     def load(filename: str) -> Scenario:
+        pass
+    @staticmethod
+    def create_for_test(context: Context, rules: Sequence[Rule]) -> Scenario:
         pass
     rules: Sequence[Rule]
     problems: Optional[ScenarioProblems]

@@ -105,6 +105,13 @@ impl PyContext {
         Ok(())
     }
 
+    fn add_constant(&mut self, name: String) -> PyResult<()> {
+        self.inner
+            .declarations
+            .insert(name, Declaration::constant());
+        Ok(())
+    }
+
     #[getter]
     fn declarations(&self) -> PyResult<HashMap<String, PyDeclaration>> {
         Ok(self

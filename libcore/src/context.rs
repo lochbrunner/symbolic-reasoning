@@ -25,6 +25,13 @@ impl Declaration {
             only_root: false,
         }
     }
+    pub fn constant() -> Self {
+        Self {
+            is_fixed: true,
+            is_function: false,
+            only_root: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

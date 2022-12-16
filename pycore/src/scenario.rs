@@ -122,6 +122,19 @@ impl PyScenario {
         })
     }
 
+    #[staticmethod]
+    #[text_signature = "(context, rules/)"]
+    fn create_for_test(context: &PyContext, rules: Vec<PyRule>) -> PyResult<PyScenario> {
+        Ok(Self {
+            inner: Arc::new(Scenario {
+                declarations: context.inner.clone(),
+                rules: rules.into_iter().map(|r| (*r.inner).clone()).collect(),
+                problems: None,
+                premises: vec![],
+            }),
+        })
+    }
+
     #[getter]
     fn rules(&self) -> PyResult<Vec<PyRule>> {
         Ok(self.inner.rules.iter().map(PyRule::from).collect())

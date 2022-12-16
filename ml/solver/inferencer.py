@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional, Sequence
 import abc
 import numpy as np
@@ -6,6 +8,7 @@ import torch
 # project
 from models import create_model
 from common import io
+from common.utils import get_rule_mapping
 from common.timer import Timer
 from common.parameter_search import LearningParameter
 from dataset import create_scenario
@@ -70,18 +73,32 @@ def _policy_field_to_fitinfo(
 
 
 class SophisticatedInferencer(Inferencer):
-    def __init__(self, scenario: Scenario, rule_mapping: dict[int, Rule]) -> None:
+    def __init__(
+        self, tagset_size: int, rule_mapping: dict[int, Rule], seed: int = 0
+    ) -> None:
         super().__init__()
-        self._tagset_size = scenario.tagset_size
-        self._rng = np.random.default_rng(0)
+        self._tagset_size = tagset_size
+        self._rng = np.random.default_rng(seed)
         self._rule_mapping = rule_mapping
+
+    @classmethod
+    def from_scenario(cls, scenario: Scenario, seed: int = 0):
+        rule_mapping = get_rule_mapping(scenario)
+        return cls(
+            tagset_size=scenario.tagset_size, rule_mapping=rule_mapping, seed=seed
+        )
+
+    def clone_reversed(self):
+        return type(self)(
+            tagset_size=self._tagset_size,
+            rule_mapping={i: r.reverse for i, r in self._rule_mapping.items()},
+        )
 
     def __call__(
         self, initial: Symbol, count: Optional[int] = None
     ) -> tuple[Sequence[tuple[int, Path, float]], float]:
         fits = []
         for rule_id, rule in self._rule_mapping.items():
-            rule_id += 1
             for fit_map in fit(initial, rule.condition):
                 fits.append((rule_id, fit_map.path, 1.0))
                 if count is not None and count == len(fits):
