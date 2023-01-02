@@ -1,7 +1,7 @@
 use crate::bag::{PyContainer, PyFitInfo};
 use crate::rule::PyRule;
 use crate::symbol::{PyCnnEmbedding, PySymbol, UnrolledEmbedding};
-use core::dumper::dump_symbol_plain;
+use core::dumper::dump_plain;
 use core::embedding::Embeddable;
 use core::fit;
 use core::io::bag;
@@ -199,7 +199,7 @@ pub struct PySampleSet {
 
 impl PySampleSet {
     fn try_add(&mut self, sample: PySample) -> bool {
-        let key = dump_symbol_plain(&(*sample.data.initial.inner), true);
+        let key = dump_plain(&(*sample.data.initial.inner), &[], true);
 
         match self.samples.get_mut(&key) {
             None => {

@@ -1,8 +1,9 @@
 use crate::bag::PyFitInfo;
 use crate::common::op_to_string;
 use crate::context::PyContext;
-use core::dumper::Decoration;
-use core::dumper::{dump_latex, dump_symbol_plain};
+use core::dumper::{
+    dump_latex, dump_plain, dump_plain_with_bfs_pos, dump_plain_with_path, Decoration,
+};
 use core::embedding::{CnnEmbedding, Embeddable, GraphEmbedding};
 use core::Symbol;
 use ndarray::Array;
@@ -420,11 +421,19 @@ impl PyGraphEmbedding {
         Ok(self.inner.senders.to_pyarray(py).to_owned())
     }
     #[getter]
-    fn n_node(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+    fn n_node(&self) -> PyResult<i64> {
+        Ok(self.inner.n_node)
+    }
+    #[getter]
+    fn n_edge(&self) -> PyResult<i64> {
+        Ok(self.inner.n_edge)
+    }
+    #[getter]
+    fn n_node_np(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
         Ok([self.inner.n_node].to_pyarray(py).to_owned())
     }
     #[getter]
-    fn n_edge(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+    fn n_edge_np(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
         Ok([self.inner.n_edge].to_pyarray(py).to_owned())
     }
 
@@ -522,7 +531,7 @@ impl PySymbol {
     /// Dumps the verbose order of operators with equal precedence
     #[getter]
     fn verbose(&self) -> PyResult<String> {
-        Ok(dump_symbol_plain(&self.inner, true))
+        Ok(dump_plain(&self.inner, &[], true))
     }
 
     /// LaTeX representation of that node
@@ -779,6 +788,59 @@ impl PySymbol {
         }
         new_symbol.fix_depth();
         Ok(PySymbol::new(new_symbol))
+    }
+
+    #[text_signature = "($self, decorations, /)"]
+    fn plain_with_deco(&self, decorations: Vec<PyDecoration>) -> PyResult<String> {
+        let decorations = decorations
+            .iter()
+            .map(|deco| Decoration {
+                path: &deco.path,
+                pre: &deco.pre,
+                post: &deco.post,
+            })
+            .collect::<Vec<_>>();
+        Ok(dump_plain(&self.inner, &decorations, false))
+    }
+
+    #[text_signature = "($self, decorations, /)"]
+    fn plain_with_path(
+        &self,
+        decorations: Vec<PyDecoration>,
+    ) -> PyResult<(String, HashMap<String, (usize, usize)>)> {
+        let decorations = decorations
+            .iter()
+            .map(|deco| Decoration {
+                path: &deco.path,
+                pre: &deco.pre,
+                post: &deco.post,
+            })
+            .collect::<Vec<_>>();
+        Ok(dump_plain_with_path(&self.inner, &decorations, false))
+    }
+
+    #[text_signature = "($self, decorations=None, /)"]
+    fn plain_with_bfs_pos(
+        &self,
+        decorations: Option<Vec<PyDecoration>>,
+    ) -> PyResult<(String, Vec<(usize, usize)>)> {
+        if let Some(inner_decorations) = decorations {
+            let processed_decorations = inner_decorations
+                .iter()
+                .map(|deco| Decoration {
+                    path: &deco.path,
+                    pre: &deco.pre,
+                    post: &deco.post,
+                })
+                .collect::<Vec<_>>();
+            Ok(dump_plain_with_bfs_pos(
+                &self.inner,
+                &processed_decorations,
+                false,
+            ))
+        } else {
+            Ok(dump_plain_with_bfs_pos(&self.inner, &vec![], false))
+        }
     }
 
     #[text_signature = "($self, decorations, /)"]

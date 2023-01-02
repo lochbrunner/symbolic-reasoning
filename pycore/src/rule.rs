@@ -1,6 +1,6 @@
 use crate::context::PyContext;
 use crate::symbol::PySymbol;
-use core::dumper::{dump_latex, dump_symbol_plain};
+use core::dumper::{dump_latex, dump_plain};
 use core::Rule;
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::exceptions;
@@ -119,8 +119,8 @@ impl PyRule {
     fn verbose(&self) -> PyResult<String> {
         Ok(format!(
             "{} => {} ",
-            dump_symbol_plain(&self.inner.condition, true),
-            dump_symbol_plain(&self.inner.conclusion, true)
+            dump_plain(&self.inner.condition, &[], true),
+            dump_plain(&self.inner.conclusion, &[], true)
         ))
     }
 

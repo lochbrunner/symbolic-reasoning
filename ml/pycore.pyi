@@ -90,9 +90,19 @@ class Symbol:
         pass
     def at(self, path: _Path) -> Symbol:
         pass
+    def plain_with_deco(self, decorations: Sequence[Decoration]) -> str:
+        pass
     def latex_with_deco(self, decorations: Sequence[Decoration]) -> str:
         pass
     def latex_with_colors(self, colors: Sequence[tuple[str, _Path]]) -> str:
+        pass
+    def plain_with_path(
+        self, decorations: Sequence[Decoration]
+    ) -> tuple[str, dict[str, tuple[int, int]]]:
+        pass
+    def plain_with_bfs_pos(
+        self, decorations: Optional[Sequence[Decoration]] = None
+    ) -> tuple[str, Sequence[tuple[int, int]]]:
         pass
     def pad(self, padding: str, spread: int, depth: int) -> None:
         pass

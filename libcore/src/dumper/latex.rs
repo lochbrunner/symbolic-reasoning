@@ -78,6 +78,7 @@ pub fn dump_latex(symbol: &Symbol, decoration: &[Decoration], verbose: bool) -> 
         symbol,
         FormattingLocation::new(),
         true,
+        &mut NoOpDumpingHood {},
         &mut string,
     );
     string
@@ -92,19 +93,19 @@ impl Symbol {
     where
         W: std::io::Write,
     {
-        write!(
-            writer,
-            "{}",
+        writer.write(
             dump_latex(
                 self,
                 &[Decoration {
                     path,
                     pre: "\\mathbin{\\textcolor{red}{",
                     post: "}}",
-                },],
-                false
+                }],
+                false,
             )
-        )
+            .as_bytes(),
+        )?;
+        Ok(())
     }
 }
 

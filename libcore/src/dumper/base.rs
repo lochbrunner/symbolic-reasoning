@@ -1,3 +1,4 @@
+use crate::common::RefEquality;
 use crate::parser::Precedence;
 use crate::Symbol;
 use std::collections::{HashMap, HashSet};
@@ -60,6 +61,33 @@ pub struct Decoration<'a> {
     pub post: &'a str,
 }
 
+pub trait DumpingHook<'a> {
+    fn pre(&mut self, symbol: &'a Symbol, position: usize);
+    fn post(&mut self, symbol: &'a Symbol, position: usize);
+}
+
+pub struct NoOpDumpingHood {}
+
+impl<'a> DumpingHook<'a> for NoOpDumpingHood {
+    fn pre(&mut self, _symbol: &Symbol, _position: usize) {}
+    fn post(&mut self, _symbol: &Symbol, _position: usize) {}
+}
+
+#[derive(Default)]
+pub struct RecorderDumpingHook<'a> {
+    pub begin_positions: HashMap<RefEquality<'a, Symbol>, usize>,
+    pub end_positions: HashMap<RefEquality<'a, Symbol>, usize>,
+}
+
+impl<'a> DumpingHook<'a> for RecorderDumpingHook<'a> {
+    fn pre(&mut self, symbol: &'a Symbol, position: usize) {
+        self.begin_positions.insert(RefEquality(symbol), position);
+    }
+    fn post(&mut self, symbol: &'a Symbol, position: usize) {
+        self.end_positions.insert(RefEquality(symbol), position);
+    }
+}
+
 const P_HIGHEST: Precedence = Precedence::PFaculty;
 impl<'a> FormatContext<'a> {
     pub fn get<'b>(&self, key: &'b str) -> &'b str {
@@ -67,10 +95,11 @@ impl<'a> FormatContext<'a> {
     }
 
     pub fn format_function(
-        &self,
-        symbol: &Symbol,
+        &'a self,
+        symbol: &'a Symbol,
         location: &FormattingLocation,
         make_unary_minus: bool,
+        hook: &mut dyn DumpingHook<'a>,
         mut code: &mut String,
     ) -> Option<()> {
         self.formats
@@ -91,6 +120,7 @@ impl<'a> FormatContext<'a> {
                                 bracket,
                                 location.deeper(*index),
                                 make_unary_minus,
+                                hook,
                                 &mut code,
                             );
                         }
@@ -107,29 +137,42 @@ impl<'a> FormatContext<'a> {
     }
 }
 
-fn dump_atomic(
-    context: &FormatContext,
-    symbol: &Symbol,
+fn dump_atomic<'a>(
+    context: &'a FormatContext,
+    symbol: &'a Symbol,
     bracket: bool,
     location: FormattingLocation,
     make_unary_minus: bool,
+    hook: &mut dyn DumpingHook<'a>,
     string: &mut String,
 ) {
     if bracket {
         string.push_str(context.get("("));
-        dump_base(context, symbol, location, make_unary_minus, string);
+        dump_base(context, symbol, location, make_unary_minus, hook, string);
         string.push_str(context.get(")"));
     } else {
-        dump_base(context, symbol, location, make_unary_minus, string);
+        dump_base(context, symbol, location, make_unary_minus, hook, string);
     }
 }
 
-/// Improvement hint: implement a version taking a Writer instead a String
-pub fn dump_base(
+fn push_ident<'a>(
     context: &FormatContext,
-    symbol: &Symbol,
+    hook: &mut dyn DumpingHook<'a>,
+    string: &mut String,
+    symbol: &'a Symbol,
+) {
+    hook.pre(symbol, string.len());
+    string.push_str(context.get(&symbol.ident));
+    hook.post(symbol, string.len());
+}
+
+/// Improvement hint: implement a version taking a Writer instead a String
+pub fn dump_base<'a>(
+    context: &'a FormatContext,
+    symbol: &'a Symbol,
     location: FormattingLocation,
     make_unary_minus: bool,
+    hook: &mut dyn DumpingHook<'a>,
     mut string: &mut String,
 ) {
     let actual_decoration = location.select_decoration(&context.decoration);
@@ -138,11 +181,12 @@ pub fn dump_base(
     }
 
     if context
-        .format_function(&symbol, &location, make_unary_minus, &mut string)
+        .format_function(&symbol, &location, make_unary_minus, hook, &mut string)
         .is_none()
     {
         match symbol.childs.len() {
-            0 => string.push_str(context.get(&symbol.ident)),
+            // 0 => string.push_str(context.get(&symbol.ident)),
+            0 => push_ident(context, hook, string, symbol),
             1 if context.operators.postfix.contains(&symbol.ident[..]) => {
                 let child = &symbol.childs[0];
                 let pre_child = context.get_precedence_or_default(&child);
@@ -152,21 +196,23 @@ pub fn dump_base(
                     pre_child < &P_HIGHEST,
                     location,
                     make_unary_minus,
+                    hook,
                     string,
                 );
-                string.push_str(context.get(&symbol.ident));
+                push_ident(context, hook, string, symbol);
             }
             1 if context.operators.prefix.contains(&symbol.ident[..]) => {
                 let child = &symbol.childs[0];
                 let pre_child = context.get_precedence_or_default(&child);
 
-                string.push_str(context.get(&symbol.ident));
+                push_ident(context, hook, string, symbol);
                 dump_atomic(
                     context,
                     child,
                     pre_child < &P_HIGHEST,
                     location.deeper(0),
                     make_unary_minus,
+                    hook,
                     string,
                 );
             }
@@ -192,9 +238,10 @@ pub fn dump_base(
                         pre_left < pre_root,
                         location.deeper(0),
                         make_unary_minus,
+                        hook,
                         string,
                     );
-                    string.push_str(context.get(&symbol.ident));
+                    push_ident(context, hook, string, symbol);
                     dump_atomic(
                         context,
                         right,
@@ -206,19 +253,27 @@ pub fn dump_base(
                                     .contains(&symbol.ident[..])),
                         location.deeper(1),
                         make_unary_minus,
+                        hook,
                         string,
                     );
                 }
             }
             _ => {
-                string.push_str(context.get(&symbol.ident));
+                push_ident(context, hook, string, symbol);
                 let mut first = true;
                 string.push_str(context.get("("));
                 for (i, child) in symbol.childs.iter().enumerate() {
                     if !first {
                         string.push_str(", ");
                     }
-                    dump_base(context, child, location.deeper(i), make_unary_minus, string);
+                    dump_base(
+                        context,
+                        child,
+                        location.deeper(i),
+                        make_unary_minus,
+                        hook,
+                        string,
+                    );
                     first = false;
                 }
                 string.push_str(context.get(")"));
