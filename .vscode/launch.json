@@ -8,10 +8,21 @@
             "name": "core test",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/core-e1c2cdf2ab37368b",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib=core",
+                    "--package=core",
+                ],
+                "filter": {
+                    "name": "core",
+                    "kind": "lib"
+                }
+            },
             "args": [
                 "--test",
-                "double_super_script_2",
+                "derivative_simple",
                 "--nocapture"
             ],
             "sourceLanguages": [
@@ -20,33 +31,28 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "generator test",
-            "type": "lldb",
+            "name": "pycore",
+            "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/deps/generator-0a1dbfa4861c0e9e",
+            "program": "${workspaceFolder}/pycore/test/run_tests.py",
             "args": [
-                "--test",
-                "augmentation",
-                "--nocapture"
+                "-v"
             ],
-            "sourceLanguages": [
-                "rust"
-            ],
-            "cwd": "${workspaceFolder}"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         },
         {
-            "name": "generator",
-            "type": "lldb",
+            "name": "ml tests",
+            "type": "python",
             "request": "launch",
-            "program": "target/debug/generator",
+            "program": "${workspaceFolder}/ml/run_tests.py",
             "args": [
-                "-c",
-                "real_world_problems/basics/dataset.yaml"
+                "-v"
             ],
-            "sourceLanguages": [
-                "rust"
-            ],
-            "cwd": "${workspaceFolder}"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         },
         {
             "name": "train",
@@ -55,8 +61,24 @@
             "program": "${workspaceFolder}/ml/train.py",
             "args": [
                 "-c",
-                "real_world_problems/basics/dataset.yaml",
+                "real_world_problems/number_crunching/config.yaml",
                 "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "train (solver data)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/train.py",
+            "args": [
+                "-c",
+                "real_world_problems/number_crunching/config.yaml",
+                "-v",
+                "--use-solved-problems",
+                "--create-fresh-model"
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
@@ -69,10 +91,8 @@
             "program": "${workspaceFolder}/ml/solve.py",
             "args": [
                 "--config",
-                "${workspaceFolder}/real_world_problems/basics/dataset.yaml",
-                "--log",
-                "info",
-                "--solve-training",
+                "${workspaceFolder}/real_world_problems/number_crunching/dataset.yaml",
+                "-v",
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
@@ -111,6 +131,21 @@
             "justMyCode": false
         },
         {
+            "name": "t3 loop",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ml/t3_loop.py",
+            "args": [
+                "-c",
+                "${workspaceFolder}/real_world_problems/basics/config.yaml",
+                "--policy-last",
+                "--fresh-model"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "azure submit",
             "type": "python",
             "request": "launch",
@@ -118,6 +153,35 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/azure",
             "justMyCode": false
+        },
+        {
+            "name": "generator test",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/generator-0a1dbfa4861c0e9e",
+            "args": [
+                "--test",
+                "augmentation",
+                "--nocapture"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "generator",
+            "type": "lldb",
+            "request": "launch",
+            "program": "target/debug/generator",
+            "args": [
+                "-c",
+                "real_world_problems/basics/dataset.yaml"
+            ],
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cwd": "${workspaceFolder}"
         },
     ]
 }

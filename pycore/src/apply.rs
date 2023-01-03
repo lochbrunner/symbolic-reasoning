@@ -1,6 +1,5 @@
 use crate::fit::PyFitMap;
 use crate::symbol::PySymbol;
-use core;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;

@@ -1,0 +1,48 @@
+
+% sample id: #19818
+\begin{tikzpicture}[scale=0.6]
+    \foreach \r/\p/\v in {
+    0/2/0, 1/0/19, 2/0/11, 3/0/31, 4/0/26, 5/1/18, 5/3/66, 5/4/61, 5/2/46, 5/5/59, 5/6/48, 6/2/37, 7/1/46, 7/3/78, 7/4/100, 7/2/48, 7/5/70, 7/6/60
+        } {
+        \node[fromColorBar=\v, minimum size=6mm, text=white] at (\p+1, -1-\r) {};
+    }
+    \foreach \t [count=\p] in {
+        $a\cdot b \Rightarrow b\cdot a $,
+    $a=b \Rightarrow a-b=0 $,
+    $a=c\cdot b \Rightarrow \frac{a}{b}=c $,
+    $\frac{a}{b}=c \Rightarrow a=c\cdot b $,
+    $a=b \Rightarrow b=a $,
+    $a \Rightarrow 1\cdot a $,
+    $1\cdot a \Rightarrow a $,
+    $a \Rightarrow a+0 $
+    } {
+        \node[anchor=west] at (8, -\p) {\t};
+    }
+    \foreach \t [count=\r] in {
+        $\textcolor{MidnightBlue}{\frac{b}{x}=1\cdot a}$,
+    $\textcolor{Gray}{\textcolor{MidnightBlue}{\frac{b}{x}}=1\cdot a}$,
+    $\textcolor{Gray}{\frac{b}{x}=\textcolor{MidnightBlue}{1\cdot a}}$,
+    $\textcolor{Gray}{\frac{\textcolor{MidnightBlue}{b}}{x}=1\cdot a}$,
+    $\textcolor{Gray}{\frac{b}{\textcolor{MidnightBlue}{x}}=1\cdot a}$,
+    $\textcolor{Gray}{\frac{b}{x}=\textcolor{MidnightBlue}{1}\cdot a}$,
+    $\textcolor{Gray}{\frac{b}{x}=1\cdot \textcolor{MidnightBlue}{a}}$
+    } {
+        \node[anchor=west, rotate=-45] at (\r - 0.2, -8.7) {\t};
+    }
+    \begin{axis}[
+        hide axis,
+        scale only axis,
+        height=0pt,
+        width=0pt,
+        colorbar horizontal,
+        point meta min=0,
+        point meta max=100,
+        colorbar style={
+            width=8cm,
+            rotate=90,
+            at={(-1.5cm,-1cm)},
+            anchor=north west,
+            x tick label style={anchor=west}
+        }]
+    \end{axis}
+\end{tikzpicture}

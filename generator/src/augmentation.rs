@@ -1,7 +1,7 @@
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-use core::bag::FitInfo;
+use core::io::bag::FitInfo;
 use core::Symbol;
 
 #[derive(Clone, Copy)]
@@ -47,7 +47,7 @@ fn create_combinations<'a, T>(
     combinations
 }
 
-pub fn augment_with_permuted_free_idents<'a>(
+pub fn augment_with_permuted_free_idents(
     free_idents: &HashSet<&str>,
     leafs: &[&Symbol],
     strategy: AugmentationStrategy,
@@ -83,6 +83,7 @@ pub fn augment_with_permuted_free_idents<'a>(
 #[cfg(test)]
 mod specs {
     use super::*;
+    use core::io::bag::Policy;
     use core::Context;
 
     static STRATEGY: AugmentationStrategy = AugmentationStrategy::Full;
@@ -163,6 +164,7 @@ mod specs {
             FitInfo {
                 rule_id: 1,
                 path: vec![],
+                policy: Policy::Positive,
             },
         );
         let actual = augment_with_permuted_free_idents(&free_idents, &leafs, STRATEGY, orig);
@@ -188,6 +190,7 @@ mod specs {
             FitInfo {
                 rule_id: 1,
                 path: vec![],
+                policy: Policy::Positive,
             },
         );
 

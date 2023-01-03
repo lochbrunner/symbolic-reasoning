@@ -1,0 +1,163 @@
+$side-menu-width: 50px;
+
+.activation{
+    --y-label-width: 200px;
+    --x-label-height: 160px;
+    
+    > div.main {
+        .upper-container{
+            overflow-y: scroll;
+            direction:rtl;
+            height: 500px;
+            .upper {
+                direction:ltr;
+                height: 100%;
+                position: relative;
+                .y-label {
+                    font-size: 80%;
+                    position: absolute;
+                    margin: 0 20px;
+                    top: 0;
+                    grid-row: 1;
+                    grid-column: 1;
+                    width: var(--y-label-width);
+                    
+                    > div {
+                        position: absolute;
+                    }
+                }
+
+            
+                >svg {
+                    position: absolute;
+                    left: var(--y-label-width);
+                    grid-row: 1;
+                    grid-column: 2;
+                    width: calc(100% - var(--y-label-width));
+                    height: 100%;
+                
+                    .gt.cell {
+                        stroke-width:3;
+                        fill: none;
+                        &.positive{
+                            stroke:#0f0;
+                        }
+                        &.negative{
+                            stroke:#f00;
+                        }
+                    }
+
+                    rect.possibility {
+                        fill:#888;
+                    }
+                }
+            }
+        }
+
+        .input-layers{
+            .row {
+                position: relative;
+                overflow:auto;
+                display: table;
+                border-top: solid 1px #eee;
+                width: 100%;
+                .label {
+                    background-color: #fafafa;
+                    height: 100%;
+                    width: var(--y-label-width);
+                    float: left;
+                    padding: 5px;
+                    display: table-cell;
+                }
+                .content{
+                    height: 100%;
+                    float: left;
+                    display: table-cell;
+                    position: relative;
+                    width: calc(100% - var(--y-label-width) - 10px);
+                    > div{
+                        position: absolute;
+                        border-right: solid 1px #ddd;
+                        padding: 3px;
+                    }
+
+                    &.boolean {
+                        .success{
+                            color: green;
+                        }
+                        .failed {
+                            color: red;
+                        }
+                    }
+
+                    &.index-map {
+                        span{
+                            margin: 2px;
+                        }
+                        .self{
+                            color: #a00;
+                        }
+                        .self-bg {
+                            background-color: #fcc;;
+                        }
+                        .parent {
+                            color: #00a;
+                        }
+                        .parent-bg {
+                            background-color: #ccf;;
+                        }
+                        .child-1 {
+                            color: #8a0;
+                        }
+                        .child-1-bg {
+                            background-color: #efc;;
+                        }
+                        .child-2 {
+                            color: #0a8;
+                        }
+                        .child-2-bg {
+                            background-color: #cfe;;
+                        }
+                    }
+                }
+            }
+        }
+
+        .lower {
+            height: var(--x-label-height);
+            position: relative;
+            width: calc(100% - 12px);
+            .x-label {
+                position: absolute;
+                height: 100%;
+                left: var(--y-label-width);
+                width: calc(100% - var(--y-label-width));
+                >div {
+                    position: absolute;
+        
+                    >span {
+                        text-align: right;
+                        display: block ruby;
+                        transform: rotate(-50deg);
+                        transform-origin: right;
+                    }
+                }
+            }
+        }
+    }
+
+    .layer-control {
+        user-select: none;
+        margin: 10px 10%;
+
+        .MuiFormLabel-root{
+            padding: 9px;
+            width: 120px;
+            text-align: right;
+        }
+
+        .copy-table {
+            margin: 7px 8px 0px;
+        }
+    }
+}

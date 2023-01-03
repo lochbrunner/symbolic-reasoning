@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from pycore import SymbolBuilder
-
 import unittest
+
+from pycore import SymbolBuilder
 
 
 class TestSymbolBuilder(unittest.TestCase):

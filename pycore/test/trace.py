@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from itertools import islice
-from pycore import Trace, Symbol, Rule, Context
+from pycore import Trace, Rule, Context
 
 context = Context.standard()
 

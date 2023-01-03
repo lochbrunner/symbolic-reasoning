@@ -332,6 +332,7 @@ mod e2e {
         let rule = Rule {
             condition: Symbol::parse(&context, "a-a").unwrap(),
             conclusion: Symbol::parse(&context, "0").unwrap(),
+            name: "test rule".to_owned(),
         };
 
         let mapping = fit(&initial, &rule.condition).pop().expect("One mapping");

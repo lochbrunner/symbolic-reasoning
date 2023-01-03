@@ -2,11 +2,21 @@ use super::{Context, Symbol};
 
 use std::fmt;
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Rule {
     pub condition: Symbol,
     pub conclusion: Symbol,
-    // pub name: String
+    pub name: String,
+}
+
+impl Default for Rule {
+    fn default() -> Self {
+        Self {
+            condition: Default::default(),
+            conclusion: Default::default(),
+            name: "Padding".to_owned(),
+        }
+    }
 }
 
 impl Rule {
@@ -19,6 +29,7 @@ impl Rule {
             Rule {
                 conclusion,
                 condition,
+                name: "test rule".to_owned(),
             }
         } else {
             panic!();
@@ -34,10 +45,12 @@ impl Rule {
                 Rule {
                     conclusion: condition.clone(),
                     condition: conclusion.clone(),
+                    name: "(i)".to_owned(),
                 },
                 Rule {
                     conclusion,
                     condition,
+                    name: "(iI)".to_owned(),
                 },
             ]);
         }
@@ -48,6 +61,7 @@ impl Rule {
             return Ok(vec![Rule {
                 conclusion,
                 condition,
+                name: "".to_owned(),
             }]);
         }
         let mut parts = code.split("<=").collect::<Vec<&str>>();
@@ -57,6 +71,7 @@ impl Rule {
             return Ok(vec![Rule {
                 conclusion,
                 condition,
+                name: "".to_owned(),
             }]);
         }
         let mut parts = code.split(":=").collect::<Vec<&str>>();
@@ -66,6 +81,7 @@ impl Rule {
             return Ok(vec![Rule {
                 conclusion,
                 condition,
+                name: "".to_owned(),
             }]);
         }
 
@@ -76,6 +92,7 @@ impl Rule {
             return Ok(vec![Rule {
                 conclusion,
                 condition,
+                name: "".to_owned(),
             }]);
         }
 
@@ -87,6 +104,7 @@ impl Rule {
         Rule {
             condition: self.conclusion.clone(),
             conclusion: self.condition.clone(),
+            name: self.name.clone(),
         }
     }
 }

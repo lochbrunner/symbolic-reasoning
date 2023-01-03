@@ -2,13 +2,18 @@ use pyo3::prelude::*;
 
 mod apply;
 mod bag;
+mod common;
 mod context;
 mod fit;
 mod rule;
 mod scenario;
+mod solver_trace;
 mod symbol;
 mod symbol_builder;
 mod trace;
+
+#[macro_use]
+extern crate serde_derive;
 
 #[pymodule]
 fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
@@ -25,8 +30,11 @@ fn pycore(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<bag::PyBagMeta>()?;
     m.add_class::<bag::PyFitInfo>()?;
     m.add_class::<bag::PyContainer>()?;
-    m.add_class::<bag::PySample>()?;
+    m.add_class::<bag::sample::PySample>()?;
+    m.add_class::<bag::sample::PySampleSet>()?;
     m.add_class::<scenario::PyScenario>()?;
+    m.add_class::<scenario::PyScenarioProblems>()?;
+    solver_trace::register(m)?;
     fit::register(m)?;
     apply::register(m)?;
     Ok(())

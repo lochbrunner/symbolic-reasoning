@@ -1,13 +1,10 @@
 name: basic
-declarations:
-  f:
-    is_fixed: true
-    is_function: true
-    only_root: false
+declarations: {}
 rules:
   trivial subtraction: a-a => 0
   trivial division: a/a => 1
-  trivial multiplication: 0*a => 0 
+  trivial multiplication 1: 0*a => 0
+  # trivial multiplication 2: 1*a <=> a
   # counting
   counting 2: 1+1 => 2
   counting 3: 1+2 => 3
@@ -20,88 +17,37 @@ rules:
   # others
   commutative property 1: a*b => b*a
   commutative property 2: a+b => b+a
-  associative property: a*(b*c) <=> (a*b)*c 
+  commutative property 3: a-b <=> a+(-1*b)
+  associative property 1: a*(b*c) <=> (a*b)*c
+  associative property 2: a*(b/c) <=> (a*b)/c
+  associative property 3: a+(b+c) <=> (a+b)+c
+  associative property 4: a+(b-c) <=> (a+b)-c
+  associative property 5: a-(b+c) <=> (a-b)-c # Should we replace this by 'a-(b+c) <=> a+ -1*(b+c)' ?
+  associative property 6: a-(b-c) <=> (a-b)+c # See above
   distributive property 1: a*(b+c) <=> a*b+a*c
   distributive property 2: a*(b-c) <=> a*b-a*c
   # neutrals
-  neutral sum: a+0 => a
+  neutral sum: a+0 <=> a
   neutral subtraction: a-0 => a
-  neutral product: 1*a => a
-  neutral division: a/1 => a
+  neutral product: 1*a <=> a
+  neutral division 1: a/1 => a
+  # neutral division 2: a/a <=> 1   # dangerous: needs trained variable generator
+  # division corollaries
+  subtract divisions: a/b-c/d <=> (a*d-c*b)/(b*d)
+  subtract divisions (corollary): a/b-c <=> (a-c*b)/b
+  add divisions: a/b-c/d <=> (a*d-c*b)/(b*d)
+  revert division (a!=0 c!=0): a/b = c/d <=> b/a = d/c
   # exponentiation
   square: a*a <=> a^2
   next exponent: a*a^n <= a^(n+1)
   neutral exponent: a^1 => a
   trivial exponent: a^0 => 1
   # equations
-  equation 1: a - b = 0 => a = b
-  equation 3: a / b = 1 => a = b
-premises:
- - x = y
- - x = 0
- - x = 1
- - x = 2
- - x = y + z
- - x = y - z
- - x = y * z
- - x = y^2
- - x = y / z
- - x = 2y + z + 1
+  equation 1: a + b = c <=> a = c - b
+  equation 1.1: a - b = 0 <=> a = b # corollary from 1
+  equation 2: a / b = c <=> a = c*b
+  equation 2.1: a / b = 1 => a = b # corollary from 3
+  equation commutative: a = b => b = a
+  subtraction 1: a - b <=> a + (-b)
 problems:
-  one step: 3/3 => 1
-  two steps: 3/(1+2) => 1
-  # binomial formula (a+b)(a+b) => (a+b)*a + (a+b)*b => a*a+b*a + (a+b)*b => a*a+b*a + a*b+b*b
-  three steps: (a+b)(a+b) => a*a+b*a + a*b+b*b
-  four steps: (a+b)^2 => a*a+b*a + a*b+b*b
-  five steps: (a+b)^2 => a*a+b*a + b*a+b*b
-  six steps: (a+b)^2 => a*a + 2*b*a + b*b
-  seven steps: (a+b)^2 => a^2 + 2*b*a + b*b
-  eight steps: (a+b)^2 => a^2 + 2*b*a + b^2
-files:
-  working-folder: experiments
-  trainings-data: &bag experiments/bag-basic.bin
-  trainings-data-traces: experiments/bag-basic_*.tr
-  model: &model experiments/bag-basic_parameter_search.sp
-  training-statistics: &training-statistics experiments/training-statistics.yaml
-  evaluation-results: experiments/evaluation-results.yaml
-generation:
-  stages: [12,12,8,8,8,7,6,6,6,6,6,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
-  max-depth: 10
-  max-size: 127
-  min-working-density: 0.1
-  min-result-density: 0.05
-  distribution-suppression-exponent: 1.8
-  augmentation: 
-    enabled: true # Permuting free variables
-    factor: 10
-  blacklist-pattern:
-    - (1*1)*(1*1)
-    - (0+0)+(0+0)
-    - 0-(0-0)
-    - (1^1)^(1^1)
-training:
-  save-model: *model
-  device: cpu
-  # Learning
-  num-epochs: 20
-  report-rate: 2
-  batch-size: 32
-  learning-rate: 0.1 # Not needed here
-  gradient-clipping: 0.1
-  model-name: TreeCnnUniqueIndices
-  # Scenario
-  scenario: bag
-  filename: *bag
-  statistics: *training-statistics
-  model-parameter:
-    embedding_size: [24, 32]
-    hidden_layers: 2
-    dropout: 0
-    use_props: [False, True]
-evaluation:
-  num_epochs: 30
-  problems:
-    beam-size: 70
-  training-data:
-    beam-size: '1:15'
-    max-steps: -1
+  filename: experiments/basics/problems.spb

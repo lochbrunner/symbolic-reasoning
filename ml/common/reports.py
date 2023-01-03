@@ -1,7 +1,47 @@
-import matplotlib.pyplot as plt
 from os import path, makedirs
-import pickle
+from typing import Dict
 import logging
+import matplotlib.pyplot as plt
+import pickle
+
+from solver.metrics import Tops
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ModuleNotFoundError:
+    SummaryWriter = type(None)
+
+
+def report_tops(
+    tops: Tops, epoch: int, writer: SummaryWriter = None, label='tops'
+) -> None:
+    total = float(tops.total)
+
+    N = 7
+
+    def top_k_str(i):
+        return f'#{i}: {top_k(i):.3f}'
+
+    def top_k(i):
+        if i in tops.values:
+            return tops.values[i] / total
+        return 0.0
+
+    if total > 0:
+        rest = sum(v for i, v in tops.values.items() if i >= N) / total
+    else:
+        rest = 0
+
+    if writer:
+        scalars = {f'top_{i}': top_k(i) for i in range(1, N)}
+        scalars['rest'] = rest
+        writer.add_scalars(label, scalars, epoch)
+        writer.add_scalar(f'{label}/worst', float(tops.worst), epoch)
+        writer.flush()
+
+    if not writer:
+        tops_str = ', '.join(top_k_str(i) for i in range(1, N))
+        print(f'{label}: {tops_str}, rest: {rest:.3f}, worst: {tops.worst:.3f}')
 
 
 class TrainingProgress:
@@ -15,21 +55,35 @@ def plot_error(ax, progress, color, label='Error'):
     ax.set_xlabel('epoche')
     ax.set_ylabel(f'error [%]')
     ax.set_ylim(ymin=0, ymax=100)
-    ax.plot([step.iteration for step in progress],
-            [step.error*100.0 for step in progress], label=label, color=color)
+    ax.plot(
+        [step.iteration for step in progress],
+        [step.error * 100.0 for step in progress],
+        label=label,
+        color=color,
+    )
     ax.tick_params(axis='y')
 
 
 def plot_loss(ax, progress, color, label='Loss'):
     ax.set_xlabel('epoche')
     ax.set_ylabel('loss')
-    ax.plot([step.iteration for step in progress],
-            [step.loss for step in progress], label=label, color=color)
+    ax.plot(
+        [step.iteration for step in progress],
+        [step.loss for step in progress],
+        label=label,
+        color=color,
+    )
     ax.tick_params(axis='y')
     ax.set_ylim(ymin=0)
 
 
-def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/training.{}.{}.svg', dump_filename='./reports/flat/dump.p'):
+def plot_train_progess(
+    progress,
+    strategy,
+    use,
+    plot_filename='./reports/flat/training.{}.{}.svg',
+    dump_filename='./reports/flat/dump.p',
+):
     fig, ax1 = plt.subplots(figsize=(12, 9))
     plot_error(ax1, progress, 'tab:red')
 
@@ -54,7 +108,9 @@ def plot_train_progess(progress, strategy, use, plot_filename='./reports/flat/tr
     pickle.dump(dump, open(dump_filename, 'wb'))
 
 
-def draw_dump(plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='../reports/dump.p'):
+def draw_dump(
+    plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='../reports/dump.p'
+):
     with open(dump_filename, 'rb') as pickle_file:
         dump = pickle.load(pickle_file)
 
@@ -66,7 +122,7 @@ def draw_dump(plot_filename='./reports/summary/flat/{}.{}.svg', dump_filename='.
         'rebuilt': 'tab:red',
         'torch': 'tab:purple',
         'None': 'tab:purple',
-        'optimized-two': 'tab:cyan'
+        'optimized-two': 'tab:cyan',
     }
 
     for strategy in dump:

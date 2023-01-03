@@ -1,0 +1,13 @@
+name: advanced
+include:
+  - real_world_problems/basics/dataset.yaml
+declarations:
+  I:
+    is_function: false
+  e:
+    is_function: false
+  sqrt:
+    is_function: true
+rules: {}
+problems:
+  filename: experiments/advanced/problems.spb

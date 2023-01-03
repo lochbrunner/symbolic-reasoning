@@ -29,3 +29,7 @@ Walk randomly from simple terms to complex ones.
 * Rule based symbolic reasoning using indexed convolution networks
 * Using hierarchical Network for self-learned abstraction
 * Similarity modeling
+
+# Useful tools
+
+* [randltl](https://spot.lrde.epita.fr/randltl.html) This tool generates random formulas. (logic formulas only)

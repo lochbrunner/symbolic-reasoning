@@ -1,14 +1,16 @@
 use crate::bag::PyFitInfo;
+use crate::common::op_to_string;
 use crate::context::PyContext;
-use core::dumper::Decoration;
-use core::dumper::{dump_latex, dump_symbol_plain};
-use core::symbol::Embedding;
+use core::dumper::{
+    dump_latex, dump_plain, dump_plain_with_bfs_pos, dump_plain_with_path, Decoration,
+};
+use core::embedding::{CnnEmbedding, Embeddable, GraphEmbedding};
 use core::Symbol;
 use ndarray::Array;
-use numpy::{IntoPyArray, PyArray1, PyArray2};
+use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::class::basic::{CompareOp, PyObjectProtocol};
 use pyo3::class::iter::PyIterProtocol;
-use pyo3::exceptions::{IndexError, KeyError, NotImplementedError, TypeError};
+use pyo3::exceptions::{IndexError, KeyError, LookupError, NotImplementedError, TypeError};
 use pyo3::gc::{PyGCProtocol, PyVisit};
 use pyo3::prelude::*;
 use std::collections::hash_map::DefaultHasher;
@@ -38,7 +40,7 @@ impl PyDecoration {
 }
 
 /// Python Wrapper for core::Symbol
-#[pyclass(name=Symbol,subclass)]
+#[pyclass(name=Symbol,module="pycore",subclass)]
 #[derive(PartialEq)]
 pub struct PySymbol {
     pub inner: Arc<Symbol>,
@@ -60,12 +62,90 @@ impl Clone for PySymbol {
     }
 }
 
+pub type UnrolledEmbedding = (
+    Py<PyArray2<i64>>, // features
+    Option<Py<PyArray2<i16>>>,
+    Option<Py<PyArray2<i64>>>,
+    Py<PyArray1<i64>>,  // label
+    Py<PyArray1<f32>>,  // policy
+    Py<PyArray1<i64>>,  // value
+    Py<PyArray2<f32>>,  // target
+    Py<PyArray2<bool>>, // mask
+);
+
 impl PySymbol {
     pub fn new(symbol: Symbol) -> PySymbol {
         PySymbol {
             inner: Arc::new(symbol),
             attributes: HashMap::new(),
         }
+    }
+
+    /// Unrolls the symbol tree using breath first traversing
+    /// u16 is not supported by pytorch
+    pub fn embed_cnn_unrolled_impl(
+        &self,
+        py: Python,
+        dict: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        target_size: usize,
+        fits: &[PyFitInfo],
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+        use_additional_features: bool,
+    ) -> PyResult<UnrolledEmbedding> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let CnnEmbedding {
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+            target,
+            possibility_mask,
+        } = self
+            .inner
+            .embed_cnn(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                target_size,
+                &fits,
+                useful,
+                index_map,
+                positional_encoding,
+                use_additional_features,
+            )
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
+
+        let index_map = make_optional_2darray(py, index_map)?;
+        let positional_encoding = make_optional_2darray(py, positional_encoding)?;
+        let label = label.into_pyarray(py).to_owned();
+        let policy = policy.into_pyarray(py).to_owned();
+        let value = [value].to_pyarray(py).to_owned(); // value.into_pyarray(py).to_owned();
+        let embedded = make_2darray(py, embedded)?;
+        let target = make_2darray(py, target)?;
+        let possibility_mask = make_2darray(py, possibility_mask)?;
+        Ok((
+            embedded,
+            index_map,
+            positional_encoding,
+            label,
+            policy,
+            value,
+            target,
+            possibility_mask,
+        ))
     }
 }
 
@@ -223,7 +303,7 @@ impl PyIterProtocol for PySymbolAndPathBfsIter {
     }
 }
 
-fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
+pub fn make_2darray<T>(py: Python, orig: Vec<Vec<T>>) -> PyResult<Py<PyArray2<T>>>
 where
     T: numpy::Element,
 {
@@ -236,8 +316,162 @@ where
     .to_owned())
 }
 
+pub fn make_optional_2darray<T>(
+    py: Python,
+    orig: Option<Vec<Vec<T>>>,
+) -> PyResult<Option<Py<PyArray2<T>>>>
+where
+    T: numpy::Element,
+{
+    if let Some(orig) = orig {
+        Ok(Some(make_2darray(py, orig)?))
+    } else {
+        Ok(None)
+    }
+}
+
+#[pyclass(name=CnnEmbedding)]
+pub struct PyCnnEmbedding {
+    inner: Arc<CnnEmbedding>,
+}
+
+impl PyCnnEmbedding {
+    pub fn new(data: CnnEmbedding) -> Self {
+        Self {
+            inner: Arc::new(data),
+        }
+    }
+}
+
+#[pymethods]
+impl PyCnnEmbedding {
+    #[getter]
+    fn idents(&self, py: Python) -> PyResult<Py<PyArray2<i64>>> {
+        make_2darray(py, self.inner.embedded.clone())
+    }
+
+    #[getter]
+    fn index_map(&self, py: Python) -> PyResult<Option<Py<PyArray2<i16>>>> {
+        make_optional_2darray(py, self.inner.index_map.clone())
+    }
+
+    #[getter]
+    fn positional_encoding(&self, py: Python) -> PyResult<Option<Py<PyArray2<i64>>>> {
+        make_optional_2darray(py, self.inner.positional_encoding.clone())
+    }
+
+    #[getter]
+    fn rules(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok(self.inner.label.clone().into_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn policy(&self, py: Python) -> PyResult<Py<PyArray1<f32>>> {
+        Ok(self.inner.policy.clone().into_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.value].to_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn target(&self, py: Python) -> PyResult<Py<PyArray2<f32>>> {
+        make_2darray(py, self.inner.target.clone())
+    }
+
+    #[getter]
+    fn mask(&self, py: Python) -> PyResult<Py<PyArray2<bool>>> {
+        make_2darray(py, self.inner.possibility_mask.clone())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyCnnEmbedding {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
+    }
+}
+
+#[pyclass(name=GraphEmbedding)]
+pub struct PyGraphEmbedding {
+    inner: Arc<GraphEmbedding>,
+}
+
+impl PyGraphEmbedding {
+    pub fn new(data: GraphEmbedding) -> Self {
+        Self {
+            inner: Arc::new(data),
+        }
+    }
+}
+
+#[pymethods]
+impl PyGraphEmbedding {
+    #[getter]
+    fn nodes(&self, py: Python) -> PyResult<Py<PyArray2<i64>>> {
+        make_2darray(py, self.inner.nodes.clone())
+    }
+    #[getter]
+    fn edges(&self, py: Python) -> PyResult<Py<PyArray1<i32>>> {
+        Ok(self.inner.edges.to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn receivers(&self, py: Python) -> PyResult<Py<PyArray1<i16>>> {
+        Ok(self.inner.receivers.to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn senders(&self, py: Python) -> PyResult<Py<PyArray1<i16>>> {
+        Ok(self.inner.senders.to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn n_node(&self) -> PyResult<i64> {
+        Ok(self.inner.n_node)
+    }
+    #[getter]
+    fn n_edge(&self) -> PyResult<i64> {
+        Ok(self.inner.n_edge)
+    }
+    #[getter]
+    fn n_node_np(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.n_node].to_pyarray(py).to_owned())
+    }
+    #[getter]
+    fn n_edge_np(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.n_edge].to_pyarray(py).to_owned())
+    }
+
+    #[getter]
+    fn target(&self, py: Python) -> PyResult<Py<PyArray2<f32>>> {
+        make_2darray(py, self.inner.target.clone())
+    }
+    #[getter]
+    fn mask(&self, py: Python) -> PyResult<Py<PyArray2<bool>>> {
+        make_2darray(py, self.inner.possibility_mask.clone())
+    }
+    #[getter]
+    fn value(&self, py: Python) -> PyResult<Py<PyArray1<i64>>> {
+        Ok([self.inner.value].to_pyarray(py).to_owned())
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PyGraphEmbedding {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self.inner))
+    }
+}
+
 #[pymethods]
 impl PySymbol {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            inner: Arc::new(Symbol::default()),
+            attributes: HashMap::new(),
+        }
+    }
+
     #[staticmethod]
     #[text_signature = "(context, code, /)"]
     fn parse(context: &PyContext, code: String) -> PyResult<PySymbol> {
@@ -250,6 +484,13 @@ impl PySymbol {
     #[args(fixed = false)]
     fn variable(ident: &str, fixed: bool) -> PyResult<PySymbol> {
         Ok(PySymbol::new(Symbol::new_variable(ident, fixed)))
+    }
+
+    #[staticmethod]
+    #[text_signature = "(ident, fixed, /)"]
+    #[args(fixed = false)]
+    fn number(value: i64) -> PyResult<PySymbol> {
+        Ok(PySymbol::new(Symbol::new_number(value)))
     }
 
     #[getter]
@@ -294,19 +535,19 @@ impl PySymbol {
     /// Dumps the verbose order of operators with equal precedence
     #[getter]
     fn verbose(&self) -> PyResult<String> {
-        Ok(dump_symbol_plain(&self.inner, true))
+        Ok(dump_plain(&self.inner, &[], true))
     }
 
     /// LaTeX representation of that node
     #[getter]
     fn latex(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, vec![], false))
+        Ok(dump_latex(&self.inner, &[], false))
     }
 
     /// LaTeX representation of that node with brackets everywhere
     #[getter]
     fn latex_verbose(&self) -> PyResult<String> {
-        Ok(dump_latex(&self.inner, vec![], true))
+        Ok(dump_latex(&self.inner, &[], true))
     }
 
     /// The node as a tree
@@ -325,35 +566,146 @@ impl PySymbol {
             .collect())
     }
 
-    /// Unrolls the symbol tree using breath first traversing
-    /// u16 is not supported by pytorch
-    fn embed(
+    fn create_embedding(
         &self,
-        py: Python,
         dict: HashMap<String, i16>,
         padding: i16,
         spread: usize,
+        max_depth: u32,
+        target_size: usize,
         fits: Vec<PyFitInfo>,
-    ) -> PyResult<(Py<PyArray2<i64>>, Py<PyArray2<i16>>, Py<PyArray1<i64>>)> {
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+        use_additional_features: bool,
+    ) -> PyResult<PyCnnEmbedding> {
         let fits = fits
             .into_iter()
             .map(|fit| (*fit.data).clone())
             .collect::<Vec<_>>();
-        let Embedding {
-            embedded,
-            index_map,
-            label,
-        } = self
+        let embedding = self
             .inner
-            .embed(&dict, padding, spread, &fits)
+            .embed_cnn(
+                &dict,
+                padding,
+                spread,
+                max_depth,
+                target_size,
+                &fits,
+                useful,
+                index_map,
+                positional_encoding,
+                use_additional_features,
+            )
             .map_err(|msg| {
                 PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
             })?;
+        Ok(PyCnnEmbedding::new(embedding))
+    }
 
-        let index_map = make_2darray(py, index_map)?;
-        let label = label.into_pyarray(py).to_owned();
-        let embedded = make_2darray(py, embedded)?;
-        Ok((embedded, index_map, label))
+    fn create_graph_embedding(
+        &self,
+        dict: HashMap<String, i16>,
+        target_size: usize,
+        fits: Vec<PyFitInfo>,
+        useful: bool,
+        use_additional_features: bool,
+    ) -> PyResult<PyGraphEmbedding> {
+        let fits = fits
+            .into_iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let embedding = self
+            .inner
+            .embed_graph(&dict, target_size, &fits, useful, use_additional_features)
+            .map_err(|msg| {
+                PyErr::new::<KeyError, _>(format!("Could not embed {}: \"{}\"", self.inner, msg))
+            })?;
+        Ok(PyGraphEmbedding::new(embedding))
+    }
+
+    /// Unrolls the symbol tree using breath first traversing
+    /// u16 is not supported by pytorch
+    #[args(
+        self,
+        ident2index,
+        padding,
+        spread,
+        max_depth,
+        target_size,
+        fits,
+        useful,
+        index_map,
+        positional_encoding
+    )]
+    fn embed(
+        &self,
+        py: Python,
+        ident2index: HashMap<String, i16>,
+        padding: i16,
+        spread: usize,
+        max_depth: u32,
+        target_size: usize,
+        fits: Vec<PyFitInfo>,
+        useful: bool,
+        index_map: bool,
+        positional_encoding: bool,
+        use_additional_features: bool,
+    ) -> PyResult<UnrolledEmbedding> {
+        self.embed_cnn_unrolled_impl(
+            py,
+            ident2index,
+            padding,
+            spread,
+            max_depth,
+            target_size,
+            &fits,
+            useful,
+            index_map,
+            positional_encoding,
+            use_additional_features,
+        )
+    }
+
+    // Error: the trait `ToPyObject` is not implemented for `PySymbol`
+    // /// Creates a new symbol with the replaced sub terms
+    // fn replace(&self, py: Python, variable_creator: PyObject) -> PyResult<Self> {
+    //     Ok(PySymbol::new(self.inner.replace::<_, PyErr>(&|orig| {
+    //         let obj = variable_creator.call(
+    //             py,
+    //             PyTuple::new(py, vec![PySymbol::new(orig.clone())]),
+    //             None,
+    //         )?;
+    //         // let obj = variable_creator.call(py, PyTuple::empty(py), None)?;
+    //         let symbol: Option<PySymbol> = obj.extract(py)?;
+    //         if let Some(symbol) = symbol {
+    //             Ok(Some((*symbol.inner).clone()))
+    //         } else {
+    //             Ok(None)
+    //         }
+    //     })?))
+    // }
+    #[text_signature = "($self, pattern, target, pad_size, pad_symbol /)"]
+    fn replace_and_pad(
+        &self,
+        pattern: String,
+        target: String,
+        pad_size: u32,
+        pad_symbol: PySymbol,
+    ) -> PyResult<Self> {
+        let pad_symbol = (*pad_symbol.inner).clone();
+        Ok(PySymbol::new(self.inner.replace::<_, PyErr>(&|orig| {
+            if orig.ident == pattern {
+                let mut new = orig.clone();
+                new.ident = target.clone();
+                while new.childs.len() < pad_size as usize {
+                    new.childs.push(pad_symbol.clone())
+                }
+                Ok(Some(new))
+            } else {
+                Ok(None)
+            }
+        })?))
     }
 
     #[classattr]
@@ -369,6 +721,11 @@ impl PySymbol {
     #[getter]
     fn size(&self) -> PyResult<u32> {
         Ok(self.inner.size())
+    }
+
+    #[getter]
+    fn memory_usage(&self) -> PyResult<usize> {
+        Ok(self.inner.memory_usage())
     }
 
     /// Assumes spread of 2.
@@ -438,6 +795,59 @@ impl PySymbol {
     }
 
     #[text_signature = "($self, decorations, /)"]
+    fn plain_with_deco(&self, decorations: Vec<PyDecoration>) -> PyResult<String> {
+        let decorations = decorations
+            .iter()
+            .map(|deco| Decoration {
+                path: &deco.path,
+                pre: &deco.pre,
+                post: &deco.post,
+            })
+            .collect::<Vec<_>>();
+        Ok(dump_plain(&self.inner, &decorations, false))
+    }
+
+    #[text_signature = "($self, decorations, /)"]
+    fn plain_with_path(
+        &self,
+        decorations: Vec<PyDecoration>,
+    ) -> PyResult<(String, HashMap<String, (usize, usize)>)> {
+        let decorations = decorations
+            .iter()
+            .map(|deco| Decoration {
+                path: &deco.path,
+                pre: &deco.pre,
+                post: &deco.post,
+            })
+            .collect::<Vec<_>>();
+        Ok(dump_plain_with_path(&self.inner, &decorations, false))
+    }
+
+    #[text_signature = "($self, decorations=None, /)"]
+    fn plain_with_bfs_pos(
+        &self,
+        decorations: Option<Vec<PyDecoration>>,
+    ) -> PyResult<(String, Vec<(usize, usize)>)> {
+        if let Some(inner_decorations) = decorations {
+            let processed_decorations = inner_decorations
+                .iter()
+                .map(|deco| Decoration {
+                    path: &deco.path,
+                    pre: &deco.pre,
+                    post: &deco.post,
+                })
+                .collect::<Vec<_>>();
+            Ok(dump_plain_with_bfs_pos(
+                &self.inner,
+                &processed_decorations,
+                false,
+            ))
+        } else {
+            Ok(dump_plain_with_bfs_pos(&self.inner, &vec![], false))
+        }
+    }
+
+    #[text_signature = "($self, decorations, /)"]
     fn latex_with_deco(&self, decorations: Vec<PyDecoration>) -> PyResult<String> {
         let decorations = decorations
             .iter()
@@ -447,7 +857,7 @@ impl PySymbol {
                 post: &deco.post,
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations, false))
+        Ok(dump_latex(&self.inner, &decorations, false))
     }
 
     #[text_signature = "($self, decorations, /)"]
@@ -466,18 +876,25 @@ impl PySymbol {
                 post: "}",
             })
             .collect::<Vec<_>>();
-        Ok(dump_latex(&self.inner, decorations, false))
+        Ok(dump_latex(&self.inner, &decorations, false))
     }
-}
-
-fn op_to_string(op: &CompareOp) -> &str {
-    match op {
-        CompareOp::Lt => "<",
-        CompareOp::Le => "<=",
-        CompareOp::Eq => "==",
-        CompareOp::Ne => "!=",
-        CompareOp::Gt => ">",
-        CompareOp::Ge => ">=",
+    /// Used for pickle
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        let refs = Arc::get_mut(&mut self.inner).ok_or_else(|| {
+            PyErr::new::<LookupError, _>(format!("Can not get mut reference of symbol!",))
+        })?;
+        *refs = bincode::deserialize(&state[..]).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!("Could not deserialize symbol\"{:?}\"", msg))
+        })?;
+        Ok(())
+    }
+    fn __getstate__(&self) -> PyResult<Vec<u8>> {
+        bincode::serialize(&*self.inner).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!(
+                "Could not serialize symbol {}: \"{:?}\"",
+                self.inner, msg
+            ))
+        })
     }
 }
 

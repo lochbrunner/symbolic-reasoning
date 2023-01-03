@@ -9,6 +9,7 @@ struct Files {
     pub trainings_data: String,
     #[serde(rename = "trainings-data-traces")]
     pub trace_filename: String,
+    pub scenario: String,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +46,7 @@ pub struct Configuration {
     pub stages: Vec<usize>,
     pub dump_filename: String,
     pub trace_filename: String,
+    pub scenario_filename: String,
     pub max_depth: u32,
     pub min_working_density: f32,
     pub min_result_density: f32,
@@ -89,6 +91,7 @@ impl Configuration {
             distribution_suppression_exponent: generation.distribution_suppression_exponent,
             dump_filename: files.trainings_data,
             trace_filename: files.trace_filename,
+            scenario_filename: files.scenario,
         })
     }
 }

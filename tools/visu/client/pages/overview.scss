@@ -1,0 +1,55 @@
+.overview {
+    header {
+        position: relative;
+        h1 {
+            text-align: center;
+        }
+        > div {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 300px;
+        }
+    }
+
+    table {
+        border-spacing: 20px 0;
+
+        th {
+            div.sort-button {
+                height: 20px;
+                width: 12px;
+                cursor: pointer;
+                float: right;
+                margin: 0 1px;
+                &.positive {
+                    background-color: #dfd;
+                }
+                &.negative {
+                    background-color: #fdd;
+                }
+                &.na {
+                    background-color: #ddd;
+                }
+            }
+        }
+
+        .row {
+            cursor: pointer;
+            .positive {
+                color: #070;
+            }
+            .negative {
+                color: #700;
+            }
+
+            td > span {
+                margin: 0 4px;
+            }
+        }
+    }
+
+    .clickable {
+        cursor: pointer;
+    }
+}

@@ -9,9 +9,12 @@
 
 ### Examples
 
-#### Trigonometric identities
-
-[See here](./trigonometric_identities/README.md)
+* [Number Crunching](./number_crunching/README.md)
+* [Basic Math](./basics/README.md)
+* [Advanced Math](./advanced/README.md)
+* [Trigonometric identities](./trigonometric_identities/README.md)
+* [Differential Calculus](./differential_calculus/README.md)
+* [Differential Equations](./differential_equations/README.md)
 
 #### Multiplication of large integers
 

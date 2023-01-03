@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-from pycore import Context, Symbol, fit, apply, fit_and_apply, fit_at_and_apply, Rule
-
 import unittest
+
+from pycore import Context, Symbol, fit, apply, fit_and_apply, fit_at_and_apply, Rule
 
 
 class TestApply(unittest.TestCase):
-
     def __init__(self, *args):
         super(TestApply, self).__init__(*args)
         self.context = Context.standard()
@@ -54,7 +53,10 @@ class TestApply(unittest.TestCase):
     def test_fit_at_and_apply(self):
         initial = Symbol.parse(self.context, 'b*(c*d-c*d)=e')
         rule = Rule.parse(self.context, 'a-a => 0')
-        s, m = fit_at_and_apply(self.variable_creator, initial, rule, [0, 1])
+        result = fit_at_and_apply(self.variable_creator, initial, rule, [0, 1])
+        if result is None:
+            raise AssertionError()
+        s, m = result
         self.assertEqual(m.path, [0, 1])
         orig, target = list(m.variable.items())[0]
         self.assertEqual(str(orig), 'a')

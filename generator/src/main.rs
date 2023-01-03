@@ -23,8 +23,8 @@ use crate::iter_extensions::{PickTraitVec, Strategy};
 use crate::rose::draw_rose;
 use crate::variable_generator::*;
 
-use core::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
-use core::bag::{Bag, FitInfo};
+use core::io::bag::trace::{ApplyInfo, DenseTrace, Meta, Trace, TraceStep};
+use core::io::bag::{extract_idents_from_rules, Bag, FitInfo};
 use core::scenario::Scenario;
 use core::{apply_batch, fit, Context, Rule, Symbol};
 
@@ -85,7 +85,7 @@ fn deduce_impl<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &Symbol,
-    rules: &'a [(String, Rule)],
+    rules: &'a [Rule],
     stages: &[usize],
     stage_index: usize,
     rules_distribution: &mut Vec<usize>,
@@ -101,7 +101,7 @@ fn deduce_impl<'a>(
     let max_stage_size = stages[stage_index];
     let mut stage = vec![];
     // How to reduce for all rules in sum
-    for (rule_id, (_, rule)) in rules.iter().enumerate() {
+    for (rule_id, rule) in rules.iter().enumerate() {
         let max_rule = rules_distribution
             .iter()
             .cloned()
@@ -141,35 +141,18 @@ fn deduce_impl<'a>(
     stage
 }
 
-fn extract_idents_from_rules(rules: &[Rule]) -> HashSet<String> {
-    let mut used_idents = HashSet::new();
-
-    for rule in rules.iter() {
-        for part in rule
-            .condition
-            .parts()
-            .filter(|s| s.fixed())
-            .map(|s| &s.ident)
-        {
-            if !used_idents.contains(part) {
-                used_idents.insert(part.clone());
-            }
-        }
-    }
-
-    used_idents
-}
-
 fn deduce<'a>(
     config: &Configuration,
     alphabet: &'a [Symbol],
     initial: &'a Symbol,
-    rules: &'a [(String, Rule)],
+    rules: &'a [Rule],
     stages: &'a [usize],
 ) -> Trace<'a> {
     // Find all concrete ident of the rules
-    let mut used_idents =
-        extract_idents_from_rules(&rules.iter().map(|(_, r)| r.reverse()).collect::<Vec<_>>());
+    let mut used_idents = extract_idents_from_rules(
+        &rules.iter().map(|r| r.reverse()).collect::<Vec<_>>(),
+        |r| r,
+    );
 
     for part in initial.parts() {
         if !used_idents.contains(&part.ident) {
@@ -251,20 +234,34 @@ fn main() {
         .get_matches();
 
     let config_filename = matches.value_of("config").unwrap();
-    let config = Configuration::load(config_filename, &matches).expect("load config");
-
-    let scenario = Scenario::load_from_yaml(&config_filename).unwrap();
+    let config = Configuration::load(config_filename, &matches)
+        .expect(&format!("load config {}", config_filename));
+    let scenario = Scenario::load_from_yaml(&config.scenario_filename, false).unwrap();
 
     let rules = scenario
         .rules
         .iter()
-        .map(|(k, v)| (k.clone(), v.reverse()))
+        .map(|rule| rule.reverse())
         .collect::<Vec<_>>();
 
     let alphabet = create_alphabet();
-    let mut context = Context::load(&config_filename)
-        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config_filename));
+    let mut context = Context::load(&config.scenario_filename)
+        .unwrap_or_else(|_| panic!("Loading declarations from {}", &config.scenario_filename));
     context.register_standard_operators();
+
+    if scenario.premises.is_empty() {
+        println!("Warning: No premises found in the configuration!");
+        let bag = Bag::empty(2, &scenario);
+
+        println!(
+            "Writing empty bag file to \"{}\" ...",
+            &config.dump_filename
+        );
+        create_parent_dir(&config.dump_filename);
+        let writer = BufWriter::new(File::create(&config.dump_filename).unwrap());
+        bag.write_bincode(writer).expect("Writing bin file");
+        std::process::exit(0);
+    }
 
     let traces = (&scenario.premises)[..]
         .par_iter()

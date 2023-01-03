@@ -3,11 +3,35 @@ use std::collections::HashMap;
 use std::fs::File;
 extern crate serde_yaml;
 
+fn default_as_true() -> bool {
+    true
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Declaration {
+    #[serde(default = "default_as_true")]
     pub is_fixed: bool,
+    #[serde(default)]
     pub is_function: bool,
+    #[serde(default)]
     pub only_root: bool,
+}
+
+impl Declaration {
+    pub fn function(is_fixed: bool) -> Self {
+        Self {
+            is_fixed,
+            is_function: true,
+            only_root: false,
+        }
+    }
+    pub fn constant() -> Self {
+        Self {
+            is_fixed: true,
+            is_function: false,
+            only_root: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

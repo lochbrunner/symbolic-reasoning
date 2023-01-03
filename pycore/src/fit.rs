@@ -1,13 +1,14 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core;
+use core::Symbol;
 use pyo3::class::basic::PyObjectProtocol;
+use pyo3::exceptions::LookupError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
 
-#[pyclass(name=FitMap,subclass)]
+#[pyclass(name=FitMap,module="pycore",subclass)]
 #[derive(Debug)]
 pub struct PyFitMap {
     pub variable: HashMap<PySymbol, PySymbol>,
@@ -38,8 +39,22 @@ impl PyFitMap {
     }
 }
 
+#[derive(Deserialize, Serialize, Default, Debug)]
+struct PyFitMapData {
+    pub variable: HashMap<Symbol, Symbol>,
+    pub path: Vec<usize>,
+}
+
 #[pymethods]
 impl PyFitMap {
+    #[new]
+    fn py_new() -> Self {
+        Self {
+            variable: HashMap::new(),
+            path: Vec::new(),
+        }
+    }
+
     #[getter]
     fn path(&self) -> PyResult<Vec<usize>> {
         Ok(self.path.clone())
@@ -48,6 +63,36 @@ impl PyFitMap {
     #[getter]
     fn variable(&self) -> PyResult<HashMap<PySymbol, PySymbol>> {
         Ok(self.variable.clone())
+    }
+
+    // Used for pickle
+    fn __setstate__(&mut self, state: Vec<u8>) -> PyResult<()> {
+        let data: PyFitMapData = bincode::deserialize(&state[..]).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!("Could not deserialize PyFitMap\"{:?}\"", msg))
+        })?;
+        let PyFitMapData { path, variable } = data;
+        self.path = path;
+        self.variable = variable
+            .into_iter()
+            .map(|(a, b)| (PySymbol::new(a), PySymbol::new(b)))
+            .collect();
+        Ok(())
+    }
+    fn __getstate__(&self) -> PyResult<Vec<u8>> {
+        let data = PyFitMapData {
+            variable: self
+                .variable
+                .iter()
+                .map(|(a, b)| ((*a.inner).clone(), (*b.inner).clone()))
+                .collect(),
+            path: self.path.clone(),
+        };
+        bincode::serialize(&data).map_err(|msg| {
+            PyErr::new::<LookupError, _>(format!(
+                "Could not serialize symbol {:?}: \"{:?}\"",
+                data, msg
+            ))
+        })
     }
 }
 
@@ -93,7 +138,7 @@ fn fit_at(outer: &PySymbol, inner: &PySymbol, path: Vec<usize>) -> PyResult<Opti
     Ok(core::fit::fit_at(&outer.inner, &inner.inner, &path)
         .iter()
         .map(PyFitMap::new)
-        .nth(0))
+        .next())
 }
 
 #[pyfunction]
@@ -154,7 +199,7 @@ fn fit_at_and_apply(
             Ok(r) => Ok((PySymbol::new(r), PyFitMap::new(&m))),
             Err(e) => Err(e),
         })
-        .nth(0)
+        .next()
     {
         None => Ok(None),
         Some(v) => match v {

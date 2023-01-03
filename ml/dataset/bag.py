@@ -1,112 +1,23 @@
 import numpy as np
+from dataclasses import dataclass
 
 import torch
 from torch.utils.data import Dataset
 
-from pycore import Bag
+from pycore import Bag, BagMeta
 
-from .transformers import PAD_INDEX
-from .symbol_builder import SymbolBuilder
-from .dataset_base import DatasetBase
 from common.node import Node
-from common.terminal_utils import printProgressBar, clearProgressBar
+from tqdm import tqdm
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class BagDatasetSharedIndex(DatasetBase):
-    '''Deprecated!
-
-    Loads samples from a bag file'''
-
-    def __init__(self, params, preprocess=False):
-        super(BagDatasetSharedIndex, self).__init__(preprocess)
-        logger.info(f'Loading samples from {params.filename}')
-        bag = Bag.load(params.filename)
-
-        self.patterns = [rule.condition for rule in bag.meta.rules]
-
-        meta = bag.meta
-
-        self.idents = meta.idents
-        self.label_distribution = meta.rule_distribution
-        self._rule_map = list(meta.rules)
-
-        # Merge use largest
-        self.container = [sample for container in bag.samples for sample in container.samples]
-        self._max_spread = bag.samples[-1].max_spread
-        self._max_depth = bag.samples[-1].max_depth
-
-        def create_features(c):
-            return [(c.initial, fit) for fit in c.fits]
-
-        self.raw_samples = [feature for sample in self.container
-                            for feature in create_features(sample)]
-
-        logger.info(f'number of samples: {len(self.raw_samples)}')
-        logger.info(f'max depth: {self._max_depth}')
-
-        builder = SymbolBuilder()
-        for _ in range(self._max_depth):
-            builder.add_level_uniform(self._max_spread)
-        self.label_builder = builder
-
-        if preprocess:
-            def progress(i, sample):
-                if i % 50 == 0:
-                    printProgressBar(i, len(self.raw_samples), suffix='loading')
-                return sample
-            self.samples = [progress(i, self._process_sample(sample)) for i, sample in enumerate(self.raw_samples)]
-            clearProgressBar()
-        else:
-            self.samples = self.raw_samples
-
-    def get_node(self, index):
-        return Node.from_rust(self.raw_samples[index][0])
-
-    def get_rule_of_sample(self, index):
-        rule_id = self.raw_samples[index][1].rule
-        return self.get_rule_raw(rule_id)
-
-    def get_node_string(self, index):
-        return str(self.raw_samples[index][0])
-
-    def unpack_sample(self, sample):
-        x, fit = sample
-        return x, (fit.path, fit.rule)
-
-    @property
-    def rule_map(self):
-        '''Maps rule id to rule string representation'''
-        return self._rule_map
-
-    def get_rule_raw(self, index):
-        return self._rule_map[index]
-
-    def get_rules_raw(self):
-        return self._rule_map
-
-    @property
-    def model_params(self):
-        return {
-            'vocab_size': len(self.idents),
-            'tagset_size': len(self.patterns),
-            'pad_token': PAD_INDEX,
-            'kernel_size': self._max_spread+2,
-            'depth': self.max_depth,
-            'spread': self._max_spread,
-            'idents': self.idents
-        }
-
-    @property
-    def collate_fn(self):
-        return None
-
-
 def pad(sample, width, pad_token=0):
     '''Pad in first dimension'''
+    if sample is None:
+        return None
     pad_width = width - sample.shape[0]
     if sample.ndim == 1:
         return np.pad(sample, (0, pad_width), 'constant', constant_values=(pad_token))
@@ -116,9 +27,13 @@ def pad(sample, width, pad_token=0):
         raise NotImplementedError(f'Padding of {sample.ndim} dim tensor not implemented yet!')
 
 
-def stack(samples, width):
-
-    samples = [torch.as_tensor(pad(sample, width)) for sample in samples]
+def stack(samples, width=None):
+    if samples[0] is None:
+        return None
+    if width is None:
+        samples = [torch.as_tensor(sample) for sample in samples if sample is not None]
+    else:
+        samples = [torch.as_tensor(pad(sample, width)) for sample in samples if sample is not None]
 
     out = None
     if torch.utils.data.get_worker_info() is not None:
@@ -132,57 +47,103 @@ def stack(samples, width):
 
 
 def dynamic_width_collate(batch):
-    max_width = max([sample[0].shape[0] for sample in batch])
+    # x, s?, o?, y, p, v, t
+    max_width = max(sample[0].shape[0] for sample in batch)
     # Transpose them
-    transposed = zip(*batch)
+    transposed = list(zip(*batch))
+    # Don't pad value
+    widths = [max_width, max_width, max_width, max_width, None, max_width, max_width]
+    return [stack(channel, width) for channel, width in zip(transposed, widths)]
 
-    return [stack(channel, max_width) for channel in transposed]
+
+@dataclass
+class StackedEmbedding:
+    idents: torch.Tensor
+    index_map: torch.Tensor
+    positional_encoding: torch.Tensor
+    rules: torch.Tensor
+    policy: torch.Tensor
+    value: torch.Tensor
+    target: torch.Tensor
+    mask: torch.Tensor
+
+
+def typed_width_collate(batch) -> StackedEmbedding:
+    max_width = max(sample.idents.shape[0] for sample in batch)
+    return StackedEmbedding(
+        idents=stack([sample.idents for sample in batch], max_width),
+        index_map=stack([sample.index_map for sample in batch], max_width),
+        positional_encoding=stack([sample.positional_encoding for sample in batch], max_width),
+        rules=stack([sample.rules for sample in batch], max_width),
+        policy=stack([sample.policy for sample in batch], max_width),
+        value=stack([sample.value for sample in batch], None),
+        target=stack([sample.target for sample in batch], max_width),
+        mask=stack([sample.mask for sample in batch], max_width),
+    )
 
 
 class BagDataset(Dataset):
+    '''
+    > Note: Returning numpy arrays no torch tensors.
+    '''
 
     pad_token = 0
     spread = 2
 
-    def __init__(self, params, preprocess=False):
+    @staticmethod
+    def from_scenario_params(params, preprocess=False):
+        return BagDataset.load(filename=params.filename, data_size_limit=params.data_size_limit, preprocess=preprocess)
+
+    @staticmethod
+    def from_container(container, meta: BagMeta, data_size_limit: int = None, preprocess: bool = False):
+        return BagDataset(meta, container.samples, container.max_depth, container.max_size, data_size_limit, preprocess)
+
+    @staticmethod
+    def load(filename, data_size_limit=None, preprocess=False):
+        logger.info(f'Loading samples from {filename}')
+        bag = Bag.load(str(filename))
+        samples = [sample for container in bag.containers for sample in container.samples_with_policy]
+        max_depth = bag.containers[-1].max_depth
+        max_size = bag.containers[-1].max_size
+        return BagDataset(bag.meta, samples, max_depth, max_size, data_size_limit, preprocess)
+
+    def __init__(self, meta, samples, max_depth, max_size, data_size_limit=None, preprocess=False, index_map: bool = True, positional_encoding: bool = False):
         self.preprocess = preprocess
-
-        logger.info(f'Loading samples from {params.filename}')
-        bag = Bag.load(params.filename)
-
-        meta = bag.meta
 
         self.rule_conditions = [rule.condition for rule in meta.rules]
 
         self.idents = meta.idents
+        self.positional_encoding = positional_encoding
+        self.index_map = index_map
 
         # 0 is padding
-        self._ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
+        self.ident_dict = {ident: (value+1) for (value, ident) in enumerate(self.idents)}
 
-        self.label_distribution = meta.rule_distribution
-        self._rule_map = list(meta.rules)
+        self.label_distribution = [p+n for p, n in meta.rule_distribution]
+        self.value_distribution = meta.value_distribution
+        self._rule_map = meta.rules
 
         # Merge use largest
 
-        if params.data_size_limit is None:
-            limit = -1
+        if data_size_limit is None or data_size_limit == -1:
+            self.container = samples
+        elif isinstance(data_size_limit, int):
+            self.container = samples[:data_size_limit]
+        elif isinstance(data_size_limit, float):
+            r = int(1 // data_size_limit)
+            self.container = samples[::r]
         else:
-            limit = params.data_size_limit
+            raise RuntimeError(f'Type {type(data_size_limit)} for data_size_limit is not supported!')
 
-        self.container = [sample for container in bag.samples for sample in container.samples][:limit]
-        self._max_spread = bag.samples[-1].max_spread
-        self._max_depth = bag.samples[-1].max_depth
-        self._max_size = bag.samples[-1].max_size
-        logger.info(f'max size: {self._max_size}')
-        logger.info(f'number of samples: {len(self.container)}')
+        self._max_depth = max_depth
+        self._max_size = max_size
+        logger.debug(f'max size: {self._max_size}')
+        logger.debug(f'number of samples: {len(self.container)}')
+        logger.debug(f'number of rules: {len(self._rule_map)}')
 
         if preprocess:
-            def progress(i, sample):
-                if i % 50 == 0:
-                    printProgressBar(i, len(self.container), suffix='loading')
-                return sample
-            self.samples = [progress(i, self._process_sample(sample)) for i, sample in enumerate(self.container)]
-            clearProgressBar()
+            self.samples = [self._process_sample(sample)
+                            for sample in tqdm(self.container, desc='loading', leave=False)]
         else:
             self.samples = self.container
 
@@ -196,11 +157,33 @@ class BagDataset(Dataset):
         rule_id = self.container[index].fits[0].rule
         return self._rule_map[rule_id]
 
-    def _process_sample(self, sample):
-        return sample.initial.embed(self._ident_dict, self.pad_token, self.spread, sample.fits)
+    # def _positional_encoding_waves(self, points: np.array):
+    #     # points: d, l
+    #     points P np.repeat()
+    #     return []
 
-    def embed_custom(self, initial, fits=None):
-        return initial.embed(self._ident_dict, self.pad_token, self.spread, fits or [])
+    def _process_sample_typed(self, sample):
+        try:
+            return sample.create_embedding(self.ident_dict, self.pad_token, self.spread,
+                                           self._max_depth, target_size=self.tag_size,
+                                           index_map=self.index_map, positional_encoding=self.positional_encoding)
+        except KeyError as e:
+            raise RuntimeError(f'{e} Available idents are {self.ident_dict.keys()}')
+
+    def _process_sample(self, sample):
+        try:
+            channels = sample.embed(self.ident_dict, self.pad_token, self.spread,
+                                    self._max_depth, target_size=self.tag_size,
+                                    index_map=self.index_map, positional_encoding=self.positional_encoding)
+
+        # if self.positional_encoding:
+        #     channels[2] = self._positional_encoding_waves(channels[2])
+            return [c for c in channels if c is not None]
+        except KeyError as e:
+            raise RuntimeError(f'{e} Available idents are {self.ident_dict.keys()}')
+
+    def embed_custom(self, initial, fits=None, useful=True):
+        return initial.embed(self.ident_dict, self.pad_token, self.spread, self._max_depth, fits or [], useful, target_size=self.tag_size, index_map=True, positional_encoding=self.positional_encoding)
 
     @property
     def max_depth(self):
@@ -234,7 +217,13 @@ class BagDataset(Dataset):
     @property
     def label_weight(self):
         min_node = max(min(self.label_distribution), 1)
-        return [min_node/max(label, 1) for label in self.label_distribution]
+        return np.array([min_node/max(label, 1) for label in self.label_distribution], dtype=np.float32)
+
+    @property
+    def value_weight(self):
+        p, n = self.value_distribution
+        min_dist = max(min(self.value_distribution), 1)
+        return np.array([p, n], np.float32) / min_dist
 
     @property
     def model_params(self):
@@ -247,5 +236,10 @@ class BagDataset(Dataset):
         }
 
     @property
-    def collate_fn(self):
+    def embed2ident(self):
+        return {**{0: '<PAD>'}, **{embed: ident for ident, embed in self.ident_dict.items()}}
+
+    collate_fn = dynamic_width_collate
+
+    def get_collate_fn(self):
         return dynamic_width_collate

@@ -10,7 +10,10 @@ pub use astifier::Precedence;
 impl Symbol {
     pub fn parse(context: &Context, code: &str) -> Result<Symbol, String> {
         let (_, tokens) = lexer::lex_tokens(code.as_bytes()).expect("tokens");
-        astifier::parse(context, &tokens).map_err(|msg| format!("{}: {}", msg, code))
+        let mut symbol =
+            astifier::parse(context, &tokens, true).map_err(|msg| format!("{}: {}", msg, code))?;
+        Symbol::fix_depth(&mut symbol);
+        Ok(symbol)
     }
 }
 
@@ -95,7 +98,10 @@ mod e2e {
 
         let expected = new_op(
             "=",
-            vec![new_variable("x"), new_op("-", vec![new_variable("a")])],
+            vec![
+                new_variable("x"),
+                new_op("*", vec![Symbol::new_number(-1), new_variable("a")]),
+            ],
         );
 
         assert_eq!(actual, expected);

@@ -9,8 +9,16 @@ disable=
     invalid-name,
     relative-beyond-top-level,
     logging-format-interpolation,
-    too-few-public-methods
+    too-few-public-methods,
+    logging-fstring-interpolation
 
 ignored-argument-names=arg|args|kwargs
 [TYPECHECK]
 generated-members=numpy.*,torch.*
+
+[FORMAT]
+max-line-length=120
+indent-string='  '
+
+[DESIGN]
+max-attributes=20

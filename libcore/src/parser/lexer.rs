@@ -108,7 +108,7 @@ macro_rules! check(
     }
   );
   ($input:expr, $f:expr) => (
-    check!($input, call!($f));
+    check!($input, call!($f))
   );
 );
 

@@ -1,6 +1,6 @@
 use crate::rule::PyRule;
 use crate::symbol::PySymbol;
-use core::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
+use core::io::bag::trace::{DenseApplyInfo, DenseTrace, DenseTraceStep};
 use pyo3::class::basic::PyObjectProtocol;
 use pyo3::class::iter::PyIterProtocol;
 use pyo3::exceptions::{FileNotFoundError, TypeError};
@@ -21,11 +21,7 @@ pub struct PyApplyInfo {
 impl PyApplyInfo {
     #[getter]
     fn get_rule(&self) -> PyResult<PyRule> {
-        let inner = Arc::new(self.inner.rule.clone());
-        Ok(PyRule {
-            inner,
-            name: String::new(),
-        })
+        Ok(PyRule::from(&self.inner.rule))
     }
 
     #[getter]
@@ -149,7 +145,7 @@ impl PyIterProtocol for PyTraceIter {
             None
         } else {
             let steps = s.get_steps();
-            while let Err(_) = s.try_go_sideward() {
+            while s.try_go_sideward().is_err() {
                 // Go deeper
                 if s.cursor.is_empty() {
                     break;
@@ -238,16 +234,7 @@ impl PyMeta {
     }
     #[getter]
     fn rules(&self) -> PyResult<Vec<PyRule>> {
-        Ok(self
-            .trace
-            .meta
-            .rules
-            .iter()
-            .map(|(n, r)| PyRule {
-                inner: Arc::new(r.clone()),
-                name: n.clone(),
-            })
-            .collect())
+        Ok(self.trace.meta.rules.iter().map(PyRule::from).collect())
     }
 }
 

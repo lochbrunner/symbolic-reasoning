@@ -1,0 +1,97 @@
+
+    \tikzset{
+        hatch distance/.store in=\hatchdistance,
+        hatch distance=24pt,
+        hatch thickness/.store in=\hatchthickness,
+        hatch thickness=8pt
+    }
+\makeatletter
+\pgfdeclarepatternformonly[\hatchdistance,\hatchthickness]{flexible hatch}
+{\pgfqpoint{0pt}{0pt}}
+{\pgfqpoint{\hatchdistance}{\hatchdistance}}
+{\pgfpoint{\hatchdistance-1pt}{\hatchdistance-1pt}}%
+{
+    \pgfsetcolor{\tikz@pattern@color}
+    \pgfsetlinewidth{\hatchthickness}
+    \pgfpathmoveto{\pgfqpoint{0pt}{0pt}}
+    \pgfpathlineto{\pgfqpoint{\hatchdistance}{\hatchdistance}}
+    \pgfusepath{stroke}
+}
+\makeatother
+
+\subfigure[Neighbors of the root.
+$\scriptstyle \phi'_=={\color{red}w_1\phi_=}+{\color{blue}w_2\phi_+}+{\color{green!70!black}w_3\phi_-}+{\color{orange!80!black}w_4\phi_{\text{PAD}}}$]  
+{
+\tikzset{g_style/.style={black, draw=black!15, minimum size=0.5cm}}
+\begin{tikzpicture}
+    \node[g_style,fill=red!20,draw=black] (=) at (0,0){=};
+    \node[g_style,fill=blue!20] (+) at (-1,-1){$+$};
+    \node[g_style,fill=green!20] (-) at (1,-1){$-$};
+    \node[g_style] (a) at (-1.5, -2) {$a$};
+    \node[g_style] (b) at (-0.5, -2) {$b$};
+    \node[g_style] (c) at (0.5, -2) {$c$};
+    \node[g_style] (d) at (1.5, -2) {$d$};
+    \node[g_style,fill=orange!20] at (1.5, 0) {\tiny PAD};
+
+    \draw[draw=blue!70] (=) -- (+);
+    \draw[draw=green!70] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\subfigure[Neighbors of a left node $+$
+$\scriptstyle \phi'_+={\color{red}w_1\phi_+}+{\color{blue}w_2\phi_a}+{\color{green!70!black}w_3\phi_b}+{\color{orange!80!black}w_4\phi_=}$]  
+{
+\tikzset{g_style/.style={black, draw=black!15, minimum size=0.5cm}}
+\begin{tikzpicture}
+    \node[g_style,fill=orange!20] (=) at (0,0){=};
+    \node[g_style,fill=red!20,draw=black] (+) at (-1,-1){$+$};
+    \node[g_style] (-) at (1,-1){$-$};
+    \node[g_style,fill=blue!20] (a) at (-1.5, -2) {$a$};
+    \node[g_style,fill=green!20] (b) at (-0.5, -2) {$b$};
+    \node[g_style] (c) at (0.5, -2) {$c$};
+    \node[g_style] (d) at (1.5, -2) {$d$};
+    \node[g_style] at (1.5, 0) {\tiny PAD};
+
+    \draw[draw=orange!70] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[draw=blue!70] (+) -- (a);
+    \draw[draw=green!70] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\subfigure[Neighbors of a leaf $b$
+$\scriptstyle \phi'_b={\color{red}w_1\phi_b}+{\color{blue}w_2\phi_{\text{PAD}}}+{\color{green!70!black}w_3\phi_{\text{PAD}}}+{\color{orange!80!black}w_4\phi_+}$]  
+{
+\tikzset{g_style/.style={black, draw=black!15, minimum size=0.5cm}}
+\begin{tikzpicture}
+    \node[g_style] (=) at (0,0){=};
+    \node[g_style,fill=orange!20] (+) at (-1,-1){$+$};
+    \node[g_style] (-) at (1,-1){$-$};
+    \node[g_style] (a) at (-1.5, -2) {$a$};
+    \node[g_style,fill=red!20,draw=black] (b) at (-0.5, -2) {$b$};
+    \node[g_style] (c) at (0.5, -2) {$c$};
+    \node[g_style] (d) at (1.5, -2) {$d$};
+    {
+        \node[preaction={fill=blue!20}, g_style, pattern=flexible hatch, pattern color=green!20] at (1.5, 0) {\tiny PAD};
+    }
+
+    \draw[] (=) -- (+);
+    \draw[] (=) -- (-);
+    \draw[] (+) -- (a);
+    \draw[draw=orange!70] (+) -- (b);
+    \draw[] (-) -- (c);
+    \draw[] (-) -- (d);
+\end{tikzpicture}
+}
+\caption{
+    Example of indexed convolution operation on term $a+b=c+d$.
+    Sub-figure (b) shows the computation of the next value $\phi' = C\left(\phi\right)$ for the node $a$ in that term.
+    It is the weighted sum of the current values of itself, its children, and the parent.
+    As the root in (a) has no parent node, we use the padding as a default node.
+    The same is true for the child-nodes of a leaf in sub-figure (c).
+    The colors red (self), blue (first child), green (second child), and orange (parent) indicated the neighbors of the focused node in each sub-plot.
+}

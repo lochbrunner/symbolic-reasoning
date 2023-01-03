@@ -1,0 +1,18 @@
+.bar {
+    height: 20px;
+
+    div {
+        height: 100%;
+        display: inline-block;
+    }
+
+    .positive {
+        background: #afa;
+    }
+    .negative {
+        background: #faa;
+    }
+    .na {
+        background: #aaa;
+    }
+}

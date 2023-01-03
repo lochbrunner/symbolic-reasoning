@@ -1,7 +1,6 @@
-use crate::bag::FitInfo;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::mem;
 use std::str;
 
 use std::collections::VecDeque;
@@ -125,10 +124,10 @@ pub struct SymbolBfsIter<'a> {
 }
 
 impl<'a> SymbolBfsIter<'a> {
-    pub fn new(symbol: &'a Symbol) -> SymbolBfsIter<'a> {
+    pub fn new(symbol: &'a Symbol) -> Self {
         let mut queue = VecDeque::with_capacity(1);
         queue.push_back(symbol);
-        SymbolBfsIter { queue }
+        Self { queue }
     }
 }
 
@@ -148,6 +147,76 @@ impl<'a> Iterator for SymbolBfsIter<'a> {
     }
 }
 
+pub struct SymbolAndPathBfsIter<'a> {
+    pub queue: VecDeque<(Vec<usize>, &'a Symbol)>,
+}
+
+impl<'a> SymbolAndPathBfsIter<'a> {
+    pub fn new(parent: &'a Symbol) -> Self {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back((vec![], parent));
+        Self { queue }
+    }
+}
+
+impl<'a> Iterator for SymbolAndPathBfsIter<'a> {
+    type Item = (Vec<usize>, &'a Symbol);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.queue.pop_front() {
+            None => None,
+            Some((path, current)) => {
+                for (i, child) in current.childs.iter().enumerate() {
+                    self.queue.push_back(([&path[..], &[i]].concat(), child));
+                }
+                Some((path, current))
+            }
+        }
+    }
+}
+
+/// Iter with backback
+pub struct SymbolBfsBackPackIter<'a, T, C> {
+    // type Pack = (&'a Symbol, T);
+    queue: VecDeque<(&'a Symbol, T)>,
+    context: C,
+    /// Generator would be better but
+    packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+}
+
+impl<'a, T, C> SymbolBfsBackPackIter<'a, T, C> {
+    pub fn new(
+        symbol: &'a Symbol,
+        init: T,
+        context: C,
+        packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+    ) -> SymbolBfsBackPackIter<'a, T, C> {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back((symbol, init));
+        Self {
+            queue,
+            packer,
+            context,
+        }
+    }
+}
+
+impl<'a, T, C> Iterator for SymbolBfsBackPackIter<'a, T, C> {
+    type Item = (&'a Symbol, T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.queue.pop_front() {
+            None => None,
+            Some(current) => {
+                for child in (self.packer)(&current, &self.context).into_iter() {
+                    self.queue.push_back(child);
+                }
+                Some(current)
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub struct Symbol {
     pub ident: String,
@@ -157,26 +226,13 @@ pub struct Symbol {
     pub depth: u32,
     // Collection of flags
     pub flags: FlagType,
+    // If this symbol is a number (only integers are supported yet)
     pub value: Option<i64>,
 }
 
-fn one_encode(value: bool) -> i64 {
-    if value {
-        1
-    } else {
-        0
-    }
-}
-
-pub struct Embedding {
-    /// each items is a vector
-    /// [ident, is_operator, is_fixed, is_number]
-    pub embedded: Vec<Vec<i64>>,
-    pub index_map: Vec<Vec<i16>>,
-    pub label: Vec<i64>,
-}
-
 impl Symbol {
+    /// In order to prevent deductions ala a=b => 1*(a=b)
+    #[inline]
     pub fn only_root(&self) -> bool {
         self.flags & symbol_flags::ROOT_ONLY != 0
     }
@@ -193,18 +249,27 @@ impl Symbol {
     pub fn fixed(&self) -> bool {
         self.flags & symbol_flags::FIXED != 0
     }
+
+    /// Function are operators when they are written with arguments.
+    /// Example: f + h: f is not an operator
+    /// Example: f(x) : f is an operator
     #[inline]
     pub fn operator(&self) -> bool {
         !self.childs.is_empty()
     }
+
     #[inline]
     pub fn is_number(&self) -> bool {
         self.value.is_some()
     }
 
     /// Assumes a spread of 2
+    pub fn max_spread(&self) -> u32 {
+        2
+    }
+
     pub fn density(&self) -> f32 {
-        let spread: i32 = 2;
+        let spread = self.max_spread() as i32;
         let size = self.parts().map(|_| 1).sum::<i32>();
         let max_size = (0..self.depth).map(|i| spread.pow(i)).sum::<i32>();
         size as f32 / max_size as f32
@@ -214,6 +279,11 @@ impl Symbol {
     #[inline]
     pub fn size(&self) -> u32 {
         self.childs.iter().map(|c| c.size()).sum::<u32>() + 1
+    }
+
+    pub fn memory_usage(&self) -> usize {
+        (mem::size_of::<Self>() * (1 + self.childs.capacity() - self.childs.len()))
+            + self.childs.iter().map(|c| c.memory_usage()).sum::<usize>()
     }
 
     fn print_tree_impl(&self, buffer: &mut String, indent: usize) {
@@ -309,85 +379,31 @@ impl Symbol {
         SymbolBfsIter::new(self)
     }
 
-    /// Returns the number of embedded properties
-    pub fn number_of_embedded_properties() -> u32 {
-        3
+    pub fn iter_bfs_path(&self) -> SymbolAndPathBfsIter {
+        SymbolAndPathBfsIter::new(self)
     }
 
-    /// Embeds the ident and the props (operator, fixed, number)
-    /// Should maybe moved to other location?
-    pub fn embed(
-        &self,
-        dict: &HashMap<String, i16>,
-        padding: i16,
-        spread: usize,
-        fits: &[FitInfo],
-    ) -> Result<Embedding, String> {
-        let mut ref_to_index: HashMap<&Self, i16> = HashMap::new();
-        let mut embedded = self
-            .iter_bfs()
-            .enumerate()
-            .map(|(i, s)| {
-                ref_to_index.insert(s, i as i16);
-                dict.get(&s.ident)
-                    .and_then(|i| {
-                        Some(vec![
-                            *i as i64,
-                            one_encode(s.operator()),
-                            one_encode(s.fixed()),
-                            one_encode(s.is_number()),
-                        ])
-                    })
-                    .ok_or(format!("Unknown ident {}", s.ident))
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        let padding_index = embedded.len() as i16;
-        embedded.push(vec![padding as i64, 0, 0, 0]);
+    pub fn iter_bfs_backpack<'a, T, C>(
+        &'a self,
+        init: T,
+        context: C,
+        packer: fn(parent: &(&'a Symbol, T), &C) -> Vec<(&'a Symbol, T)>,
+    ) -> SymbolBfsBackPackIter<'a, T, C> {
+        SymbolBfsBackPackIter::new(self, init, context, packer)
+    }
 
-        // self, ..childs, (parent later)
-        let mut index_map = self
-            .iter_bfs()
-            .enumerate()
-            .map(|(i, s)| {
-                let mut row = Vec::with_capacity(spread + 2);
-                row.push(i as i16);
-                for child in s.childs.iter() {
-                    row.push(ref_to_index[child])
-                }
-                while row.len() < spread + 1 {
-                    row.push(padding_index);
-                }
-                row
-            })
-            .collect::<Vec<Vec<i16>>>();
-
-        // Append parent
-        // root has no parent
-        index_map[0].push(padding_index);
-        for parent in self.iter_bfs() {
-            let parent_index = ref_to_index[parent];
-            for child in parent.childs.iter() {
-                let index = ref_to_index[child] as usize;
-                index_map[index].push(parent_index);
-            }
-        }
-        index_map.push(vec![padding_index; spread + 2]);
-
-        // Compute label
-        let mut label = vec![0; embedded.len()];
-        for fit in fits.iter() {
-            let child = self
-                .at(&fit.path)
-                .ok_or(format!("Symbol {} has no element at {:?}", self, fit.path))?;
-            let index = ref_to_index[child] as usize;
-            label[index] = fit.rule_id as i64;
-        }
-
-        return Ok(Embedding {
-            embedded,
-            index_map,
-            label,
-        });
+    /// Replace all occurrences with predicate
+    pub fn replace<F, E>(&self, replacer: &F) -> Result<Self, E>
+    where
+        F: Fn(&Symbol) -> Result<Option<Symbol>, E>,
+    {
+        let mut root = replacer(&self)?.unwrap_or_else(|| self.clone());
+        root.childs = root
+            .childs
+            .into_iter()
+            .map(|child| child.replace(replacer))
+            .collect::<Result<_, E>>()?;
+        Ok(root)
     }
 
     /// Returns the item at the specified path
@@ -500,7 +516,7 @@ impl Symbol {
 #[cfg(test)]
 mod specs {
     use super::*;
-    use crate::context::Context;
+    use crate::context::{Context, Declaration};
 
     #[test]
     fn calc_depth_unary_op() {
@@ -589,124 +605,52 @@ mod specs {
         assert_eq!(actual, expected);
     }
 
-    fn fix_dict(dict: HashMap<&str, i16>) -> HashMap<String, i16> {
-        dict.into_iter()
-            .map(|(k, v)| (k.to_string(), v))
-            .collect::<HashMap<String, _>>()
-    }
-
-    #[test]
-    fn embed_full_and_balanced() {
-        let context = Context::standard();
-
-        let symbol = Symbol::parse(&context, "a+b=c*d").unwrap();
-        let padding = 0;
-        let dict = hashmap! {
-            "=" => 1,
-            "+" => 2,
-            "*" => 3,
-            "a" => 4,
-            "b" => 5,
-            "c" => 6,
-            "d" => 7,
-        };
-        let dict = fix_dict(dict);
-        let spread = 2;
-        let Embedding {
-            embedded,
-            index_map,
-            ..
-        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
-        let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
-
-        assert_eq!(embedded, vec![1, 2, 3, 4, 5, 6, 7, 0]);
-
-        assert_eq!(index_map.len(), 8);
-        assert_eq!(index_map[0], vec![0, 1, 2, 7]); // *=+
-        assert_eq!(index_map[1], vec![1, 3, 4, 0]); // a+b
-        assert_eq!(index_map[2], vec![2, 5, 6, 0]); // c*d
-        assert_eq!(index_map[3], vec![3, 7, 7, 1]); // a
-        assert_eq!(index_map[4], vec![4, 7, 7, 1]); // b
-        assert_eq!(index_map[5], vec![5, 7, 7, 2]); // c
-        assert_eq!(index_map[6], vec![6, 7, 7, 2]); // d
-        assert_eq!(index_map[7], vec![7, 7, 7, 7]); // d
-    }
-
-    #[test]
-    fn embed_not_full() {
-        let context = Context::standard();
-
-        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
-        let padding = 0;
-        let dict = hashmap! {
-            "=" => 1,
-            "+" => 2,
-            "a" => 3,
-            "b" => 4,
-            "c" => 5,
-        };
-        let dict = fix_dict(dict);
-        let spread = 3;
-        let Embedding {
-            embedded,
-            index_map,
-            ..
-        } = symbol.embed(&dict, padding, spread, &vec![]).unwrap();
-        let embedded = embedded.iter().map(|emb| emb[0]).collect::<Vec<i64>>();
-
-        assert_eq!(embedded, vec![1, 2, 5, 3, 4, 0]); // =, +, c, a, b, <PAD>
-        assert_eq!(index_map.len(), 6);
-        assert_eq!(index_map[0], vec![0, 1, 2, 5, 5]); // *=c
-        assert_eq!(index_map[1], vec![1, 3, 4, 5, 0]); // a+b
-        assert_eq!(index_map[2], vec![2, 5, 5, 5, 0]); // c
-        assert_eq!(index_map[3], vec![3, 5, 5, 5, 1]); // a
-        assert_eq!(index_map[4], vec![4, 5, 5, 5, 1]); // b
-        assert_eq!(index_map[5], vec![5, 5, 5, 5, 5]); // padding
-    }
-
-    #[test]
-    fn embed_labels() {
-        let context = Context::standard();
-
-        let symbol = Symbol::parse(&context, "a+b=c*d").unwrap();
-        let padding = 0;
-        let dict = hashmap! {
-            "=" => 1,
-            "+" => 2,
-            "*" => 3,
-            "a" => 4,
-            "b" => 5,
-            "c" => 6,
-            "d" => 7,
-        };
-        let dict = fix_dict(dict);
-        let spread = 2;
-        let Embedding { label, .. } = symbol
-            .embed(
-                &dict,
-                padding,
-                spread,
-                &vec![
-                    FitInfo {
-                        rule_id: 1,
-                        path: vec![0, 0],
-                    },
-                    FitInfo {
-                        rule_id: 2,
-                        path: vec![0, 1],
-                    },
-                ],
-            )
-            .unwrap();
-
-        assert_eq!(label, vec![0, 0, 0, 1, 2, 0, 0, 0,]);
-    }
-
     #[test]
     fn size() {
         let context = Context::standard();
         let symbol = Symbol::parse(&context, "a+b=c").unwrap();
 
         assert_eq!(symbol.size(), 5);
+    }
+
+    #[test]
+    fn replace_term() {
+        let context = Context::standard();
+        let symbol = Symbol::parse(&context, "a+b=c").unwrap();
+        fn replacer(part: &Symbol) -> Result<Option<Symbol>, ()> {
+            if part.ident == "a" {
+                Ok(Some(Symbol::new_variable("d", false)))
+            } else {
+                Ok(None)
+            }
+        }
+        let actual = symbol.replace(&replacer).unwrap();
+        let expected = Symbol::parse(&context, "d+b=c").unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn replace_function() {
+        let mut context = Context::standard();
+        context
+            .declarations
+            .insert("sqrt".to_string(), Declaration::function(true));
+        context
+            .declarations
+            .insert("root".to_string(), Declaration::function(true));
+
+        let symbol = Symbol::parse(&context, "sqrt(a+b)=c").unwrap();
+        fn replacer(part: &Symbol) -> Result<Option<Symbol>, ()> {
+            if part.ident == "sqrt" {
+                let mut childs = part.childs.clone();
+                childs.push(Symbol::new_number(2));
+                Ok(Some(Symbol::new_operator("root", true, false, childs)))
+            } else {
+                Ok(None)
+            }
+        }
+        let actual = symbol.replace(&replacer).unwrap();
+        let expected = Symbol::parse(&context, "root(a+b, 2)=c").unwrap();
+        assert_eq!(actual, expected);
     }
 }
