@@ -124,10 +124,10 @@ pub struct SymbolBfsIter<'a> {
 }
 
 impl<'a> SymbolBfsIter<'a> {
-    pub fn new(symbol: &'a Symbol) -> SymbolBfsIter<'a> {
+    pub fn new(symbol: &'a Symbol) -> Self {
         let mut queue = VecDeque::with_capacity(1);
         queue.push_back(symbol);
-        SymbolBfsIter { queue }
+        Self { queue }
     }
 }
 
@@ -142,6 +142,34 @@ impl<'a> Iterator for SymbolBfsIter<'a> {
                     self.queue.push_back(child);
                 }
                 Some(current)
+            }
+        }
+    }
+}
+
+pub struct SymbolAndPathBfsIter<'a> {
+    pub queue: VecDeque<(Vec<usize>, &'a Symbol)>,
+}
+
+impl<'a> SymbolAndPathBfsIter<'a> {
+    pub fn new(parent: &'a Symbol) -> Self {
+        let mut queue = VecDeque::with_capacity(1);
+        queue.push_back((vec![], parent));
+        Self { queue }
+    }
+}
+
+impl<'a> Iterator for SymbolAndPathBfsIter<'a> {
+    type Item = (Vec<usize>, &'a Symbol);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.queue.pop_front() {
+            None => None,
+            Some((path, current)) => {
+                for (i, child) in current.childs.iter().enumerate() {
+                    self.queue.push_back(([&path[..], &[i]].concat(), child));
+                }
+                Some((path, current))
             }
         }
     }
@@ -349,6 +377,10 @@ impl Symbol {
     ///```
     pub fn iter_bfs(&self) -> SymbolBfsIter {
         SymbolBfsIter::new(self)
+    }
+
+    pub fn iter_bfs_path(&self) -> SymbolAndPathBfsIter {
+        SymbolAndPathBfsIter::new(self)
     }
 
     pub fn iter_bfs_backpack<'a, T, C>(

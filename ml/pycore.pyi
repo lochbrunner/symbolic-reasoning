@@ -50,10 +50,13 @@ UnrolledEmbedding = tuple[
 
 class GraphEmbedding:
     nodes: np.ndarray
+    edges: np.ndarray  # Relative edge position
     receivers: np.ndarray
     senders: np.ndarray
-    n_node: np.ndarray
-    n_edge: np.ndarray
+    n_node: int
+    n_edge: int
+    n_node_np: np.ndarray
+    n_edge_np: np.ndarray
     value: np.ndarray
     target: np.ndarray
     mask: np.ndarray
@@ -346,6 +349,13 @@ class Sample:
         use_additional_features: bool,
     ) -> CnnEmbedding:
         pass
+    def create_gnn_embedding(
+        self,
+        ident2id: dict[str, int],
+        target_size: int,
+        use_additional_features: bool,
+    ) -> GraphEmbedding:
+        pass
     def embed_cnn(
         self,
         ident2index: dict[str, int],
@@ -376,6 +386,7 @@ class Container:
         pass
     @property
     def samples_with_policy(self) -> Sequence[Sample]:
+        """Only samples with non empty fitmaps."""
         pass
 
 class SampleSet:

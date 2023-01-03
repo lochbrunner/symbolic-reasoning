@@ -1,6 +1,6 @@
 use crate::bag::{PyContainer, PyFitInfo};
 use crate::rule::PyRule;
-use crate::symbol::{PyCnnEmbedding, PySymbol, UnrolledEmbedding};
+use crate::symbol::{PyCnnEmbedding, PyGraphEmbedding, PySymbol, UnrolledEmbedding};
 use core::dumper::dump_plain;
 use core::embedding::Embeddable;
 use core::fit;
@@ -113,6 +113,38 @@ impl PySample {
                 ))
             })?;
         Ok(PyCnnEmbedding::new(embedding))
+    }
+
+    fn create_gnn_embedding(
+        &self,
+        ident2id: HashMap<String, i16>,
+        target_size: usize,
+        use_additional_features: bool,
+    ) -> PyResult<PyGraphEmbedding> {
+        let fits = self
+            .data
+            .fits
+            .iter()
+            .map(|fit| (*fit.data).clone())
+            .collect::<Vec<_>>();
+        let embedding = self
+            .data
+            .initial
+            .inner
+            .embed_graph(
+                &ident2id,
+                target_size,
+                &fits,
+                self.data.useful,
+                use_additional_features,
+            )
+            .map_err(|msg| {
+                PyErr::new::<exceptions::KeyError, _>(format!(
+                    "Could not embed {}: \"{}\"",
+                    self.data.initial.inner, msg
+                ))
+            })?;
+        Ok(PyGraphEmbedding::new(embedding))
     }
 
     #[args(

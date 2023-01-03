@@ -23,6 +23,8 @@ pub struct CnnEmbedding {
 #[derive(Debug, PartialEq)]
 pub struct GraphEmbedding {
     pub nodes: Vec<Vec<i64>>,
+    /// Position of the child.
+    pub edges: Vec<i32>,
     pub receivers: Vec<i16>,
     pub senders: Vec<i16>,
     pub n_node: i64,
@@ -292,14 +294,16 @@ impl Embeddable for Symbol {
         // let mut edge_indices: Vec<(i16, i16)> = vec![];
         let mut parents = vec![];
         let mut childs = vec![];
+        let mut rel_pos = vec![];
         let ref_to_index = self.ref_to_index();
         for node in self.iter_bfs() {
             if node.operator() {
                 let parent_index = ref_to_index[&RefEquality(node)];
-                for child in node.childs.iter() {
+                for (pos, child) in node.childs.iter().enumerate() {
                     let child_index = ref_to_index[&RefEquality(child)];
                     parents.push(parent_index);
                     childs.push(child_index);
+                    rel_pos.push(pos as i32)
                 }
             }
         }
@@ -319,11 +323,13 @@ impl Embeddable for Symbol {
             possibility_mask[index][fit.rule_id as usize] = true;
         }
 
+        let edges = [rel_pos, vec![2; parents.len()]].concat();
         let receivers = [parents.clone(), childs.clone()].concat();
         let senders = [childs, parents].concat();
         let n_edge = receivers.len() as i64;
         Ok(GraphEmbedding {
             nodes,
+            edges: edges,
             receivers,
             senders,
             n_node,
@@ -635,6 +641,7 @@ mod specs {
                 vec![6, 0, 0, 0], // c
                 vec![7, 0, 0, 0], // d
             ],
+            edges: vec![0, 1, 0, 1, 0, 1, 2, 2, 2, 2, 2, 2],
             receivers: vec![0, 0, 1, 1, 2, 2, 1, 2, 3, 4, 5, 6],
             senders: vec![1, 2, 3, 4, 5, 6, 0, 0, 1, 1, 2, 2],
             target: vec![

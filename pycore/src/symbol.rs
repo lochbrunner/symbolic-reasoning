@@ -413,6 +413,10 @@ impl PyGraphEmbedding {
         make_2darray(py, self.inner.nodes.clone())
     }
     #[getter]
+    fn edges(&self, py: Python) -> PyResult<Py<PyArray1<i32>>> {
+        Ok(self.inner.edges.to_pyarray(py).to_owned())
+    }
+    #[getter]
     fn receivers(&self, py: Python) -> PyResult<Py<PyArray1<i16>>> {
         Ok(self.inner.receivers.to_pyarray(py).to_owned())
     }
